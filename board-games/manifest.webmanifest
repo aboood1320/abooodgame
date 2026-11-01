@@ -1,0 +1,90 @@
+{
+  "id": "./",
+  "name": "ألعاب الطاولة — نُبلاء",
+  "short_name": "ألعاب الطاولة",
+  "description": "عشرون لعبة طاولة عربية مع أدلة قواعد كاملة، رسوم مخصصة لكل لعبة، ذكاء اصطناعي بثلاثة مستويات، ولعب جماعي محلي وعالمي.",
+  "lang": "ar",
+  "dir": "rtl",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
+  "orientation": "any",
+  "background_color": "#100b07",
+  "theme_color": "#181009",
+  "categories": ["games", "entertainment", "education"],
+  "icons": [
+    {
+      "src": "assets/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "assets/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "assets/icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "assets/screenshots/library-wide.png",
+      "sizes": "1440x950",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "مكتبة ألعاب الطاولة — تصميم فاخر ورسوم مخصصة لكل لعبة"
+    },
+    {
+      "src": "assets/screenshots/ludo-wide.png",
+      "sizes": "1440x950",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "لودو — لوحة أربعة لاعبين"
+    },
+    {
+      "src": "assets/screenshots/waraq-wide.png",
+      "sizes": "1440x950",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "الورق — بصرة ورامي"
+    },
+    {
+      "src": "assets/screenshots/mancala-narrow.png",
+      "sizes": "390x844",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "المنقلة على الهاتف"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "مكتبة الألعاب",
+      "short_name": "المكتبة",
+      "description": "تصفّح الألعاب العشرين",
+      "url": "./#",
+      "icons": [{ "src": "assets/icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "الورق",
+      "short_name": "الورق",
+      "description": "بصرة أو رامي مع الأصدقاء",
+      "url": "./#waraq",
+      "icons": [{ "src": "assets/icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "لودو",
+      "short_name": "لودو",
+      "description": "سباق البيادق إلى المركز",
+      "url": "./#ludo",
+      "icons": [{ "src": "assets/icons/icon-192.png", "sizes": "192x192" }]
+    }
+  ],
+  "prefer_related_applications": false
+}

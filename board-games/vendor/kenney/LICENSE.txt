@@ -1,0 +1,21 @@
+# Kenney assets — CC0 1.0 Universal
+
+All files in this folder come from Kenney (https://kenney.nl) and were released
+under the Creative Commons Zero 1.0 Universal licence (CC0). CC0 places the work
+in the public domain: commercial use, modification and redistribution are allowed
+without attribution. Attribution is still given in `ASSETS.md` out of respect.
+
+Source packs:
+
+| Pack | URL | Licence file |
+| --- | --- | --- |
+| Casino Audio 1.1 | https://kenney.nl/assets/casino-audio | `licenses/casino-audio-CC0.txt` |
+| UI SFX Set | https://kenney.nl/assets/ui-audio | `licenses/ui-audio-CC0.txt` |
+| Interface Sounds 1.0 | https://kenney.nl/assets/interface-sounds | `licenses/interface-sounds-CC0.txt` |
+| Music Jingles | https://kenney.nl/assets/music-jingles | `licenses/music-jingles-CC0.txt` |
+| Boardgame Pack 2 | https://kenney.nl/assets/boardgame-pack | `licenses/boardgame-pack-CC0.txt` |
+| Playing Cards Pack | https://kenney.nl/assets/playing-cards-pack | `licenses/playing-cards-pack-CC0.txt` |
+
+The original licence text shipped with every pack is preserved verbatim in
+`licenses/`. No file was modified except for renaming to stable, meaningful
+names used by `js/fx.js` and the new games.

@@ -1,0 +1,928 @@
+/* ==========================================================================
+   طاولة الزهر — باكغامون كلاسيكي
+   ========================================================================== */
+
+.tav-layout {
+  --tav-ivory: #f1e4c8;
+  --tav-coral: #e2785c;
+  --tav-gold: #cba36a;
+  --tav-wood: #3a2a1d;
+  --tav-wood-deep: #1c1410;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 328px;
+  gap: 14px;
+  align-items: start;
+}
+
+.tav-main,
+.tav-side {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+/* ------------------------------ هيكل اللوحة ------------------------------ */
+
+.tav-board-wrap {
+  border-radius: 24px;
+  border: 1px solid rgba(246, 242, 232, 0.12);
+  background:
+    radial-gradient(90% 70% at 50% 0%, rgba(203, 163, 106, 0.11), transparent 62%),
+    linear-gradient(165deg, #17262a, #081215 78%);
+  box-shadow: 0 34px 74px -44px rgba(0, 0, 0, 0.96);
+  overflow: hidden;
+}
+
+.tav-board-wrap .board-head {
+  --bh-accent: var(--tav-gold);
+  margin: 10px 10px 0;
+  background: rgba(6, 18, 23, 0.6);
+}
+
+.tav-board {
+  --cell-gap: 4px;
+  direction: ltr;
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr)) 84px;
+  grid-template-rows: minmax(184px, 25vh) 58px minmax(184px, 25vh);
+  margin: 10px;
+  padding: 9px;
+  border-radius: 18px;
+  border: 1px solid rgba(203, 163, 106, 0.34);
+  background:
+    radial-gradient(120% 90% at 50% 0%, rgba(203, 163, 106, 0.16), transparent 58%),
+    repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.05) 0 1px, transparent 1px 9px),
+    linear-gradient(180deg, #3b2b1e, #241a13 46%, #352619);
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 0, 0, 0.6),
+    inset 0 26px 50px -36px #000,
+    0 22px 40px -32px #000;
+}
+
+.tav-points {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: var(--cell-gap);
+  min-width: 0;
+}
+
+.tav-points.top {
+  grid-column: 1 / 13;
+  grid-row: 1;
+}
+
+.tav-points.bottom {
+  grid-column: 1 / 13;
+  grid-row: 3;
+}
+
+/* ------------------------------ النقاط والقطع ------------------------------ */
+
+.tav-point {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  padding: 4px 1px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: default;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.tav-point::before {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  inset: 2px 1px 12px;
+  clip-path: polygon(0 0, 100% 0, 50% 100%);
+  background: linear-gradient(180deg, rgba(203, 163, 106, 0.46), rgba(203, 163, 106, 0.1) 64%, transparent);
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.tav-point.bottom::before {
+  inset: 12px 1px 2px;
+  clip-path: polygon(50% 0, 100% 100%, 0 100%);
+  background: linear-gradient(0deg, rgba(203, 163, 106, 0.46), rgba(203, 163, 106, 0.1) 64%, transparent);
+}
+
+.tav-point:nth-child(odd)::before {
+  background: linear-gradient(180deg, rgba(108, 199, 195, 0.34), rgba(108, 199, 195, 0.05) 70%, transparent);
+  opacity: 0.46;
+}
+
+.tav-point.bottom:nth-child(odd)::before {
+  background: linear-gradient(0deg, rgba(108, 199, 195, 0.34), rgba(108, 199, 195, 0.05) 70%, transparent);
+}
+
+.tav-point-num {
+  position: absolute;
+  z-index: 2;
+  padding: 0 4px;
+  border-radius: 999px;
+  border: 1px solid rgba(246, 242, 232, 0.14);
+  background: rgba(8, 16, 18, 0.62);
+  color: rgba(246, 242, 232, 0.58);
+  font-size: 0.5rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.35;
+  pointer-events: none;
+}
+
+.tav-point.top .tav-point-num {
+  top: 5px;
+}
+
+.tav-point.bottom .tav-point-num {
+  bottom: 5px;
+}
+
+.tav-stack {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-height: 0;
+}
+
+.tav-point.top .tav-stack {
+  margin-top: 20px;
+}
+
+.tav-point.bottom .tav-stack {
+  margin-top: auto;
+  margin-bottom: 20px;
+}
+
+.tav-checker {
+  --ch-1: #fffdf5;
+  --ch-2: #ecdcbc;
+  --ch-3: #b79a6a;
+  display: inline-block;
+  flex: 0 0 auto;
+  width: 23px;
+  height: 23px;
+  border-radius: 50%;
+  border: 1px solid rgba(20, 12, 6, 0.55);
+  background: radial-gradient(circle at 32% 28%, var(--ch-1), var(--ch-2) 52%, var(--ch-3));
+  box-shadow:
+    inset 0 0 0 3px rgba(255, 255, 255, 0.18),
+    inset 0 -3px 5px rgba(0, 0, 0, 0.28),
+    0 3px 4px -2px rgba(0, 0, 0, 0.75);
+}
+
+.tav-checker.p1 {
+  --ch-1: #ffb9a2;
+  --ch-2: #e2785c;
+  --ch-3: #8e3b2b;
+}
+
+.tav-checker.mini {
+  width: 13px;
+  height: 13px;
+  box-shadow:
+    inset 0 0 0 2px rgba(255, 255, 255, 0.18),
+    0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+.tav-stack-count {
+  padding: 0 4px;
+  border-radius: 999px;
+  border: 1px solid var(--stroke-2);
+  background: rgba(6, 14, 16, 0.9);
+  color: var(--text);
+  font-size: 0.5rem;
+  font-weight: 800;
+  line-height: 1.4;
+}
+
+.tav-point.is-blot .tav-checker {
+  box-shadow:
+    inset 0 0 0 2px rgba(240, 125, 114, 0.65),
+    0 0 8px rgba(240, 125, 114, 0.4),
+    0 3px 4px -2px rgba(0, 0, 0, 0.75);
+}
+
+.tav-point.is-source,
+.tav-point.is-target {
+  cursor: pointer;
+}
+
+.tav-point.is-source::after,
+.tav-point.is-selected::after,
+.tav-point.is-target::after {
+  content: "";
+  position: absolute;
+  z-index: 3;
+  inset: 3px 2px;
+  border-radius: 7px;
+  border: 1px solid transparent;
+  pointer-events: none;
+}
+
+.tav-point.is-source::after {
+  border-color: rgba(242, 180, 94, 0.32);
+}
+
+.tav-point.is-source:hover::before {
+  opacity: 0.82;
+}
+
+.tav-point.is-selected::after {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 18px rgba(242, 180, 94, 0.22);
+}
+
+.tav-point.is-target::after {
+  border-color: var(--accent-2);
+  box-shadow:
+    inset 0 0 20px rgba(88, 211, 168, 0.24),
+    0 0 14px rgba(88, 211, 168, 0.22);
+  animation: tavTarget 1.5s ease-in-out infinite;
+}
+
+/* ------------------------------ الشريط ------------------------------ */
+
+.tav-midbar {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  margin: 4px 0;
+  padding: 4px 6px;
+  border-block: 2px solid rgba(8, 14, 15, 0.7);
+  background:
+    repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.16) 0 2px, transparent 2px 7px),
+    linear-gradient(180deg, rgba(203, 163, 106, 0.22), rgba(10, 16, 17, 0.5));
+}
+
+.tav-bar-slot {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  min-height: 40px;
+  padding: 4px 8px;
+  border-radius: 10px;
+  border: 1px dashed rgba(246, 242, 232, 0.18);
+  background: rgba(5, 12, 14, 0.35);
+  color: inherit;
+  font: inherit;
+  direction: rtl;
+  cursor: default;
+}
+
+.tav-bar-slot.is-active {
+  cursor: pointer;
+  border-color: rgba(242, 180, 94, 0.5);
+}
+
+.tav-bar-slot.is-selected {
+  border-style: solid;
+  border-color: var(--accent);
+  box-shadow: inset 0 0 16px rgba(242, 180, 94, 0.24);
+}
+
+.tav-bar-label {
+  color: var(--dim);
+  font-size: 0.52rem;
+  white-space: nowrap;
+}
+
+.tav-bar-stack {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+}
+
+.tav-bar-stack .tav-checker {
+  width: 16px;
+  height: 16px;
+  box-shadow:
+    inset 0 0 0 2px rgba(255, 255, 255, 0.18),
+    0 1px 2px rgba(0, 0, 0, 0.55);
+}
+
+.tav-bar-empty {
+  color: rgba(246, 242, 232, 0.25);
+  font-size: 0.7rem;
+}
+
+.tav-bar-count {
+  margin-inline-start: auto;
+  color: var(--text);
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+
+.tav-mid-core {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 0 6px;
+}
+
+.tav-mid-word {
+  color: rgba(246, 242, 232, 0.4);
+  font-size: 0.48rem;
+  letter-spacing: 0.14em;
+}
+
+.tav-mid-line {
+  display: block;
+  width: 26px;
+  height: 1px;
+  background: rgba(246, 242, 232, 0.16);
+}
+
+/* ------------------------------ مناطق الإخراج ------------------------------ */
+
+.tav-tray-col {
+  grid-column: 13;
+  grid-row: 1;
+  min-width: 0;
+  padding: 0 0 0 6px;
+}
+
+.tav-tray-col.bottom {
+  grid-row: 3;
+}
+
+.tav-tray {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  height: 100%;
+  padding: 8px 4px;
+  border-radius: 12px;
+  border: 1px solid rgba(203, 163, 106, 0.24);
+  background: linear-gradient(180deg, rgba(8, 16, 18, 0.62), rgba(203, 163, 106, 0.1));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  color: var(--muted);
+  font: inherit;
+  direction: rtl;
+  cursor: default;
+}
+
+.tav-tray.is-target {
+  cursor: pointer;
+  border-color: var(--accent-2);
+  background: linear-gradient(180deg, rgba(88, 211, 168, 0.16), rgba(8, 16, 18, 0.6));
+  box-shadow:
+    inset 0 0 24px rgba(88, 211, 168, 0.22),
+    0 0 16px -4px rgba(88, 211, 168, 0.4);
+  animation: tavTarget 1.5s ease-in-out infinite;
+}
+
+.tav-tray-label {
+  color: var(--dim);
+  font-size: 0.5rem;
+  letter-spacing: 0.05em;
+}
+
+.tav-tray-stack {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  align-content: center;
+  justify-content: center;
+  gap: 3px;
+  overflow: hidden;
+}
+
+.tav-tray-empty {
+  color: var(--dim);
+  font-size: 0.5rem;
+}
+
+.tav-tray-count {
+  color: var(--text);
+  font-size: 0.7rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.tav-tray-count small {
+  color: var(--dim);
+  font-size: 0.52rem;
+  font-weight: 600;
+}
+
+.tav-board-foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0 12px 12px;
+  direction: rtl;
+}
+
+.tav-foot-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--stroke);
+  background: rgba(246, 242, 232, 0.04);
+  color: var(--dim);
+  font-size: 0.58rem;
+}
+
+/* ------------------------------ شريط التحكم ------------------------------ */
+
+.tav-control {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) auto minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+  padding: 12px 14px;
+  border-radius: 18px;
+  border: 1px solid var(--stroke);
+  background:
+    radial-gradient(120% 120% at 10% 0%, rgba(203, 163, 106, 0.12), transparent 55%),
+    linear-gradient(150deg, rgba(246, 242, 232, 0.07), rgba(246, 242, 232, 0.02));
+  box-shadow: var(--shadow-soft);
+}
+
+.tav-control-who {
+  min-width: 0;
+}
+
+.tav-control-who strong {
+  display: block;
+  font-size: 1rem;
+  line-height: 1.3;
+}
+
+.tav-control-who small {
+  color: var(--muted);
+  font-size: 0.66rem;
+}
+
+.tav-kicker {
+  display: block;
+  color: var(--accent);
+  font-size: 0.54rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+}
+
+.tav-control.p1 .tav-kicker {
+  color: var(--tav-coral);
+}
+
+.tav-dice-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+
+.tav-dice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-height: 42px;
+}
+
+.tav-dice .tav-die {
+  width: 40px;
+  height: 40px;
+  gap: 2px;
+  padding: 4.5px;
+  border-radius: 9px;
+}
+
+.tav-dice .tav-die.is-live {
+  animation: tavDieIn 0.22s ease both;
+}
+
+.tav-dice .tav-die.is-spent {
+  opacity: 0.26;
+  filter: grayscale(1);
+  transform: scale(0.86);
+}
+
+.tav-die.is-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px dashed rgba(246, 242, 232, 0.24);
+  background: rgba(246, 242, 232, 0.06);
+  box-shadow: none;
+}
+
+.tav-die.is-empty i {
+  color: var(--dim);
+  font-size: 0.9rem;
+  font-style: normal;
+}
+
+.tav-dice-note {
+  color: var(--dim);
+  font-size: 0.54rem;
+}
+
+.tav-control-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.tav-control-actions .bg-btn {
+  justify-content: center;
+  padding: 8px 10px;
+  font-size: 0.72rem;
+}
+
+.tav-prompt {
+  margin: 8px 4px 0;
+  color: var(--muted);
+  font-size: 0.7rem;
+  line-height: 1.55;
+  text-align: center;
+}
+
+.tav-prompt.is-warn {
+  color: var(--accent);
+}
+
+/* ------------------------------ اللوحة الجانبية ------------------------------ */
+
+.tav-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  border-radius: 18px;
+  border: 1px solid var(--stroke);
+  background: linear-gradient(160deg, rgba(246, 242, 232, 0.055), rgba(246, 242, 232, 0.012));
+  box-shadow: var(--shadow-soft);
+}
+
+.tav-player {
+  position: relative;
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr);
+  gap: 7px 9px;
+  align-items: center;
+  padding: 9px 10px;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  background: rgba(0, 0, 0, 0.16);
+}
+
+.tav-player.is-active {
+  border-color: rgba(242, 180, 94, 0.4);
+  background: rgba(242, 180, 94, 0.08);
+}
+
+.tav-player.is-winner {
+  border-color: var(--accent-2);
+  background: rgba(88, 211, 168, 0.1);
+  box-shadow: inset 0 0 20px rgba(88, 211, 168, 0.08);
+}
+
+.tav-player-dot {
+  grid-row: 1;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--tav-ivory);
+  box-shadow: 0 0 0 2px rgba(241, 228, 200, 0.18);
+}
+
+.tav-player.p1 .tav-player-dot {
+  background: var(--tav-coral);
+  box-shadow: 0 0 0 2px rgba(226, 120, 92, 0.2);
+}
+
+.tav-player-copy {
+  min-width: 0;
+}
+
+.tav-player-copy strong {
+  display: block;
+  overflow: hidden;
+  font-size: 0.86rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tav-player-copy small {
+  color: var(--dim);
+  font-size: 0.62rem;
+}
+
+.tav-player-badge {
+  position: absolute;
+  top: 8px;
+  inset-inline-end: 9px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 0.48rem;
+  font-weight: 800;
+}
+
+.tav-player-stats {
+  display: flex;
+  flex-wrap: wrap;
+  grid-column: 2 / 3;
+  gap: 4px 10px;
+  color: var(--dim);
+  font-size: 0.6rem;
+}
+
+.tav-stat b {
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.tav-stat.is-warn b {
+  color: var(--danger);
+}
+
+.tav-progress {
+  grid-column: 1 / -1;
+  display: block;
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.tav-progress i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  transition: width 0.3s ease;
+}
+
+.tav-recent {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tav-recent li {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  color: var(--muted);
+  font-size: 0.7rem;
+  line-height: 1.5;
+}
+
+.tav-recent-dot {
+  flex: 0 0 auto;
+  width: 7px;
+  height: 7px;
+  margin-top: 5px;
+  border-radius: 50%;
+  background: var(--tav-ivory);
+}
+
+.tav-recent li.p1 .tav-recent-dot {
+  background: var(--tav-coral);
+}
+
+.tav-empty {
+  margin: 0;
+  color: var(--dim);
+  font-size: 0.72rem;
+  line-height: 1.6;
+}
+
+.tav-tips {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tav-tip {
+  display: flex;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 0.7rem;
+  line-height: 1.55;
+}
+
+.tav-tip b {
+  display: grid;
+  flex: 0 0 auto;
+  width: 20px;
+  height: 20px;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(203, 163, 106, 0.14);
+  color: var(--accent);
+  font-size: 0.62rem;
+}
+
+/* ------------------------------ الحركة ------------------------------ */
+
+@keyframes tavDieIn {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.86) rotate(-8deg);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes tavTarget {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.56;
+  }
+}
+
+/* ------------------------------ الاستجابة ------------------------------ */
+
+@media (max-width: 1080px) {
+  .tav-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .tav-side {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    align-items: start;
+  }
+}
+
+@media (max-width: 760px) {
+  .tav-board {
+    --cell-gap: 2px;
+    grid-template-columns: repeat(12, minmax(0, 1fr)) 58px;
+    grid-template-rows: minmax(150px, 24vh) 50px minmax(150px, 24vh);
+    margin: 7px;
+    padding: 6px;
+  }
+
+  .tav-point {
+    padding: 2px 0;
+  }
+
+  .tav-point-num {
+    padding: 0 3px;
+    font-size: 0.44rem;
+  }
+
+  .tav-point.top .tav-stack {
+    margin-top: 16px;
+  }
+
+  .tav-point.bottom .tav-stack {
+    margin-bottom: 16px;
+  }
+
+  .tav-stack {
+    gap: 1px;
+  }
+
+  .tav-checker {
+    width: 17px;
+    height: 17px;
+  }
+
+  .tav-checker.mini {
+    width: 10px;
+    height: 10px;
+  }
+
+  .tav-stack-count {
+    padding: 0 3px;
+    font-size: 0.44rem;
+  }
+
+  .tav-tray-col {
+    padding: 0 0 0 4px;
+  }
+
+  .tav-tray {
+    gap: 3px;
+    padding: 6px 2px;
+  }
+
+  .tav-tray-stack {
+    gap: 1.5px;
+  }
+
+  .tav-tray-label {
+    font-size: 0.44rem;
+  }
+
+  .tav-tray-count {
+    font-size: 0.6rem;
+  }
+
+  .tav-tray-count small {
+    font-size: 0.46rem;
+  }
+
+  .tav-midbar {
+    grid-template-columns: minmax(0, 1fr) 30px minmax(0, 1fr);
+    gap: 4px;
+    padding: 3px;
+  }
+
+  .tav-bar-slot {
+    gap: 4px;
+    min-height: 34px;
+    padding: 3px 4px;
+  }
+
+  .tav-bar-label {
+    font-size: 0.44rem;
+  }
+
+  .tav-bar-stack .tav-checker {
+    width: 13px;
+    height: 13px;
+  }
+
+  .tav-mid-word {
+    font-size: 0.42rem;
+  }
+
+  .tav-mid-line {
+    width: 14px;
+  }
+
+  .tav-board-foot {
+    gap: 4px;
+    padding: 0 8px 8px;
+  }
+
+  .tav-foot-chip {
+    font-size: 0.52rem;
+  }
+
+  .tav-control {
+    grid-template-columns: 1fr;
+    gap: 10px;
+    padding: 12px;
+    text-align: center;
+  }
+
+  .tav-control-who small {
+    display: block;
+  }
+
+  .tav-control-actions {
+    flex-direction: row;
+  }
+
+  .tav-control-actions .bg-btn {
+    flex: 1;
+  }
+
+  .tav-side {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tav-dice .tav-die.is-live,
+  .tav-point.is-target::after,
+  .tav-tray.is-target {
+    animation: none;
+  }
+
+  .tav-progress i {
+    transition: none;
+  }
+}

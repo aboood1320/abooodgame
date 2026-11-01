@@ -1,0 +1,299 @@
+/* ==========================================================================
+   كاركاسون — طاولة خضراء وبلاطات مخطّطة
+   ========================================================================== */
+
+.game-view[data-game="carcassonne"] { --accent: #c9a45c; }
+
+.carc-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 350px;
+  gap: 14px;
+  align-items: start;
+}
+
+.carc-board-wrap {
+  border-radius: 24px;
+  border: 1px solid rgba(246, 242, 232, 0.12);
+  background: linear-gradient(165deg, #132a20, #0b1b15 72%);
+  box-shadow: 0 34px 74px -44px rgba(0, 0, 0, 0.96);
+  overflow: hidden;
+}
+.carc-board-wrap .board-head {
+  --bh-accent: #c9a45c;
+  margin: 10px 10px 0;
+  background: rgba(8, 24, 18, 0.55);
+}
+
+.carc-board-scroll {
+  position: relative;
+  max-height: 660px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  direction: ltr;
+  padding: 16px;
+  background:
+    radial-gradient(80% 60% at 50% 0%, rgba(98, 148, 104, 0.16), transparent 68%),
+    linear-gradient(160deg, #152e22, #0d2118 70%);
+}
+.carc-board-scroll::-webkit-scrollbar { height: 9px; width: 9px; }
+.carc-board-scroll::-webkit-scrollbar-thumb { background: rgba(246, 242, 232, 0.18); border-radius: 999px; }
+
+.carc-board {
+  position: relative;
+  margin: 0 auto;
+  border-radius: 16px;
+  background:
+    radial-gradient(120% 90% at 22% 4%, rgba(126, 177, 118, 0.16), transparent 62%),
+    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.022) 0 2px, transparent 2px 9px),
+    linear-gradient(150deg, #294d38, #1c3b2b 58%, #173123);
+  box-shadow:
+    inset 0 0 72px rgba(4, 14, 9, 0.62),
+    0 20px 44px -28px rgba(0, 0, 0, 0.95);
+}
+
+/* ------------------------------ البلاطات ------------------------------ */
+
+.carc-tile {
+  position: absolute;
+  box-sizing: border-box;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #7fa552;
+  border: 1px solid rgba(22, 36, 18, 0.62);
+  box-shadow:
+    0 3px 7px rgba(0, 0, 0, 0.36),
+    inset 0 0 0 1px rgba(255, 248, 220, 0.16);
+  transition: box-shadow 0.18s ease;
+}
+.carc-tile::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 0 18px rgba(24, 40, 18, 0.22);
+  pointer-events: none;
+}
+.carc-tile .carc-svg { display: block; width: 100%; height: 100%; }
+.carc-tile.is-last {
+  z-index: 2;
+  box-shadow:
+    0 0 0 2px rgba(242, 180, 94, 0.92),
+    0 8px 18px rgba(0, 0, 0, 0.52);
+}
+
+/* ------------------------------ مواضع الوضع ------------------------------ */
+
+.carc-slot {
+  position: absolute;
+  box-sizing: border-box;
+  z-index: 1;
+  padding: 0;
+  border-radius: 8px;
+  border: 2px dashed rgba(242, 180, 94, 0.55);
+  background: rgba(242, 180, 94, 0.055);
+  color: rgba(255, 222, 160, 0.9);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.carc-slot:hover,
+.carc-slot:focus-visible {
+  background: rgba(242, 180, 94, 0.18);
+  border-color: rgba(255, 216, 148, 0.95);
+  box-shadow: inset 0 0 0 1px rgba(255, 226, 168, 0.35), 0 0 18px rgba(242, 180, 94, 0.22);
+  outline: none;
+}
+.carc-slot-plus {
+  font-size: 1.4rem;
+  font-weight: 300;
+  line-height: 1;
+  opacity: 0.82;
+  transform: translateY(-1px);
+}
+
+/* ------------------------------ رجال اللاعبين ------------------------------ */
+
+.carc-spot {
+  position: absolute;
+  z-index: 6;
+  width: 28px;
+  height: 28px;
+  margin: 0;
+  padding: 0;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.94);
+  background: rgba(7, 18, 12, 0.58);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  box-shadow: 0 0 0 3px rgba(242, 180, 94, 0.24), 0 5px 12px rgba(0, 0, 0, 0.55);
+  animation: carc-pulse 1.5s ease-in-out infinite;
+  transition: transform 0.13s ease;
+}
+.carc-spot > span {
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  box-shadow:
+    inset 0 -2px 3px rgba(0, 0, 0, 0.4),
+    inset 0 2px 2px rgba(255, 255, 255, 0.38);
+}
+.carc-spot:hover,
+.carc-spot:focus-visible {
+  transform: translate(-50%, -50%) scale(1.15);
+  outline: none;
+}
+@keyframes carc-pulse {
+  0%, 100% { box-shadow: 0 0 0 3px rgba(242, 180, 94, 0.24), 0 5px 12px rgba(0, 0, 0, 0.55); }
+  50% { box-shadow: 0 0 0 8px rgba(242, 180, 94, 0.07), 0 5px 12px rgba(0, 0, 0, 0.55); }
+}
+
+/* ------------------------------ اللوحة الجانبية ------------------------------ */
+
+.carc-side {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+.carc-panel {
+  border: 1px solid var(--stroke);
+  border-radius: 17px;
+  background: linear-gradient(172deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.014));
+  box-shadow: var(--shadow-soft);
+  padding: 13px 14px;
+}
+
+.carc-kicker {
+  display: block;
+  margin-bottom: 5px;
+  font-size: 0.55rem;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  color: var(--accent);
+}
+
+.carc-turn > strong { display: block; font-size: 1.2rem; font-weight: 800; line-height: 1.25; }
+.carc-turn > small { display: block; margin-top: 3px; font-size: 0.7rem; color: var(--muted); }
+.carc-deck {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  margin-top: 11px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(246, 242, 232, 0.08);
+  font-size: 0.64rem;
+  color: var(--dim);
+}
+.carc-deck b { font-size: 1.12rem; font-weight: 800; color: var(--accent); }
+
+.carc-tray-panel { padding: 12px; }
+.carc-tray {
+  display: grid;
+  grid-template-columns: 110px minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+}
+.carc-tray-tile {
+  width: 110px;
+  height: 110px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #7fa552;
+  border: 1px solid rgba(246, 242, 232, 0.2);
+  box-shadow: 0 14px 26px -18px rgba(0, 0, 0, 0.9), inset 0 0 0 1px rgba(0, 0, 0, 0.22);
+}
+.carc-tray-tile .carc-svg { display: block; width: 100%; height: 100%; }
+.carc-tray-info { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.carc-tray-kicker { font-size: 0.52rem; font-weight: 800; letter-spacing: 0.15em; color: var(--accent); }
+.carc-tray-info strong { font-size: 0.9rem; font-weight: 800; }
+.carc-tray-info small { font-size: 0.64rem; line-height: 1.5; color: var(--muted); }
+.carc-tray-count { color: var(--accent) !important; font-weight: 700; }
+
+.carc-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; margin-top: 11px; }
+.carc-actions .bg-btn { height: 38px; padding: 0 8px; font-size: 0.72rem; }
+.carc-actions .bg-btn.primary { grid-column: 1 / -1; }
+
+.carc-players { display: flex; flex-direction: column; gap: 6px; }
+.carc-player {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 9px;
+  border-radius: 11px;
+  border: 1px solid rgba(246, 242, 232, 0.07);
+  background: rgba(255, 255, 255, 0.025);
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.carc-player.active {
+  border-color: color-mix(in srgb, var(--p) 48%, transparent);
+  background: color-mix(in srgb, var(--p) 12%, transparent);
+}
+.carc-player .pdot {
+  width: 24px;
+  height: 24px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  font-size: 0.66rem;
+  font-weight: 800;
+  background: var(--p);
+  color: #08120f;
+}
+.carc-player-copy { display: flex; flex-direction: column; min-width: 0; }
+.carc-player-copy strong { font-size: 0.74rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.carc-player-copy small { font-size: 0.58rem; color: var(--dim); }
+.carc-player-score {
+  margin-inline-start: auto;
+  font-size: 1rem;
+  font-weight: 800;
+  color: color-mix(in srgb, var(--p) 70%, #fff);
+}
+
+.carc-notice {
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(242, 180, 94, 0.22);
+  background: rgba(242, 180, 94, 0.07);
+  font-size: 0.68rem;
+  line-height: 1.65;
+  color: #f1debb;
+}
+
+.carc-legend { display: flex; flex-direction: column; gap: 7px; }
+.carc-legend-row { display: flex; gap: 8px; align-items: flex-start; }
+.carc-legend-row > span { font-size: 0.9rem; line-height: 1.4; }
+.carc-legend-row p { margin: 0; font-size: 0.64rem; line-height: 1.6; color: var(--muted); }
+
+.carc-over-box { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 12px 8px; text-align: center; }
+.carc-over-icon { font-size: 1.8rem; }
+.carc-over-box strong { font-size: 0.9rem; }
+.carc-over-box small { font-size: 0.62rem; color: var(--dim); line-height: 1.6; }
+
+/* ------------------------------ التجاوب ------------------------------ */
+
+@media (max-width: 1120px) {
+  .carc-layout { grid-template-columns: minmax(0, 1fr); }
+  .carc-side { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
+  .carc-turn, .carc-notice, .carc-legend { grid-column: 1 / -1; }
+}
+
+@media (max-width: 760px) {
+  .carc-side { grid-template-columns: 1fr; }
+  .carc-turn, .carc-notice, .carc-legend { grid-column: auto; }
+  .carc-board-scroll { max-height: 62vh; padding: 12px; }
+  .carc-tray { grid-template-columns: 92px minmax(0, 1fr); gap: 10px; }
+  .carc-tray-tile { width: 92px; height: 92px; }
+  .carc-tray-info strong { font-size: 0.84rem; }
+  .game-mount.is-mono-mobile .carc-board-wrap .carc-board { min-width: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .carc-spot { animation: none; }
+  .carc-tile, .carc-slot, .carc-player { transition: none; }
+}

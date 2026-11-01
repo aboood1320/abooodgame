@@ -1,0 +1,6 @@
+﻿LEVELS = {
+    beginner: { label: "┘à╪¿╪¬╪»╪ª", depth: 1, timeLimit: 250, randomness: 90, blunder: 0.3 },
+    easy: { label: "╪│┘ç┘ä", depth: 2, timeLimit: 450, randomness: 40, blunder: 0.1 },
+    medium: { label: "┘à╪¬┘ê╪│╪╖", depth: 3, timeLimit: 1000, randomness: 15, blunder: 0.02 },
+    hard: { label: "╪╡╪╣╪¿", depth: 4, timeLimit: 2200, randomness: 0, blunder: 0 },
+    expert: { label: "╪«╪¿┘è╪▒", depth: 5, time

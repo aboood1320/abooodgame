@@ -1,0 +1,1305 @@
+/* ==========================================================================
+   ألعاب الطاولة — مكتبة فاخرة
+   تصميم دافئ للصفحة الرئيسية وبطاقات الألعاب، مع مشاهد SVG متحركة.
+   يُحمَّل بعد polish.css ليتجاوز أنماط المكتبة السابقة.
+   ========================================================================== */
+
+/* ------------------------------ اللوحة الدافئة ------------------------------ */
+
+body.library-mode {
+  --bg-0: #100b07;
+  --bg-1: #181009;
+  --bg-2: #21150c;
+  --panel: rgba(255, 236, 201, 0.045);
+  --panel-2: rgba(255, 236, 201, 0.085);
+  --panel-solid: #24170d;
+  --stroke: rgba(244, 217, 166, 0.13);
+  --stroke-2: rgba(244, 217, 166, 0.25);
+  --text: #f7eedb;
+  --muted: #c3b195;
+  --dim: #95816a;
+  --accent: #e5b96c;
+  --accent-soft: rgba(229, 185, 108, 0.14);
+  --accent-2: #d9a65a;
+  --accent-2-soft: rgba(217, 166, 90, 0.15);
+  --lib-gold: #e8c07a;
+  --lib-gold-soft: rgba(232, 192, 122, 0.14);
+  --lib-cream: #f7eedb;
+  --lib-ink: #2a1806;
+  color: var(--text);
+  background:
+    radial-gradient(1100px 760px at 88% -12%, rgba(198, 129, 50, 0.22), transparent 60%),
+    radial-gradient(900px 700px at -8% 16%, rgba(126, 66, 30, 0.18), transparent 58%),
+    radial-gradient(1000px 780px at 50% 118%, rgba(94, 51, 24, 0.24), transparent 62%),
+    linear-gradient(168deg, #0f0a06, #191009 52%, #22150c);
+  background-attachment: fixed;
+  scrollbar-color: #8d6535 #160e08;
+  font-variant-numeric: tabular-nums;
+}
+
+body.library-mode ::selection {
+  color: #2a1806;
+  background: #e8c07a;
+}
+
+body.library-mode .bg-app {
+  max-width: 1340px;
+  padding-top: max(18px, env(safe-area-inset-top));
+}
+
+/* ------------------------------ الشريط العلوي ------------------------------ */
+
+body.library-mode .bg-topbar {
+  padding-bottom: 22px;
+}
+
+body.library-mode .bg-brand {
+  padding: 4px 8px;
+  border-radius: 18px;
+}
+body.library-mode .bg-brand:hover {
+  background: rgba(255, 236, 201, 0.05);
+}
+
+body.library-mode .bg-logo {
+  width: 52px;
+  height: 52px;
+  color: #3a2308;
+  border-radius: 17px;
+  background:
+    radial-gradient(circle at 32% 22%, rgba(255, 250, 232, 0.9), transparent 42%),
+    linear-gradient(145deg, #f8e3b0, #e2b25f 52%, #a46d24);
+  box-shadow:
+    0 16px 32px -16px rgba(218, 168, 92, 0.8),
+    inset 0 1px 0 rgba(255, 252, 240, 0.75),
+    inset 0 -2px 6px rgba(92, 52, 12, 0.4);
+}
+body.library-mode .bg-logo .ic {
+  width: 27px;
+  height: 27px;
+}
+
+body.library-mode .bg-brand-text strong {
+  font-size: 1.2rem;
+  color: #f9f0dd;
+}
+body.library-mode .bg-brand-text small {
+  color: #a98b5f;
+  letter-spacing: 0.3em;
+}
+
+body.library-mode .bg-btn.ghost {
+  color: #e9dcc3;
+  border: 1px solid rgba(244, 217, 166, 0.14);
+  background: rgba(255, 236, 201, 0.035);
+}
+body.library-mode .bg-btn.ghost:hover {
+  color: #ffe9bd;
+  border-color: rgba(244, 217, 166, 0.32);
+  background: rgba(232, 192, 122, 0.1);
+}
+body.library-mode .bg-btn:focus-visible {
+  outline: 2px solid var(--lib-gold);
+  outline-offset: 2px;
+}
+
+/* ------------------------------ البطل ------------------------------ */
+
+body.library-mode .library-hero {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1.04fr) minmax(360px, 0.96fr);
+  align-items: center;
+  gap: clamp(22px, 4.2vw, 56px);
+  padding: clamp(28px, 4vw, 56px);
+  margin-bottom: 42px;
+  border-radius: 34px;
+  border: 1px solid rgba(240, 206, 144, 0.2);
+  background:
+    radial-gradient(720px 420px at 92% 4%, rgba(224, 164, 78, 0.18), transparent 64%),
+    radial-gradient(560px 400px at -8% 112%, rgba(135, 70, 31, 0.22), transparent 62%),
+    linear-gradient(150deg, rgba(255, 238, 205, 0.075), rgba(255, 238, 205, 0.016) 46%, rgba(0, 0, 0, 0.2));
+  box-shadow:
+    0 48px 110px -58px rgba(0, 0, 0, 0.96),
+    0 24px 50px -42px rgba(206, 146, 65, 0.42),
+    inset 0 1px 0 rgba(255, 244, 214, 0.13),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+  isolation: isolate;
+}
+
+body.library-mode .library-hero::after {
+  content: "";
+  position: absolute;
+  inset: 14px;
+  border: 1px solid rgba(244, 217, 166, 0.09);
+  border-radius: 23px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.hero-aura {
+  position: absolute;
+  inset-inline-end: -150px;
+  top: -190px;
+  width: 620px;
+  height: 620px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(232, 187, 106, 0.18), rgba(170, 103, 39, 0.06) 42%, transparent 68%);
+  filter: blur(8px);
+  pointer-events: none;
+  z-index: 0;
+  animation: heroAura 13s ease-in-out infinite alternate;
+}
+
+.hero-orbit {
+  position: absolute;
+  inset-inline-start: -170px;
+  bottom: -230px;
+  width: 560px;
+  height: 560px;
+  border-radius: 50%;
+  border: 1px dashed rgba(240, 206, 144, 0.14);
+  pointer-events: none;
+  z-index: 0;
+}
+.hero-orbit::before {
+  content: "";
+  position: absolute;
+  inset: 54px;
+  border-radius: 50%;
+  border: 1px solid rgba(240, 206, 144, 0.08);
+}
+
+body.library-mode .library-hero > .hero-copy,
+body.library-mode .library-hero > .hero-visual {
+  position: relative;
+  z-index: 1;
+}
+
+body.library-mode .hero-copy {
+  max-width: 640px;
+}
+
+body.library-mode .eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 14px;
+  margin-bottom: 18px;
+  border-radius: 999px;
+  border: 1px solid rgba(240, 206, 144, 0.3);
+  color: #f0cf8e;
+  background: linear-gradient(120deg, rgba(229, 185, 108, 0.17), rgba(229, 185, 108, 0.05));
+  box-shadow: inset 0 1px 0 rgba(255, 244, 214, 0.12);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+}
+body.library-mode .eyebrow .ic {
+  width: 14px;
+  height: 14px;
+  color: #f3d59b;
+}
+
+body.library-mode .hero-copy h1 {
+  margin: 0 0 18px;
+  font-size: clamp(2.15rem, 4.6vw, 3.55rem);
+  line-height: 1.14;
+  letter-spacing: -0.022em;
+  color: #fbf3e2;
+  text-shadow: 0 22px 50px rgba(0, 0, 0, 0.45);
+}
+body.library-mode .hero-copy h1::first-letter {
+  color: inherit;
+}
+body.library-mode .hero-copy h1::after {
+  content: "";
+  position: absolute;
+  inset-inline-start: 0;
+  bottom: 0;
+  width: 96px;
+  height: 4px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #f3d496, #d8a252 45%, rgba(216, 162, 82, 0));
+  box-shadow: 0 4px 14px rgba(216, 162, 82, 0.3);
+}
+.hero-gold {
+  display: inline-block;
+  background: linear-gradient(104deg, #fbe8bb 4%, #e8ba68 42%, #c98f3e 82%, #f3d496 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  filter: drop-shadow(0 10px 24px rgba(201, 143, 62, 0.22));
+}
+
+body.library-mode .hero-copy p {
+  max-width: 58ch;
+  margin: 0;
+  color: #bfae92;
+  font-size: 0.93rem;
+  line-height: 1.95;
+}
+
+.hero-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 26px;
+}
+
+.hero-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  height: 52px;
+  padding: 0 24px;
+  border-radius: 15px;
+  font-family: inherit;
+  font-size: 0.88rem;
+  font-weight: 800;
+  cursor: pointer;
+  overflow: hidden;
+  transition: transform 0.2s ease, box-shadow 0.24s ease, background 0.24s ease, border-color 0.24s ease, filter 0.24s ease;
+}
+.hero-btn .ic {
+  width: 18px;
+  height: 18px;
+  transition: transform 0.24s ease;
+}
+.hero-btn.primary {
+  color: #332005;
+  border: 1px solid rgba(255, 240, 205, 0.52);
+  background:
+    linear-gradient(150deg, #fbe9bf 0%, #ecc173 46%, #d09a48 100%);
+  box-shadow:
+    0 20px 38px -20px rgba(226, 173, 86, 0.8),
+    inset 0 1px 0 rgba(255, 255, 246, 0.72),
+    inset 0 -2px 5px rgba(114, 66, 15, 0.22);
+}
+.hero-btn.primary::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(105deg, transparent 26%, rgba(255, 255, 255, 0.5) 48%, transparent 68%);
+  transform: translateX(130%);
+  transition: transform 0.7s ease;
+  pointer-events: none;
+}
+.hero-btn.primary:hover {
+  transform: translateY(-2px);
+  filter: brightness(1.035);
+  box-shadow:
+    0 26px 46px -20px rgba(226, 173, 86, 0.92),
+    inset 0 1px 0 rgba(255, 255, 246, 0.8);
+}
+.hero-btn.primary:hover::before {
+  transform: translateX(-130%);
+}
+.hero-btn.primary:hover .ic {
+  transform: translateX(-4px);
+}
+.hero-btn.ghost {
+  color: #eee0c5;
+  border: 1px solid rgba(240, 206, 144, 0.26);
+  background: rgba(255, 236, 201, 0.045);
+  box-shadow: inset 0 1px 0 rgba(255, 244, 214, 0.08);
+  backdrop-filter: blur(8px);
+}
+.hero-btn.ghost:hover {
+  transform: translateY(-2px);
+  color: #ffe9bd;
+  border-color: rgba(240, 206, 144, 0.5);
+  background: rgba(232, 192, 122, 0.12);
+}
+.hero-btn.ghost:hover .ic {
+  transform: rotate(-12deg);
+}
+.hero-btn:active {
+  transform: scale(0.985);
+}
+.hero-btn:focus-visible {
+  outline: 2px solid var(--lib-gold);
+  outline-offset: 3px;
+}
+
+body.library-mode .hero-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 22px;
+}
+body.library-mode .hero-pills span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 13px;
+  border-radius: 999px;
+  border: 1px solid rgba(240, 206, 144, 0.14);
+  background: rgba(255, 236, 201, 0.04);
+  color: #b8a487;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+body.library-mode .hero-pills .ic {
+  width: 14px;
+  height: 14px;
+  color: #c99a54;
+}
+
+/* ------------------------------ مشهد البطل ------------------------------ */
+
+body.library-mode .hero-visual {
+  justify-self: center;
+  width: 100%;
+  max-width: 540px;
+}
+
+.hero-frame {
+  position: relative;
+  padding: 7px;
+  border-radius: 38px;
+  border: 1px solid rgba(240, 206, 144, 0.24);
+  background:
+    linear-gradient(155deg, rgba(251, 232, 187, 0.22), rgba(255, 238, 205, 0.03) 44%, rgba(0, 0, 0, 0.24));
+  box-shadow:
+    0 40px 80px -44px rgba(0, 0, 0, 0.92),
+    0 20px 44px -36px rgba(214, 153, 70, 0.5),
+    inset 0 1px 0 rgba(255, 246, 220, 0.28);
+}
+.hero-frame::before {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  border-radius: 34px;
+  border: 1px solid rgba(0, 0, 0, 0.32);
+  pointer-events: none;
+  z-index: 2;
+}
+.hero-frame::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: 38px;
+  padding: 1px;
+  background: linear-gradient(160deg, rgba(255, 240, 205, 0.5), transparent 38%, transparent 64%, rgba(206, 146, 65, 0.4));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  z-index: 3;
+}
+
+body.library-mode .hero-scene {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 31px;
+  filter: drop-shadow(0 18px 30px rgba(0, 0, 0, 0.38));
+}
+
+.hero-seal {
+  position: absolute;
+  inset-inline-start: -18px;
+  bottom: 26px;
+  z-index: 4;
+  width: 108px;
+  height: 108px;
+  border-radius: 50%;
+  display: grid;
+  place-content: center;
+  text-align: center;
+  color: #332005;
+  background:
+    radial-gradient(circle at 34% 24%, #fceac1 0%, #ecc477 46%, #c68e3d 78%, #9b6627 100%);
+  border: 1px solid rgba(255, 246, 220, 0.72);
+  box-shadow:
+    0 26px 46px -20px rgba(0, 0, 0, 0.84),
+    inset 0 2px 0 rgba(255, 255, 246, 0.6),
+    inset 0 -8px 18px rgba(118, 68, 16, 0.28);
+  transform: rotate(-7deg);
+}
+.hero-seal::before {
+  content: "";
+  position: absolute;
+  inset: 8px;
+  border-radius: 50%;
+  border: 1px dashed rgba(84, 47, 10, 0.42);
+}
+.hero-seal b {
+  display: block;
+  font-size: 2.15rem;
+  line-height: 1;
+  letter-spacing: -0.04em;
+  font-weight: 800;
+}
+.hero-seal span {
+  display: block;
+  margin-top: 3px;
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.24em;
+  opacity: 0.72;
+}
+
+/* حركات مشهد البطل */
+.hero-aura,
+.hero-seal {
+  will-change: transform;
+}
+.hero-visual:hover .hero-seal {
+  animation: heroSeal 7s ease-in-out infinite;
+}
+
+/* ------------------------------ عنوان المكتبة ------------------------------ */
+
+body.library-mode .library-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 14px;
+  margin: 0 6px 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid rgba(240, 206, 144, 0.1);
+}
+body.library-mode .library-head > div {
+  display: grid;
+  gap: 4px;
+}
+body.library-mode .section-kicker {
+  color: #c89a52;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.24em;
+}
+body.library-mode .library-head h2 {
+  margin: 0;
+  color: #f8efdc;
+  font-size: clamp(1.35rem, 2.2vw, 1.7rem);
+  letter-spacing: -0.015em;
+}
+body.library-mode .library-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(240, 206, 144, 0.14);
+  background: rgba(255, 236, 201, 0.035);
+  color: #a89272;
+  font-size: 0.68rem;
+  white-space: nowrap;
+}
+body.library-mode .library-count::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #d8a95c;
+  box-shadow: 0 0 10px rgba(216, 169, 92, 0.8);
+}
+
+/* ------------------------------ شبكة البطاقات ------------------------------ */
+
+body.library-mode .library-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 22px;
+  align-items: stretch;
+}
+
+/* ------------------------------ البطاقة ------------------------------ */
+
+body.library-mode .game-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  height: 100%;
+  padding: 0;
+  text-align: start;
+  color: var(--lib-cream);
+  font-family: inherit;
+  cursor: pointer;
+  overflow: hidden;
+  border-radius: 24px;
+  border: 1px solid rgba(240, 206, 144, 0.15);
+  background:
+    linear-gradient(172deg, rgba(255, 238, 205, 0.075), rgba(255, 238, 205, 0.014) 42%, rgba(0, 0, 0, 0.2));
+  box-shadow:
+    0 26px 50px -38px rgba(0, 0, 0, 0.92),
+    inset 0 1px 0 rgba(255, 244, 214, 0.08);
+  transition:
+    transform 0.38s cubic-bezier(0.2, 0.8, 0.2, 1),
+    border-color 0.38s ease,
+    box-shadow 0.38s ease;
+  animation: libCardIn 0.62s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  animation-delay: var(--delay, 0ms);
+  -webkit-tap-highlight-color: transparent;
+}
+body.library-mode .game-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  border: 1px solid transparent;
+  background:
+    radial-gradient(340px 180px at 50% 0%, color-mix(in srgb, var(--accent) 16%, transparent), transparent 72%) border-box;
+  -webkit-mask: linear-gradient(#000 0 0) padding-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0;
+  transition: opacity 0.38s ease;
+  z-index: 3;
+}
+body.library-mode .game-card:hover {
+  transform: translateY(-8px);
+  border-color: color-mix(in srgb, var(--accent) 52%, rgba(240, 206, 144, 0.16));
+  box-shadow:
+    0 46px 80px -42px color-mix(in srgb, var(--accent) 46%, #000),
+    0 28px 60px -40px rgba(0, 0, 0, 0.95),
+    inset 0 1px 0 rgba(255, 244, 214, 0.18);
+}
+body.library-mode .game-card:hover::after {
+  opacity: 1;
+}
+body.library-mode .game-card:focus-visible {
+  outline: 2px solid var(--lib-gold);
+  outline-offset: 3px;
+}
+body.library-mode .game-card:active {
+  transform: translateY(-4px) scale(0.995);
+}
+
+/* ------------------------------ فن البطاقة ------------------------------ */
+
+body.library-mode .game-card .game-art {
+  position: relative;
+  display: block;
+  width: 100%;
+  min-height: 0;
+  aspect-ratio: 360 / 220;
+  max-height: 236px;
+  overflow: hidden;
+  background:
+    radial-gradient(120% 120% at 50% 0%, color-mix(in srgb, var(--accent) 22%, #2a1a10), #180f09 68%);
+  border-bottom: 1px solid rgba(240, 206, 144, 0.13);
+}
+body.library-mode .game-card .game-art::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  background-image: repeating-linear-gradient(115deg, rgba(255, 238, 205, 0.03) 0 1px, transparent 1px 17px);
+  opacity: 0.7;
+}
+
+body.library-mode .game-art-glow {
+  position: absolute;
+  top: -46%;
+  left: 50%;
+  width: 78%;
+  height: 120%;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: radial-gradient(circle, color-mix(in srgb, var(--accent) 30%, transparent), transparent 68%);
+  filter: blur(16px);
+  opacity: 0.8;
+  pointer-events: none;
+  z-index: 0;
+}
+
+body.library-mode .game-scene {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: block;
+  transition: transform 0.85s cubic-bezier(0.2, 0.8, 0.2, 1);
+  will-change: transform;
+}
+body.library-mode .game-scene .la {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+body.library-mode .game-card:hover .game-scene {
+  transform: scale(1.055) translateY(-3px);
+}
+
+body.library-mode .game-art-shade {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  background:
+    radial-gradient(120% 88% at 50% 122%, rgba(8, 5, 2, 0.62), transparent 56%),
+    linear-gradient(180deg, rgba(8, 5, 2, 0.34) 0%, transparent 32%, transparent 58%, rgba(8, 5, 2, 0.5) 100%);
+}
+
+body.library-mode .game-num {
+  position: absolute;
+  top: 13px;
+  inset-inline-start: 14px;
+  inset-inline-end: auto;
+  z-index: 4;
+  display: grid;
+  place-items: center;
+  width: max-content;
+  min-width: 36px;
+  height: 36px;
+  padding: 0 8px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 240, 205, 0.24);
+  background: rgba(22, 13, 7, 0.55);
+  backdrop-filter: blur(8px);
+  color: #edd3a3;
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  box-shadow: inset 0 1px 0 rgba(255, 244, 214, 0.12);
+}
+
+body.library-mode .game-players {
+  position: absolute;
+  top: 15px;
+  inset-inline-end: 14px;
+  z-index: 4;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 240, 205, 0.18);
+  background: rgba(22, 13, 7, 0.5);
+  backdrop-filter: blur(8px);
+  color: #dcc8a5;
+  font-size: 0.63rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+body.library-mode .game-players .ic {
+  width: 13px;
+  height: 13px;
+  color: #d9ab62;
+}
+
+body.library-mode .game-en-badge {
+  position: absolute;
+  bottom: 13px;
+  inset-inline-start: 14px;
+  z-index: 4;
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--accent) 34%, rgba(255, 240, 205, 0.16));
+  background: rgba(22, 13, 7, 0.52);
+  backdrop-filter: blur(8px);
+  color: color-mix(in srgb, var(--accent) 72%, #fff6e4);
+  font-size: 0.52rem;
+  font-weight: 800;
+  letter-spacing: 0.17em;
+  line-height: 1.5;
+}
+
+/* ------------------------------ جسم البطاقة ------------------------------ */
+
+body.library-mode .game-card-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 9px;
+  padding: 16px 18px 18px;
+  text-align: start;
+}
+
+body.library-mode .game-card-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+body.library-mode .game-name {
+  color: #f8f0de;
+  font-size: 1.08rem;
+  font-weight: 800;
+  letter-spacing: -0.012em;
+  line-height: 1.4;
+}
+
+body.library-mode .game-complexity {
+  flex: 0 0 auto;
+  padding: 4px 9px;
+  border-radius: 999px;
+  border: 1px solid rgba(240, 206, 144, 0.2);
+  background: rgba(232, 192, 122, 0.09);
+  color: #e5c48d;
+  font-size: 0.55rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+body.library-mode .game-tagline {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  min-height: 2.7em;
+  margin: 0;
+  color: #b3a184;
+  font-size: 0.77rem;
+  line-height: 1.72;
+}
+
+body.library-mode .game-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: auto;
+  padding-top: 12px;
+  border-top: 1px solid rgba(240, 206, 144, 0.1);
+}
+body.library-mode .game-meta span {
+  padding: 0;
+  border: 0;
+  background: none;
+  border-radius: 0;
+}
+body.library-mode .game-meta .game-meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #a18c6e;
+  font-size: 0.66rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+body.library-mode .game-meta .game-meta-item .ic {
+  width: 14px;
+  height: 14px;
+  color: #c3954f;
+}
+body.library-mode .game-meta .game-open {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #e6bd75;
+  font-size: 0.68rem;
+  font-weight: 800;
+  white-space: nowrap;
+  transition: color 0.24s ease;
+}
+body.library-mode .game-meta .game-open .ic {
+  width: 14px;
+  height: 14px;
+  transform: none;
+  transition: transform 0.28s ease;
+}
+body.library-mode .game-card:hover .game-meta .game-open {
+  color: #ffdda0;
+}
+body.library-mode .game-card:hover .game-meta .game-open .ic {
+  transform: translateX(-4px);
+}
+
+/* ------------------------------ بطاقة المتابعة ------------------------------ */
+
+body.library-mode .resume-card {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  padding: 16px 20px;
+  text-align: start;
+  border-radius: 22px;
+  cursor: pointer;
+  color: var(--lib-cream);
+  background:
+    radial-gradient(150% 200% at 92% 0%, color-mix(in srgb, var(--accent) 20%, transparent), transparent 60%),
+    linear-gradient(120deg, rgba(255, 238, 205, 0.07), rgba(0, 0, 0, 0.16));
+  border: 1px solid color-mix(in srgb, var(--accent) 38%, rgba(240, 206, 144, 0.14));
+  box-shadow:
+    0 30px 60px -44px #000,
+    inset 0 1px 0 rgba(255, 244, 214, 0.1);
+  transition: transform 0.24s ease, border-color 0.24s ease, box-shadow 0.24s ease;
+}
+body.library-mode .resume-card:hover {
+  transform: translateY(-3px);
+  border-color: color-mix(in srgb, var(--accent) 58%, rgba(240, 206, 144, 0.2));
+  box-shadow:
+    0 38px 66px -40px color-mix(in srgb, var(--accent) 40%, #000),
+    inset 0 1px 0 rgba(255, 244, 214, 0.16);
+}
+body.library-mode .resume-crest {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 17px;
+  color: #f3d8a4;
+  background:
+    radial-gradient(circle at 32% 22%, color-mix(in srgb, var(--accent) 26%, transparent), transparent 70%),
+    rgba(20, 12, 7, 0.62);
+  border: 1px solid color-mix(in srgb, var(--accent) 38%, transparent);
+  box-shadow: inset 0 1px 0 rgba(255, 244, 214, 0.14);
+}
+body.library-mode .resume-crest .ic {
+  width: 30px;
+  height: 30px;
+}
+body.library-mode .resume-copy small {
+  color: #d6a65b;
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+}
+body.library-mode .resume-copy strong {
+  color: #f8efdc;
+  font-size: 1.02rem;
+  font-weight: 800;
+}
+body.library-mode .resume-copy span {
+  color: #b3a184;
+}
+body.library-mode .resume-meta b {
+  color: #a18c6e;
+}
+body.library-mode .resume-meta em {
+  color: #e6bd75;
+}
+
+/* ------------------------------ ملاحظة الخصوصية ------------------------------ */
+
+body.library-mode .library-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  margin-top: 28px;
+  padding: 18px 20px;
+  border-radius: 22px;
+  border: 1px solid rgba(240, 206, 144, 0.13);
+  background:
+    radial-gradient(420px 200px at 100% 0%, rgba(229, 185, 108, 0.09), transparent 68%),
+    linear-gradient(120deg, rgba(255, 238, 205, 0.045), rgba(0, 0, 0, 0.14));
+  box-shadow: inset 0 1px 0 rgba(255, 244, 214, 0.07);
+}
+body.library-mode .note-icon {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  color: #e8c07a;
+  background: rgba(232, 192, 122, 0.1);
+  border: 1px solid rgba(240, 206, 144, 0.22);
+}
+body.library-mode .note-icon .ic {
+  width: 21px;
+  height: 21px;
+}
+body.library-mode .library-note strong {
+  display: block;
+  margin-bottom: 3px;
+  color: #f2e4c9;
+  font-size: 0.86rem;
+}
+body.library-mode .library-note p {
+  margin: 0;
+  color: #a8957a;
+  font-size: 0.75rem;
+  line-height: 1.8;
+}
+
+/* ------------------------------ التذييل ------------------------------ */
+
+body.library-mode .bg-foot {
+  color: #7f6c55;
+  border-top-color: rgba(240, 206, 144, 0.08);
+}
+body.library-mode .bg-foot a {
+  color: #d8b77f;
+}
+body.library-mode .bg-foot a:hover {
+  color: #ffe9bd;
+}
+
+/* ------------------------------ حركات المشاهد ------------------------------ */
+
+@keyframes libCardIn {
+  from {
+    opacity: 0;
+    translate: 0 22px;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+
+@keyframes heroAura {
+  from {
+    opacity: 0.72;
+    scale: 0.94;
+  }
+  to {
+    opacity: 1;
+    scale: 1.06;
+  }
+}
+
+@keyframes heroSeal {
+  0%, 100% {
+    transform: rotate(-7deg) translateY(0);
+  }
+  50% {
+    transform: rotate(-4deg) translateY(-6px);
+  }
+}
+
+@keyframes laFloat {
+  0%, 100% {
+    translate: 0 0;
+  }
+  50% {
+    translate: 0 -7px;
+  }
+}
+
+@keyframes laFloatSlow {
+  0%, 100% {
+    translate: 0 0;
+  }
+  50% {
+    translate: 0 -4px;
+  }
+}
+
+@keyframes laSway {
+  0%, 100% {
+    translate: 0 0;
+  }
+  33% {
+    translate: 1.8px -2px;
+  }
+  66% {
+    translate: -1.6px -1px;
+  }
+}
+
+@keyframes laLift {
+  0%, 100% {
+    translate: 0 0;
+  }
+  45% {
+    translate: 0 -8px;
+  }
+}
+
+@keyframes laRecoil {
+  0%, 62%, 100% {
+    translate: 0 0;
+  }
+  68% {
+    translate: -5px 2px;
+  }
+  76% {
+    translate: 2px 0;
+  }
+  84% {
+    translate: -1px 0;
+  }
+}
+
+@keyframes laSteam {
+  0% {
+    opacity: 0;
+    translate: 0 4px;
+  }
+  35% {
+    opacity: 0.7;
+  }
+  100% {
+    opacity: 0;
+    translate: 0 -12px;
+  }
+}
+
+@keyframes laTwinkle {
+  0%, 100% {
+    opacity: 0.32;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes laBlink {
+  0%, 46%, 54%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.12;
+  }
+}
+
+@keyframes laFlicker {
+  0%, 100% {
+    opacity: 0.92;
+  }
+  18% {
+    opacity: 0.55;
+  }
+  28% {
+    opacity: 1;
+  }
+  62% {
+    opacity: 0.68;
+  }
+  74% {
+    opacity: 1;
+  }
+}
+
+@keyframes laPulse {
+  0%, 100% {
+    opacity: 0.25;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes laSpin {
+  from {
+    rotate: 0deg;
+  }
+  to {
+    rotate: 360deg;
+  }
+}
+
+/* الصور ثابتة افتراضيًا، وتتحرك فقط عند مرور الماوس فوق البطاقة أو مشهد البطل
+   (أو عند التركيز عليها بلوحة المفاتيح) */
+body.library-mode :is(.game-card:hover, .game-card:focus-visible, .hero-visual:hover) .la-float {
+  animation: laFloat 5.6s ease-in-out infinite;
+}
+body.library-mode :is(.game-card:hover, .game-card:focus-visible, .hero-visual:hover) .la-float-slow {
+  animation: laFloatSlow 8.2s ease-in-out infinite;
+}
+body.library-mode :is(.game-card:hover, .game-card:focus-visible, .hero-visual:hover) .la-sway {
+  animation: laSway 6.4s ease-in-out infinite;
+}
+body.library-mode :is(.game-card:hover, .game-card:focus-visible, .hero-visual:hover) .la-lift {
+  animation: laLift 6s ease-in-out infinite;
+}
+body.library-mode :is(.game-card:hover, .game-card:focus-visible, .hero-visual:hover) .la-recoil {
+  animation: laRecoil 6.8s ease-in-out infinite;
+}
+body.library-mode :is(.game-card:hover, .game-card:focus-visible, .hero-visual:hover) .la-steam {
+  animation: laSteam 3.4s ease-in-out infinite;
+}
+body.library-mode :is(.game-card:hover, .game-card:focus-visible, .hero-visual:hover) .la-spark {
+  animation: laTwinkle 3.6s ease-in-out infinite;
+}
+body.library-mode :is(.game-card:hover, .game-card:focus-visible, .hero-visual:hover) .la-blink {
+  animation: laBlink 4.8s steps(1, end) infinite;
+}
+body.library-mode :is(.game-card:hover, .game-card:focus-visible, .hero-visual:hover) .la-flicker {
+  animation: laFlicker 3.2s ease-in-out infinite;
+}
+body.library-mode :is(.game-card:hover, .game-card:focus-visible, .hero-visual:hover) .la-pulse {
+  animation: laPulse 3.8s ease-in-out infinite;
+}
+body.library-mode .la-spin,
+body.library-mode .la-spin-slow {
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
+}
+body.library-mode :is(.game-card:hover, .game-card:focus-visible, .hero-visual:hover) .la-spin,
+body.library-mode :is(.game-card:hover, .game-card:focus-visible, .hero-visual:hover) .la-spin-slow {
+  animation: laSpin 24s linear infinite;
+}
+body.library-mode :is(.game-card:hover, .game-card:focus-visible, .hero-visual:hover) .la-spin-slow {
+  animation-duration: 44s;
+}
+
+/* تنويع الإيقاع بين البطاقات حتى لا تتحرك كلها في وقت واحد */
+body.library-mode .game-card:nth-child(2n) .la-float {
+  animation-delay: -1.9s;
+  animation-duration: 6.7s;
+}
+body.library-mode .game-card:nth-child(3n) .la-float-slow {
+  animation-delay: -2.6s;
+  animation-duration: 9.4s;
+}
+body.library-mode .game-card:nth-child(4n) .la-sway {
+  animation-delay: -2.2s;
+  animation-duration: 7.3s;
+}
+body.library-mode .game-card:nth-child(5n) .la-spark {
+  animation-delay: -1.4s;
+}
+
+/* ------------------------------ الاستجابة ------------------------------ */
+
+@media (max-width: 1180px) {
+  body.library-mode .library-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 1040px) {
+  body.library-mode .library-hero {
+    grid-template-columns: 1fr;
+    gap: 30px;
+    padding: 34px 30px 38px;
+  }
+  body.library-mode .hero-copy {
+    max-width: 720px;
+  }
+  body.library-mode .hero-visual {
+    max-width: 500px;
+    margin-inline: auto;
+  }
+  .hero-aura {
+    inset-inline-end: -120px;
+    top: -220px;
+  }
+}
+
+@media (max-width: 900px) {
+  body.library-mode .library-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px;
+  }
+  body.library-mode .library-head {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 620px) {
+  body.library-mode .bg-app {
+    padding-inline: 12px;
+  }
+  body.library-mode .library-hero {
+    padding: 26px 18px 30px;
+    border-radius: 26px;
+    margin-bottom: 30px;
+  }
+  body.library-mode .library-hero::after {
+    inset: 9px;
+    border-radius: 18px;
+  }
+  body.library-mode .hero-copy h1 {
+    font-size: clamp(1.95rem, 9vw, 2.6rem);
+  }
+  body.library-mode .hero-copy p {
+    font-size: 0.86rem;
+    line-height: 1.85;
+  }
+  .hero-actions {
+    gap: 10px;
+  }
+  .hero-btn {
+    flex: 1 1 auto;
+    min-width: 150px;
+    height: 48px;
+    padding: 0 16px;
+    font-size: 0.8rem;
+  }
+  body.library-mode .hero-pills span {
+    font-size: 0.64rem;
+  }
+  .hero-visual {
+    max-width: 100%;
+  }
+  .hero-seal {
+    width: 86px;
+    height: 86px;
+    inset-inline-start: -6px;
+    bottom: 16px;
+  }
+  .hero-seal b {
+    font-size: 1.7rem;
+  }
+  .hero-seal span {
+    font-size: 0.52rem;
+  }
+  body.library-mode .library-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  body.library-mode .resume-card {
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 12px;
+    padding: 14px;
+  }
+  body.library-mode .resume-meta {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-top: 10px;
+    border-top: 1px solid rgba(240, 206, 144, 0.1);
+  }
+}
+
+@media (max-width: 400px) {
+  .hero-btn {
+    flex-basis: 100%;
+  }
+  body.library-mode .game-card-body {
+    padding: 14px 15px 16px;
+  }
+  body.library-mode .game-name {
+    font-size: 1rem;
+  }
+}
+
+/* ------------------------------ تقليل الحركة ------------------------------ */
+
+@media (prefers-reduced-motion: reduce) {
+  body.library-mode .la-float,
+  body.library-mode .la-float-slow,
+  body.library-mode .la-sway,
+  body.library-mode .la-lift,
+  body.library-mode .la-recoil,
+  body.library-mode .la-steam,
+  body.library-mode .la-spark,
+  body.library-mode .la-blink,
+  body.library-mode .la-flicker,
+  body.library-mode .la-pulse,
+  body.library-mode .la-spin,
+  body.library-mode .la-spin-slow,
+  body.library-mode .hero-aura,
+  body.library-mode .hero-seal,
+  body.library-mode .game-card {
+    animation: none !important;
+  }
+  body.library-mode .game-card,
+  body.library-mode .game-card *,
+  body.library-mode .hero-btn,
+  body.library-mode .hero-btn * {
+    transition: none !important;
+  }
+  body.library-mode .game-card:hover {
+    transform: none;
+  }
+  body.library-mode .game-card:hover .game-scene {
+    transform: none;
+  }
+}

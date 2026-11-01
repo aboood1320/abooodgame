@@ -1,0 +1,696 @@
+/* ==========================================================================
+   ريسك — غرفة عمليات وخريطة عالم
+   خرائط متعددة، عقد محسّنة، لوحة أعداد للتحصين، وتجاوب كامل.
+   ========================================================================== */
+
+.game-view[data-game="risk"] { --accent: #d96b5f; }
+
+.risk-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 350px;
+  gap: 14px;
+  align-items: start;
+}
+
+/* ------------------------------ لوحة الخريطة ------------------------------ */
+
+.risk-board-wrap {
+  border-radius: 24px;
+  border: 1px solid rgba(246, 242, 232, 0.12);
+  background:
+    radial-gradient(90% 70% at 50% 0%, rgba(217, 107, 95, 0.08), transparent 66%),
+    linear-gradient(165deg, #12242b, #0a171c 74%);
+  box-shadow: 0 34px 74px -44px rgba(0, 0, 0, 0.96);
+  overflow: hidden;
+  min-width: 0;
+}
+.risk-board-wrap .board-head {
+  --bh-accent: #d96b5f;
+  margin: 10px 10px 0;
+  background: rgba(6, 18, 23, 0.62);
+}
+.risk-board-wrap .board-head-copy { min-width: 0; }
+.risk-map-sub {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.58rem;
+  color: var(--dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.risk-zoom {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  margin-inline-start: auto;
+  flex: 0 0 auto;
+}
+.risk-zoom button {
+  width: 29px;
+  height: 29px;
+  display: grid;
+  place-items: center;
+  border-radius: 9px;
+  border: 1px solid rgba(246, 242, 232, 0.16);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--paper, #f6f2e8);
+  font-size: 0.92rem;
+  font-weight: 800;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+}
+.risk-zoom button:hover { background: rgba(217, 107, 95, 0.18); border-color: rgba(217, 107, 95, 0.44); }
+.risk-zoom button:active { transform: scale(0.94); }
+.risk-zoom span {
+  min-width: 38px;
+  text-align: center;
+  font-size: 0.55rem;
+  font-weight: 700;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.risk-map-scroll {
+  position: relative;
+  padding: 4px 8px 10px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  background:
+    radial-gradient(80% 60% at 50% 2%, rgba(88, 211, 168, 0.05), transparent 68%),
+    radial-gradient(60% 50% at 86% 96%, rgba(217, 107, 95, 0.07), transparent 70%);
+}
+.risk-map-inner {
+  width: calc(100% * var(--risk-zoom, 1));
+  min-width: calc(620px * var(--risk-zoom, 1));
+  transition: width 0.18s ease, min-width 0.18s ease;
+}
+.risk-map {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 16px;
+  font-family: inherit;
+  user-select: none;
+  touch-action: manipulation;
+}
+
+/* ------------------------------ المحيط والخريطة ------------------------------ */
+
+.risk-ocean-lines { pointer-events: none; }
+.risk-lat {
+  fill: none;
+  stroke: rgba(130, 195, 225, 0.09);
+  stroke-width: 1;
+  stroke-dasharray: 2 6;
+}
+.risk-cont-shape {
+  filter: drop-shadow(0 10px 18px rgba(0, 0, 0, 0.32));
+  transition: opacity 0.2s ease;
+}
+.risk-link {
+  stroke: rgba(246, 242, 232, 0.19);
+  stroke-width: 1.2;
+  stroke-dasharray: 3 4;
+  transition: stroke 0.16s ease, stroke-width 0.16s ease;
+}
+.risk-link.sea {
+  stroke: rgba(130, 200, 235, 0.26);
+  stroke-dasharray: 2 6;
+  stroke-width: 1.1;
+}
+.risk-link.active {
+  stroke: rgba(242, 180, 94, 0.8);
+  stroke-width: 2;
+  stroke-dasharray: none;
+}
+
+/* ------------------------------ مسمّيات القارات ------------------------------ */
+
+.risk-cont rect {
+  fill: rgba(6, 18, 23, 0.78);
+  stroke: rgba(246, 242, 232, 0.16);
+  stroke-width: 1;
+  transition: stroke 0.18s ease, fill 0.18s ease;
+}
+.risk-cont.owned rect {
+  fill: rgba(8, 22, 27, 0.92);
+  stroke: var(--own);
+  stroke-width: 1.7;
+}
+.risk-cont text {
+  fill: rgba(245, 241, 231, 0.92);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  pointer-events: none;
+}
+.risk-cont .risk-cont-bonus { fill: var(--accent); font-size: 10px; }
+.risk-cont-owner { fill: var(--own); stroke: rgba(0, 0, 0, 0.4); stroke-width: 0.8; }
+
+/* ------------------------------ مسارات الهجوم ------------------------------ */
+
+.risk-paths { pointer-events: none; }
+.risk-attack-path {
+  fill: none;
+  stroke: #ffb27a;
+  stroke-width: 2.4;
+  stroke-dasharray: 7 5;
+  opacity: 0.9;
+  animation: risk-dash 0.9s linear infinite;
+  filter: drop-shadow(0 0 4px rgba(255, 178, 122, 0.5));
+}
+.risk-fortify-path {
+  fill: none;
+  stroke: #8fe8c4;
+  stroke-width: 1.8;
+  stroke-dasharray: 5 6;
+  opacity: 0.5;
+}
+.risk-fortify-path.active {
+  opacity: 1;
+  stroke-width: 2.8;
+  animation: risk-dash 1.2s linear infinite;
+}
+@keyframes risk-dash { to { stroke-dashoffset: -24; } }
+
+/* ------------------------------ الأقاليم ------------------------------ */
+
+.risk-terr { cursor: pointer; outline: none; }
+.risk-terr .risk-node-shadow {
+  fill: rgba(0, 0, 0, 0.5);
+  filter: url(#riskGlow);
+}
+.risk-terr .risk-node-ring {
+  fill: none;
+  stroke-width: 2.6;
+  opacity: 0.62;
+  transition: opacity 0.16s ease, stroke-width 0.16s ease;
+}
+.risk-terr .risk-node {
+  stroke: rgba(255, 255, 255, 0.38);
+  stroke-width: 1.4;
+  transition: stroke 0.16s ease, stroke-width 0.16s ease, filter 0.16s ease;
+}
+.risk-terr .risk-node-gloss { pointer-events: none; opacity: 0.9; }
+.risk-terr .risk-troops {
+  fill: #07141a;
+  font-size: 16px;
+  font-weight: 900;
+  text-anchor: middle;
+  dominant-baseline: middle;
+  pointer-events: none;
+  paint-order: stroke;
+  stroke: rgba(255, 255, 255, 0.55);
+  stroke-width: 2.2px;
+  stroke-linejoin: round;
+}
+.risk-terr .risk-unowned-mark {
+  fill: rgba(240, 246, 248, 0.9);
+  font-size: 15px;
+  font-weight: 900;
+  text-anchor: middle;
+  dominant-baseline: middle;
+  pointer-events: none;
+}
+.risk-terr .risk-tname {
+  fill: rgba(245, 241, 231, 0.86);
+  font-size: 10.5px;
+  font-weight: 700;
+  text-anchor: middle;
+  pointer-events: none;
+  paint-order: stroke;
+  stroke: rgba(6, 16, 21, 0.8);
+  stroke-width: 2.8px;
+  stroke-linejoin: round;
+}
+.risk-terr .risk-node-halo {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.3);
+  stroke-width: 2;
+  stroke-dasharray: 3 4;
+  opacity: 0.85;
+}
+.risk-terr:hover .risk-node,
+.risk-terr:focus-visible .risk-node {
+  stroke: rgba(255, 255, 255, 0.9);
+  stroke-width: 2.6;
+}
+.risk-terr:hover .risk-node-ring { opacity: 1; }
+.risk-terr.unowned .risk-node { stroke: rgba(200, 220, 226, 0.34); }
+
+.risk-terr.deployable .risk-node-halo {
+  stroke: rgba(242, 180, 94, 0.65);
+  animation: risk-halo-spin 6s linear infinite;
+}
+.risk-terr.claimable .risk-node-halo {
+  stroke: rgba(143, 232, 196, 0.55);
+  stroke-dasharray: 2 5;
+}
+.risk-terr.claimable .risk-node { stroke: rgba(220, 240, 235, 0.55); stroke-dasharray: 3 3; }
+
+.risk-terr.selected .risk-node {
+  stroke: #ffd88f;
+  stroke-width: 3.4;
+  filter: drop-shadow(0 0 10px rgba(242, 180, 94, 0.85));
+}
+.risk-terr.selected .risk-node-ring {
+  stroke: #ffd88f;
+  opacity: 1;
+  stroke-width: 3;
+}
+.risk-terr.selected .risk-node-halo {
+  stroke: rgba(255, 216, 143, 0.7);
+  stroke-dasharray: 4 3;
+  animation: risk-halo-spin 4s linear infinite;
+}
+.risk-terr.target .risk-node {
+  stroke: #ff9a8d;
+  stroke-width: 3;
+  stroke-dasharray: 5 3;
+  animation: risk-target 1.25s ease-in-out infinite;
+}
+.risk-terr.target .risk-node-ring { stroke: #ff9a8d; opacity: 0.95; }
+.risk-terr.fortify-target .risk-node {
+  stroke: #8fe8c4;
+  stroke-width: 2.8;
+  stroke-dasharray: 4 3;
+}
+.risk-terr.fortify-target .risk-node-ring { stroke: #8fe8c4; opacity: 0.95; }
+.risk-terr.move-dest .risk-node {
+  stroke: #ffffff;
+  stroke-width: 3;
+  filter: drop-shadow(0 0 12px rgba(255, 255, 255, 0.7));
+}
+.risk-terr.continent-complete .risk-node-ring {
+  stroke: #ffe6b4;
+  opacity: 0.95;
+}
+.risk-terr.continent-complete .risk-node {
+  stroke: rgba(255, 230, 180, 0.72);
+}
+
+@keyframes risk-target {
+  0%, 100% { stroke-opacity: 0.45; }
+  50% { stroke-opacity: 1; }
+}
+@keyframes risk-halo-spin { to { stroke-dashoffset: -40; } }
+
+.risk-compass { pointer-events: none; opacity: 0.5; }
+.risk-compass circle { fill: rgba(6, 18, 23, 0.55); stroke: rgba(246, 242, 232, 0.18); }
+.risk-compass path { fill: rgba(242, 180, 94, 0.72); }
+.risk-compass text {
+  fill: rgba(245, 241, 231, 0.6);
+  font-size: 8px;
+  font-weight: 800;
+  text-anchor: middle;
+}
+
+/* ------------------------------ العمود الجانبي ------------------------------ */
+
+.risk-side {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+.risk-panel {
+  border: 1px solid var(--stroke);
+  border-radius: 17px;
+  background: linear-gradient(172deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.014));
+  box-shadow: var(--shadow-soft);
+  padding: 13px 14px;
+}
+
+.risk-kicker {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 0.55rem;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  color: var(--accent);
+}
+
+.risk-turn > strong { display: block; font-size: 1.2rem; font-weight: 800; line-height: 1.25; }
+.risk-turn > small { display: block; margin-top: 3px; font-size: 0.7rem; color: var(--muted); line-height: 1.55; }
+
+.risk-turn-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 7px;
+  margin-top: 11px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(246, 242, 232, 0.08);
+}
+.risk-turn-stats > div {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  padding: 6px 4px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+}
+.risk-turn-stats b { font-size: 1.06rem; font-weight: 800; color: var(--accent); }
+.risk-turn-stats small { font-size: 0.55rem; color: var(--dim); }
+
+.risk-actions { display: flex; flex-direction: column; gap: 7px; }
+.risk-actions .bg-btn { justify-content: flex-start; height: 40px; font-size: 0.76rem; }
+.risk-actions .bg-btn span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.risk-actions .bg-btn.primary { justify-content: center; }
+.risk-hint {
+  margin: 3px 0 0;
+  font-size: 0.6rem;
+  line-height: 1.65;
+  color: var(--dim);
+}
+
+/* ------------------------------ لوحة نقل الكتائب ------------------------------ */
+
+.risk-number {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border-radius: 13px;
+  border: 1px solid rgba(242, 180, 94, 0.36);
+  background:
+    radial-gradient(120% 90% at 50% 0%, rgba(242, 180, 94, 0.12), transparent 70%),
+    rgba(8, 18, 23, 0.4);
+}
+.risk-number-head b { display: block; font-size: 0.8rem; font-weight: 800; color: #ffe6b4; }
+.risk-number-head span { display: block; margin-top: 2px; font-size: 0.6rem; color: var(--muted); }
+.risk-number-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  gap: 7px;
+  align-items: center;
+}
+.risk-step {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  border: 1px solid rgba(246, 242, 232, 0.18);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--paper, #f6f2e8);
+  font-size: 1.15rem;
+  font-weight: 900;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.12s ease;
+}
+.risk-step:hover { background: rgba(242, 180, 94, 0.2); border-color: rgba(242, 180, 94, 0.5); }
+.risk-step:active { transform: scale(0.92); }
+.risk-number-row input[type="range"] {
+  width: 100%;
+  accent-color: #f2b45e;
+  cursor: pointer;
+}
+.risk-number-out {
+  min-width: 40px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  border: 1px solid rgba(242, 180, 94, 0.34);
+  background: rgba(242, 180, 94, 0.12);
+  color: #ffe6b4;
+  font-size: 0.95rem;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+}
+.risk-number-quick { display: flex; flex-wrap: wrap; gap: 5px; }
+.risk-number-quick button {
+  min-width: 34px;
+  height: 27px;
+  padding: 0 8px;
+  border-radius: 8px;
+  border: 1px solid rgba(246, 242, 232, 0.14);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--muted);
+  font-size: 0.6rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+.risk-number-quick button:hover { border-color: rgba(242, 180, 94, 0.45); color: #ffe6b4; }
+.risk-number-quick button.active {
+  background: rgba(242, 180, 94, 0.18);
+  border-color: rgba(242, 180, 94, 0.55);
+  color: #ffe6b4;
+}
+.risk-number-actions { display: flex; gap: 6px; }
+.risk-number-actions .bg-btn { height: 36px; font-size: 0.7rem; }
+.risk-number-actions .bg-btn.primary { flex: 1; justify-content: center; }
+
+/* ------------------------------ سجل المعركة ------------------------------ */
+
+.risk-battle-empty { display: flex; align-items: center; gap: 10px; padding: 4px 0; }
+.risk-battle-empty span {
+  font-size: 1.35rem;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  background: rgba(217, 107, 95, 0.12);
+  border: 1px solid rgba(217, 107, 95, 0.26);
+}
+.risk-battle-empty p { margin: 0; font-size: 0.64rem; line-height: 1.6; color: var(--dim); }
+
+.risk-battle {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  gap: 7px;
+  align-items: center;
+}
+.risk-battle-side {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 8px;
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(246, 242, 232, 0.07);
+}
+.risk-battle-label {
+  font-size: 0.55rem;
+  font-weight: 700;
+  line-height: 1.4;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.risk-battle-side small { font-size: 0.55rem; color: var(--danger); }
+.risk-battle-vs { font-size: 0.9rem; color: var(--dim); }
+.risk-battle-dice { display: flex; flex-wrap: wrap; gap: 3px; }
+.risk-die {
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  border-radius: 6px;
+  font-size: 0.66rem;
+  font-weight: 800;
+  color: #08141a;
+  background: linear-gradient(150deg, #ffe6b4, #f2b45e);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7), 0 3px 6px rgba(0, 0, 0, 0.35);
+}
+.risk-die.d { background: linear-gradient(150deg, #ffc0b7, #e58274); }
+.risk-conquered {
+  margin: 8px 0 0;
+  padding: 6px 9px;
+  border-radius: 9px;
+  font-size: 0.62rem;
+  font-weight: 700;
+  color: #ffd9d3;
+  background: rgba(217, 107, 95, 0.14);
+  border: 1px solid rgba(217, 107, 95, 0.3);
+}
+
+/* ------------------------------ اللاعبون ------------------------------ */
+
+.risk-players { display: flex; flex-direction: column; gap: 6px; }
+.risk-player {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 9px;
+  border-radius: 11px;
+  border: 1px solid rgba(246, 242, 232, 0.07);
+  background: rgba(255, 255, 255, 0.025);
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.risk-player.active {
+  border-color: color-mix(in srgb, var(--p) 48%, transparent);
+  background: color-mix(in srgb, var(--p) 12%, transparent);
+}
+.risk-player.out { opacity: 0.48; }
+.risk-player .pdot {
+  width: 24px;
+  height: 24px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  font-size: 0.66rem;
+  font-weight: 800;
+  background: var(--p);
+  color: #08120f;
+}
+.risk-player-copy { display: flex; flex-direction: column; min-width: 0; flex: 1 1 auto; }
+.risk-player-copy strong {
+  font-size: 0.74rem;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.risk-cpu {
+  font-size: 0.5rem;
+  font-style: normal;
+  font-weight: 700;
+  color: var(--dim);
+  margin-inline-start: 3px;
+}
+.risk-player-copy small { font-size: 0.58rem; color: var(--dim); }
+.risk-player-meta { display: flex; flex-direction: column; align-items: center; }
+.risk-player-meta b { font-size: 0.82rem; font-weight: 800; color: var(--accent); }
+.risk-player-meta small { font-size: 0.5rem; color: var(--dim); }
+.risk-conts { display: flex; gap: 2px; }
+.risk-conts i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--cc);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35);
+}
+
+/* ------------------------------ التنبيه والمفتاح ------------------------------ */
+
+.risk-notice {
+  padding: 9px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(217, 107, 95, 0.22);
+  background: rgba(217, 107, 95, 0.09);
+  font-size: 0.66rem;
+  line-height: 1.65;
+  color: #ffd8d2;
+}
+
+.risk-legend { display: flex; flex-direction: column; gap: 5px; }
+.risk-rule-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 4px; }
+.risk-rule-chip {
+  padding: 3px 7px;
+  border-radius: 7px;
+  border: 1px solid rgba(246, 242, 232, 0.1);
+  background: rgba(255, 255, 255, 0.035);
+  font-size: 0.5rem;
+  font-weight: 700;
+  color: var(--muted);
+}
+.risk-legend-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 0.62rem;
+  color: var(--muted);
+}
+.risk-legend-row i {
+  width: 9px;
+  height: 9px;
+  flex: 0 0 auto;
+  border-radius: 3px;
+  background: var(--cc);
+}
+.risk-legend-row span { flex: 1 1 auto; }
+.risk-legend-row b { color: var(--accent); font-size: 0.64rem; }
+.risk-legend p { margin: 6px 0 0; font-size: 0.56rem; line-height: 1.6; color: var(--dim); }
+
+/* ------------------------------ بطاقات القيادة ------------------------------ */
+
+.risk-side .secret-panel { border-radius: 17px; }
+.risk-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+  gap: 7px;
+}
+.risk-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 9px 5px;
+  border-radius: 11px;
+  border: 1px solid rgba(246, 242, 232, 0.11);
+  background: linear-gradient(168deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02));
+  text-align: center;
+}
+.risk-card span { font-size: 1.12rem; line-height: 1; }
+.risk-card strong { font-size: 0.58rem; color: var(--muted); }
+.risk-card small { font-size: 0.48rem; line-height: 1.35; color: var(--dim); }
+.risk-card.infantry { border-color: rgba(217, 107, 95, 0.36); background: rgba(217, 107, 95, 0.1); }
+.risk-card.cavalry { border-color: rgba(242, 180, 94, 0.36); background: rgba(242, 180, 94, 0.1); }
+.risk-card.artillery { border-color: rgba(88, 211, 168, 0.36); background: rgba(88, 211, 168, 0.1); }
+.risk-card.wild { border-color: rgba(186, 104, 200, 0.4); background: rgba(186, 104, 200, 0.12); }
+.risk-cards-empty { margin: 0; font-size: 0.62rem; line-height: 1.7; color: var(--dim); }
+.risk-cards-note { margin: 9px 0 0; font-size: 0.56rem; line-height: 1.6; color: var(--dim); }
+
+/* ------------------------------ الاستجابة ------------------------------ */
+
+@media (max-width: 1120px) {
+  .risk-layout { grid-template-columns: minmax(0, 1fr) 322px; }
+}
+
+@media (max-width: 980px) {
+  .risk-layout { grid-template-columns: minmax(0, 1fr); }
+  .risk-side { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
+  .risk-side .secret-panel,
+  .risk-notice { grid-column: 1 / -1; }
+}
+
+@media (max-width: 760px) {
+  .risk-side { grid-template-columns: minmax(0, 1fr); }
+  .risk-map-inner { min-width: calc(560px * var(--risk-zoom, 1)); }
+  .risk-board-wrap .board-head { margin: 8px 8px 0; flex-wrap: wrap; row-gap: 6px; }
+  .risk-map-sub { max-width: 52vw; }
+  .risk-map-scroll { padding: 4px 6px 8px; }
+  .risk-battle { grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); }
+  .risk-battle-side { padding: 6px; }
+  .risk-player { padding: 6px 8px; }
+}
+
+@media (max-width: 560px) {
+  .risk-map-inner { min-width: calc(500px * var(--risk-zoom, 1)); }
+  .risk-actions .bg-btn { height: 42px; font-size: 0.74rem; }
+  .risk-turn > strong { font-size: 1.08rem; }
+  .risk-number-row { grid-template-columns: auto minmax(0, 1fr) auto auto; gap: 5px; }
+  .risk-step { width: 32px; height: 32px; }
+  .risk-number-out { min-width: 36px; height: 32px; }
+}
+
+@media (max-width: 390px) {
+  .risk-map-sub { display: none; }
+  .risk-zoom span { min-width: 32px; }
+  .risk-zoom button { width: 27px; height: 27px; }
+  .risk-panel { padding: 11px 12px; }
+  .risk-battle { gap: 4px; }
+  .risk-battle-vs { display: none; }
+  .risk-cards-grid { grid-template-columns: repeat(auto-fill, minmax(62px, 1fr)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .risk-terr.target .risk-node,
+  .risk-terr.deployable .risk-node-halo,
+  .risk-terr.selected .risk-node-halo,
+  .risk-attack-path,
+  .risk-fortify-path.active { animation: none; }
+  .risk-terr, .risk-link, .risk-player, .risk-map-inner { transition: none; }
+}

@@ -1,0 +1,1110 @@
+/* ==========================================================================
+   اللعب الجماعي — لوبي الغرفة، لوحة الانتظار، وشريط الجلسة
+   ========================================================================== */
+
+body.net-locked {
+  overflow: hidden;
+}
+
+/* ------------------------------ الغطاء ------------------------------ */
+
+.net-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(12px, 3vw, 32px);
+  background:
+    radial-gradient(900px 560px at 18% 6%, rgba(76, 201, 164, 0.16), transparent 62%),
+    radial-gradient(780px 520px at 88% 94%, rgba(225, 180, 92, 0.12), transparent 64%),
+    rgba(4, 8, 12, 0.76);
+  backdrop-filter: blur(14px) saturate(120%);
+  -webkit-backdrop-filter: blur(14px) saturate(120%);
+}
+
+.net-overlay.show {
+  display: flex;
+  animation: netFade 0.22s ease both;
+}
+
+@keyframes netFade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.net-lobby {
+  position: relative;
+  width: min(1060px, 100%);
+  max-height: min(92dvh, 900px);
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: clamp(18px, 3vw, 34px);
+  border-radius: clamp(20px, 3vw, 30px);
+  border: 1px solid var(--stroke-2, rgba(255, 255, 255, 0.14));
+  background:
+    radial-gradient(540px 300px at 8% -8%, rgba(76, 201, 164, 0.13), transparent 70%),
+    linear-gradient(165deg, rgba(20, 38, 46, 0.98), rgba(9, 19, 26, 0.99));
+  box-shadow:
+    0 44px 90px -46px rgba(0, 0, 0, 0.95),
+    inset 0 1px 0 rgba(255, 255, 255, 0.07);
+  animation: netRise 0.28s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@keyframes netRise {
+  from { opacity: 0; transform: translateY(18px) scale(0.985); }
+  to { opacity: 1; transform: none; }
+}
+
+.net-close {
+  position: sticky;
+  top: 0;
+  float: left;
+  z-index: 2;
+  width: 38px;
+  height: 38px;
+  margin: -6px 0 0 -6px;
+  border-radius: 50%;
+  border: 1px solid var(--stroke, rgba(255, 255, 255, 0.12));
+  background: rgba(9, 18, 24, 0.82);
+  color: var(--muted);
+  font-size: 1rem;
+  cursor: pointer;
+  transition: color 0.16s ease, background 0.16s ease, transform 0.16s ease;
+}
+
+.net-close:hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.1);
+  transform: rotate(90deg);
+}
+
+/* ------------------------------ العناوين ------------------------------ */
+
+.net-lobby-head {
+  margin-bottom: 20px;
+  text-align: start;
+}
+
+.net-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(76, 201, 164, 0.32);
+  background: rgba(76, 201, 164, 0.1);
+  color: #8cebd1;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.net-lobby-head h2 {
+  margin: 12px 0 8px;
+  font-size: clamp(1.4rem, 2.6vw, 2rem);
+  line-height: 1.35;
+}
+
+.net-lobby-head p {
+  margin: 0;
+  max-width: 68ch;
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.85;
+}
+
+.net-room-head {
+  display: grid;
+  gap: 10px;
+}
+
+.net-code-box {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+  padding: 12px 16px;
+  border-radius: 16px;
+  border: 1px dashed rgba(225, 180, 92, 0.4);
+  background: linear-gradient(120deg, rgba(225, 180, 92, 0.12), rgba(76, 201, 164, 0.06));
+}
+
+.net-code-box > span {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.net-code-box strong {
+  font-family: "Segoe UI", Tahoma, sans-serif;
+  font-size: clamp(1.5rem, 4vw, 2.2rem);
+  letter-spacing: 0.32em;
+  color: var(--accent);
+  text-shadow: 0 0 22px rgba(225, 180, 92, 0.35);
+  direction: ltr;
+}
+
+/* ------------------------------ النموذج ------------------------------ */
+
+.net-split {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 14px;
+  margin-top: 16px;
+}
+
+.net-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 18px;
+  border-radius: 18px;
+  border: 1px solid var(--stroke, rgba(255, 255, 255, 0.12));
+  background: rgba(255, 255, 255, 0.035);
+  transition: border-color 0.18s ease, transform 0.18s ease, background 0.18s ease;
+}
+
+.net-card:hover {
+  border-color: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.055);
+  transform: translateY(-2px);
+}
+
+.net-card h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.net-card p {
+  margin: 0 0 4px;
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.75;
+}
+
+.net-field {
+  display: grid;
+  gap: 6px;
+  margin: 10px 0;
+}
+
+.net-field > span {
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.net-field input,
+.net-field select {
+  width: 100%;
+  min-height: 42px;
+  padding: 9px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--stroke-2, rgba(255, 255, 255, 0.16));
+  background: rgba(6, 13, 18, 0.72);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.9rem;
+}
+
+.net-field input:focus,
+.net-field select:focus {
+  outline: 2px solid rgba(76, 201, 164, 0.55);
+  outline-offset: 1px;
+  border-color: transparent;
+}
+
+.net-join-row {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.net-join-row input {
+  flex: 1;
+  min-width: 0;
+  min-height: 44px;
+  padding: 9px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--stroke-2, rgba(255, 255, 255, 0.16));
+  background: rgba(6, 13, 18, 0.72);
+  color: var(--accent);
+  font: inherit;
+  font-size: 1.15rem;
+  font-weight: 800;
+  letter-spacing: 0.22em;
+  text-align: center;
+  text-transform: uppercase;
+  direction: ltr;
+}
+
+.net-join-row input:focus {
+  outline: 2px solid rgba(76, 201, 164, 0.55);
+  outline-offset: 1px;
+}
+
+.net-status {
+  min-height: 1.4em;
+  margin-top: 12px;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.net-status.is-busy {
+  color: #8cebd1;
+}
+
+.net-hint,
+.net-note {
+  margin: 12px 0 0;
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(76, 201, 164, 0.18);
+  background: rgba(76, 201, 164, 0.06);
+  color: var(--muted);
+  font-size: 0.8rem;
+  line-height: 1.8;
+}
+
+.net-hint code {
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.4);
+  color: #8cebd1;
+  font-size: 0.78rem;
+  direction: ltr;
+  unicode-bidi: embed;
+}
+
+.net-empty,
+.net-disabled {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.net-disabled {
+  margin: 8px 0 0;
+  color: #f3c98a;
+}
+
+/* ------------------------------ اللاعبون ------------------------------ */
+
+.net-people {
+  margin: 16px 0;
+}
+
+.net-player-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 8px;
+}
+
+.net-player {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 4px 10px;
+  align-items: center;
+  padding: 9px 12px;
+  border-radius: 14px;
+  border: 1px solid var(--stroke, rgba(255, 255, 255, 0.1));
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.net-player.is-host {
+  border-color: rgba(225, 180, 92, 0.34);
+  background: rgba(225, 180, 92, 0.07);
+}
+
+.net-avatar {
+  grid-row: span 2;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.07);
+  font-size: 1rem;
+}
+
+.net-player-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.net-player-name small {
+  color: var(--accent-2);
+  font-weight: 600;
+}
+
+.net-player-meta {
+  color: var(--muted);
+  font-size: 0.7rem;
+}
+
+/* ------------------------------ إعدادات المضيف ------------------------------ */
+
+.net-host-controls {
+  margin-top: 8px;
+  padding: 16px;
+  border-radius: 18px;
+  border: 1px solid var(--stroke, rgba(255, 255, 255, 0.1));
+  background: rgba(0, 0, 0, 0.16);
+}
+
+.net-controls-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 4px 12px;
+}
+
+.net-seat-preview {
+  margin: 10px 0 14px;
+}
+
+.net-seat-preview > span {
+  display: block;
+  margin-bottom: 7px;
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.net-seat-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.net-seat-chip {
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--stroke, rgba(255, 255, 255, 0.12));
+  background: rgba(255, 255, 255, 0.04);
+  font-size: 0.72rem;
+}
+
+.net-seat-chip.cpu {
+  border-color: rgba(185, 140, 217, 0.36);
+  background: rgba(185, 140, 217, 0.1);
+}
+
+.net-seat-chip.human {
+  border-color: rgba(76, 201, 164, 0.32);
+  background: rgba(76, 201, 164, 0.08);
+}
+
+.net-start {
+  width: 100%;
+}
+
+/* ------------------------------ خيارات الغرفة ------------------------------ */
+
+.net-options {
+  margin: 0 0 14px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(225, 180, 92, 0.22);
+  background: linear-gradient(160deg, rgba(225, 180, 92, 0.08), rgba(255, 255, 255, 0.02));
+}
+
+.net-options-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 10px;
+  margin-bottom: 9px;
+}
+
+.net-options-head small {
+  color: var(--muted);
+  font-size: 0.68rem;
+  line-height: 1.6;
+}
+
+.net-options-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(148px, 1fr));
+  gap: 9px 12px;
+}
+
+.net-option {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+
+.net-option.is-toggle {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.14);
+}
+
+.net-option.is-toggle .net-option-hint {
+  flex: 1 1 100%;
+}
+
+.net-option.is-wide {
+  grid-column: 1 / -1;
+}
+
+.net-option-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #e7e1d3;
+}
+
+.net-option-hint {
+  color: var(--dim, rgba(244, 234, 212, 0.5));
+  font-size: 0.61rem;
+  line-height: 1.55;
+}
+
+.net-option select {
+  width: 100%;
+  padding: 7px 9px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: #0c1a20;
+  color: var(--fg, #f6f2e8);
+  font: inherit;
+  font-size: 0.74rem;
+}
+
+.net-option select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.net-seg {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.net-seg button {
+  flex: 1 1 auto;
+  min-width: 44px;
+  padding: 6px 9px;
+  border-radius: 9px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.7rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.14s ease, border-color 0.14s ease, color 0.14s ease;
+}
+
+.net-seg button:hover {
+  border-color: rgba(225, 180, 92, 0.44);
+}
+
+.net-seg button.is-active {
+  color: #ffe9bd;
+  border-color: rgba(225, 180, 92, 0.6);
+  background: rgba(225, 180, 92, 0.18);
+}
+
+.net-seg button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.net-option-summary {
+  margin: 9px 0 0;
+  padding: 7px 10px;
+  border-radius: 10px;
+  border: 1px dashed rgba(225, 180, 92, 0.3);
+  color: #ffe3a8;
+  font-size: 0.7rem;
+  line-height: 1.7;
+}
+
+.net-options-empty {
+  margin: 0;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.72rem;
+  line-height: 1.7;
+}
+
+.net-wait-options {
+  margin: -2px 0 2px;
+  color: #ffe3a8 !important;
+  font-size: 0.76rem !important;
+}
+
+.net-guest-wait .net-option-summary {
+  margin: 0;
+}
+
+.net-guest-wait {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  padding: 26px 18px;
+  border-radius: 18px;
+  border: 1px dashed var(--stroke-2, rgba(255, 255, 255, 0.16));
+  background: rgba(255, 255, 255, 0.025);
+  text-align: center;
+}
+
+.net-guest-wait h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.net-guest-wait p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.84rem;
+  line-height: 1.8;
+}
+
+.net-room-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--stroke, rgba(255, 255, 255, 0.1));
+  color: var(--muted);
+  font-size: 0.74rem;
+}
+
+/* ------------------------------ الانتظار ------------------------------ */
+
+.net-wait {
+  display: grid;
+  place-items: center;
+  padding: clamp(16px, 3vw, 30px);
+}
+
+.net-wait[hidden] {
+  display: none;
+}
+
+.net-wait-card {
+  width: min(680px, 100%);
+  padding: clamp(18px, 3vw, 30px);
+  border-radius: 24px;
+  border: 1px solid var(--stroke-2, rgba(255, 255, 255, 0.14));
+  background:
+    radial-gradient(420px 220px at 50% -20%, rgba(76, 201, 164, 0.14), transparent 70%),
+    linear-gradient(160deg, rgba(20, 38, 46, 0.96), rgba(9, 19, 26, 0.98));
+  box-shadow: 0 34px 70px -40px rgba(0, 0, 0, 0.9);
+  text-align: center;
+}
+
+.net-wait-kicker {
+  color: #8cebd1;
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+}
+
+.net-wait-card h2 {
+  margin: 10px 0 8px;
+  font-size: clamp(1.3rem, 2.8vw, 1.9rem);
+}
+
+.net-wait-text {
+  max-width: 52ch;
+  margin: 0 auto 14px;
+  color: var(--muted);
+  font-size: 0.86rem;
+  line-height: 1.85;
+}
+
+.net-spinner {
+  width: 30px;
+  height: 30px;
+  margin: 10px auto 16px;
+  border-radius: 50%;
+  border: 3px solid rgba(255, 255, 255, 0.1);
+  border-top-color: var(--accent-2);
+  animation: netSpin 0.9s linear infinite;
+}
+
+@keyframes netSpin {
+  to { transform: rotate(360deg); }
+}
+
+.net-wait-roster {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 7px;
+  margin: 0 0 18px;
+  padding: 0;
+  list-style: none;
+  text-align: start;
+}
+
+.net-wait-seat {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  border: 1px solid var(--stroke, rgba(255, 255, 255, 0.1));
+  background: rgba(255, 255, 255, 0.03);
+  font-size: 0.8rem;
+}
+
+.net-wait-seat .pdot {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+
+.net-wait-seat.active {
+  border-color: rgba(76, 201, 164, 0.5);
+  background: rgba(76, 201, 164, 0.1);
+  box-shadow: 0 0 0 1px rgba(76, 201, 164, 0.18) inset;
+}
+
+.net-wait-seat.mine {
+  border-color: rgba(225, 180, 92, 0.4);
+}
+
+.net-wait-seat.cpu .pdot {
+  background: rgba(185, 140, 217, 0.22);
+}
+
+.net-wait-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.net-wait-tag {
+  color: var(--muted);
+  font-size: 0.66rem;
+}
+
+.net-wait-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 0.74rem;
+}
+
+/* ------------------------------ المشاهدة الحيّة ------------------------------ */
+
+.net-wait.is-watch {
+  position: fixed;
+  inset-inline: 0;
+  top: clamp(8px, 1.8vh, 20px);
+  z-index: 95;
+  display: flex;
+  justify-content: center;
+  padding: 0 10px;
+  pointer-events: none;
+}
+
+.net-wait.is-watch[hidden] {
+  display: none;
+}
+
+.net-watch-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: min(720px, 100%);
+  padding: 7px 9px 7px 13px;
+  border-radius: 999px;
+  border: 1px solid rgba(76, 201, 164, 0.34);
+  background:
+    linear-gradient(120deg, rgba(76, 201, 164, 0.16), rgba(8, 18, 24, 0.92) 46%, rgba(225, 180, 92, 0.12));
+  box-shadow:
+    0 18px 38px -20px rgba(0, 0, 0, 0.9),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(12px) saturate(130%);
+  -webkit-backdrop-filter: blur(12px) saturate(130%);
+  pointer-events: none;
+  animation: netWatchIn 0.32s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@keyframes netWatchIn {
+  from { opacity: 0; transform: translateY(-10px) scale(0.97); }
+  to { opacity: 1; transform: none; }
+}
+
+.net-watch-eye {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 34% 28%, rgba(140, 235, 209, 0.36), rgba(76, 201, 164, 0.12));
+  font-size: 1rem;
+  animation: netWatchEye 3.4s ease-in-out infinite;
+}
+
+@keyframes netWatchEye {
+  0%, 100% { transform: scale(1) rotate(0deg); }
+  46% { transform: scale(1.08) rotate(-4deg); }
+  58% { transform: scale(0.96) rotate(3deg); }
+}
+
+.net-watch-copy {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+  text-align: start;
+}
+
+.net-watch-copy strong {
+  color: #8cebd1;
+  font-size: 0.7rem;
+  letter-spacing: 0.02em;
+}
+
+.net-watch-copy small {
+  overflow: hidden;
+  color: var(--text, #f6f2e8);
+  font-size: 0.72rem;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.net-watch-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(239, 128, 116, 0.34);
+  background: rgba(239, 128, 116, 0.1);
+  color: #ffb4ab;
+  font-size: 0.63rem;
+  font-weight: 800;
+}
+
+.net-watch-live i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #ff7b6b;
+  box-shadow: 0 0 8px rgba(255, 123, 107, 0.8);
+  animation: netPulse 1.5s ease-in-out infinite;
+}
+
+.net-watch-leave {
+  pointer-events: auto;
+  margin-inline-start: 2px;
+  padding: 5px 11px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.68rem;
+  cursor: pointer;
+  transition: background 0.16s ease, color 0.16s ease;
+}
+
+.net-watch-leave:hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.12);
+}
+
+/* اللوحة في وضع المشاهدة: مرئية بالكامل لكن غير قابلة للعب. */
+.game-mount[data-spectate="1"] {
+  cursor: default;
+  user-select: none;
+}
+
+.game-mount[data-spectate="1"] button,
+.game-mount[data-spectate="1"] [role="button"],
+.game-mount[data-spectate="1"] .bg-btn,
+.game-mount[data-spectate="1"] [data-act] {
+  cursor: default !important;
+}
+
+.game-mount[data-spectate="1"] .bg-btn,
+.game-mount[data-spectate="1"] .cg-panel button {
+  opacity: 0.78;
+}
+
+@media (max-width: 640px) {
+  .net-watch-card {
+    gap: 8px;
+    padding: 6px 8px 6px 10px;
+  }
+
+  .net-watch-live {
+    display: none;
+  }
+
+  .net-watch-copy small {
+    max-width: 44vw;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .net-watch-card,
+  .net-watch-eye {
+    animation: none;
+  }
+}
+
+/* ------------------------------ شريط الجلسة ------------------------------ */
+
+.net-hud {
+  position: fixed;
+  inset-inline-end: clamp(10px, 2vw, 24px);
+  bottom: clamp(10px, 2vw, 24px);
+  z-index: 90;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(76, 201, 164, 0.32);
+  background: rgba(7, 15, 20, 0.92);
+  box-shadow: 0 18px 40px -22px rgba(0, 0, 0, 0.9);
+  backdrop-filter: blur(10px);
+  font-size: 0.76rem;
+}
+
+.net-hud-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent-2);
+  box-shadow: 0 0 10px var(--accent-2);
+  animation: netPulse 1.8s ease-in-out infinite;
+}
+
+@keyframes netPulse {
+  50% { opacity: 0.45; transform: scale(0.8); }
+}
+
+.net-hud-code {
+  color: var(--accent);
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  direction: ltr;
+}
+
+.net-hud-sep {
+  color: var(--muted);
+}
+
+.net-hud-role {
+  color: var(--text);
+}
+
+.net-hud-leave {
+  margin-inline-start: 4px;
+  padding: 4px 9px;
+  border-radius: 999px;
+  border: 1px solid rgba(239, 128, 116, 0.3);
+  background: rgba(239, 128, 116, 0.1);
+  color: #ffb4ab;
+  font: inherit;
+  font-size: 0.7rem;
+  cursor: pointer;
+}
+
+.net-hud-leave:hover {
+  background: rgba(239, 128, 116, 0.2);
+}
+
+/* ------------------------------ الجوال ------------------------------ */
+
+@media (max-width: 640px) {
+  .net-overlay {
+    padding: 0;
+    align-items: stretch;
+  }
+
+  .net-lobby {
+    width: 100%;
+    max-height: 100dvh;
+    border-radius: 0;
+    padding: 16px 14px 24px;
+  }
+
+  .net-close {
+    position: fixed;
+    inset-inline-start: 14px;
+    top: 12px;
+  }
+
+  .net-room-head {
+    padding-inline-start: 44px;
+  }
+
+  .net-code-box {
+    justify-content: center;
+    text-align: center;
+  }
+
+  .net-room-foot {
+    flex-direction: column;
+    align-items: stretch;
+    text-align: center;
+  }
+
+  .net-wait {
+    padding: 10px;
+  }
+
+  .net-wait-card {
+    padding: 18px 14px;
+  }
+
+  .net-wait-roster {
+    grid-template-columns: 1fr;
+  }
+
+  .net-hud {
+    inset-inline: 10px;
+    bottom: 10px;
+    justify-content: center;
+  }
+}
+
+/* ------------------------------ اختيار وضع الاتصال ------------------------------ */
+
+.net-modes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+  margin: 16px 0 4px;
+}
+
+.net-mode-btn {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 2px 10px;
+  align-items: center;
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1px solid var(--stroke, rgba(255, 255, 255, 0.12));
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text);
+  text-align: start;
+  font: inherit;
+  cursor: pointer;
+  transition: border-color 0.18s ease, background 0.18s ease, transform 0.18s ease;
+}
+
+.net-mode-btn > span {
+  grid-row: span 2;
+  font-size: 1.3rem;
+}
+
+.net-mode-btn strong {
+  font-size: 0.9rem;
+}
+
+.net-mode-btn small {
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+.net-mode-btn:hover {
+  transform: translateY(-1px);
+  border-color: rgba(255, 255, 255, 0.22);
+}
+
+.net-mode-btn.is-on {
+  border-color: rgba(76, 201, 164, 0.55);
+  background: linear-gradient(135deg, rgba(76, 201, 164, 0.16), rgba(76, 201, 164, 0.04));
+  box-shadow: inset 0 0 0 1px rgba(76, 201, 164, 0.18);
+}
+
+.net-mode-btn:disabled {
+  opacity: 0.55;
+  cursor: progress;
+}
+
+.net-quick {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 14px;
+  padding: 16px 18px;
+  border-radius: 18px;
+  border: 1px dashed rgba(225, 180, 92, 0.4);
+  background: linear-gradient(120deg, rgba(225, 180, 92, 0.1), rgba(76, 201, 164, 0.06));
+}
+
+.net-quick-copy {
+  display: grid;
+  gap: 3px;
+}
+
+.net-quick-copy strong {
+  font-size: 0.95rem;
+}
+
+.net-quick-copy span {
+  max-width: 60ch;
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.7;
+}
+
+.net-quick-btn {
+  white-space: nowrap;
+}
+
+.net-code-box [data-net-invite] {
+  border-color: rgba(76, 201, 164, 0.4);
+  background: rgba(76, 201, 164, 0.12);
+}
+
+@media (max-width: 640px) {
+  .net-quick {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .net-quick-btn {
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .net-mode-btn {
+    transition: none;
+  }
+
+  .net-overlay.show,
+  .net-lobby,
+  .net-spinner,
+  .net-hud-dot {
+    animation: none;
+  }
+}
+
