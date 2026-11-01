@@ -1,0 +1,420 @@
+/* ==========================================================================
+   ألعاب الطاولة — طبقة المؤثرات والإعدادات
+   ========================================================================== */
+
+/* ------------------------------ عناصر عابرة ------------------------------ */
+
+.fx-float {
+  position: fixed;
+  z-index: 9000;
+  pointer-events: none;
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-size: 0.86rem;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  color: #0d1a16;
+  background: linear-gradient(145deg, #f6cf82, #e1a94a);
+  border: 1px solid rgba(255, 244, 214, 0.65);
+  box-shadow: 0 16px 30px -16px rgba(0, 0, 0, 0.9), 0 0 0 4px rgba(225, 180, 92, 0.12);
+  white-space: nowrap;
+  will-change: transform, opacity;
+}
+.fx-float.good {
+  color: #062018;
+  background: linear-gradient(145deg, #8ef0c6, #4cc9a4);
+  border-color: rgba(210, 255, 238, 0.7);
+  box-shadow: 0 16px 30px -16px rgba(0, 0, 0, 0.9), 0 0 0 4px rgba(76, 201, 164, 0.14);
+}
+.fx-float.warn {
+  color: #2a0d0b;
+  background: linear-gradient(145deg, #ffb0a6, #ef6f68);
+  border-color: rgba(255, 226, 220, 0.7);
+  box-shadow: 0 16px 30px -16px rgba(0, 0, 0, 0.9), 0 0 0 4px rgba(239, 111, 104, 0.14);
+}
+
+.fx-fly-card {
+  position: fixed;
+  z-index: 9000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  box-shadow: 0 18px 34px -16px rgba(0, 0, 0, 0.95);
+  font-size: 0.9rem;
+  font-weight: 800;
+  line-height: 1;
+  pointer-events: none;
+  will-change: transform, opacity;
+}
+
+.fx-confetti {
+  position: fixed;
+  inset: 0;
+  z-index: 9500;
+  pointer-events: none;
+  overflow: hidden;
+}
+.fx-confetti i {
+  position: absolute;
+  top: 0;
+  display: block;
+  border-radius: 2px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+  will-change: transform, opacity;
+}
+
+/* ------------------------------ لوحة الإعدادات ------------------------------ */
+
+.fx-dialog { max-width: 560px; }
+
+.fx-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  color: var(--text);
+}
+
+.fx-intro {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(225, 180, 92, 0.24);
+  background:
+    radial-gradient(120% 160% at 0% 0%, rgba(225, 180, 92, 0.14), transparent 58%),
+    linear-gradient(150deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.02));
+}
+.fx-intro-icon {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  color: var(--accent);
+  background: rgba(225, 180, 92, 0.12);
+  border: 1px solid rgba(225, 180, 92, 0.22);
+}
+.fx-intro-icon .ic { width: 21px; height: 21px; }
+.fx-intro strong { display: block; font-size: 0.92rem; margin-bottom: 2px; }
+.fx-intro p { margin: 0; font-size: 0.76rem; line-height: 1.65; color: var(--muted); }
+
+.fx-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 12px 14px;
+  border-radius: 13px;
+  border: 1px solid var(--stroke);
+  background: rgba(255, 255, 255, 0.035);
+  transition: border-color 0.18s ease, background 0.18s ease;
+}
+.fx-option:hover { border-color: var(--stroke-2); background: rgba(255, 255, 255, 0.05); }
+.fx-option-copy { display: flex; align-items: center; gap: 11px; min-width: 0; }
+.fx-option-icon {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  color: #cfe8e0;
+  background: rgba(76, 201, 164, 0.09);
+  border: 1px solid rgba(76, 201, 164, 0.16);
+}
+.fx-option-icon .ic { width: 17px; height: 17px; }
+.fx-option-copy strong { display: block; font-size: 0.82rem; }
+.fx-option-copy small { display: block; font-size: 0.68rem; line-height: 1.5; color: var(--dim); }
+.fx-option-copy output { color: var(--accent); font-weight: 800; }
+
+.fx-option-volume { flex-wrap: wrap; }
+.fx-option-volume .fx-option-copy { flex: 1 1 200px; }
+.fx-option-volume input[type="range"] {
+  flex: 1 1 180px;
+  min-width: 140px;
+  height: 5px;
+  margin: 8px 0;
+  accent-color: var(--accent);
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 99px;
+  appearance: none;
+  cursor: pointer;
+}
+.fx-option-volume input[type="range"]::-webkit-slider-thumb {
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  margin-top: -5.5px;
+  border-radius: 50%;
+  background: linear-gradient(145deg, #ffe3a8, var(--accent));
+  border: 1px solid rgba(28, 34, 30, 0.55);
+  box-shadow: 0 3px 9px rgba(0, 0, 0, 0.55);
+}
+.fx-option-volume input[type="range"]::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: linear-gradient(145deg, #ffe3a8, var(--accent));
+  border: 1px solid rgba(28, 34, 30, 0.55);
+}
+.fx-option-volume input[type="range"]:disabled { opacity: 0.35; cursor: not-allowed; }
+
+.fx-switch {
+  position: relative;
+  flex: 0 0 auto;
+  width: 46px;
+  height: 26px;
+  padding: 0;
+  border-radius: 99px;
+  border: 1px solid var(--stroke-2);
+  background: rgba(255, 255, 255, 0.06);
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+.fx-switch span {
+  position: absolute;
+  top: 50%;
+  right: 3px;
+  width: 19px;
+  height: 19px;
+  border-radius: 50%;
+  background: #aab8bc;
+  transform: translateY(-50%);
+  transition: right 0.2s cubic-bezier(.3,1.4,.5,1), background 0.2s ease;
+}
+.fx-switch.on {
+  background: linear-gradient(145deg, rgba(76, 201, 164, 0.5), rgba(76, 201, 164, 0.24));
+  border-color: rgba(76, 201, 164, 0.55);
+}
+.fx-switch.on span {
+  right: 24px;
+  background: linear-gradient(145deg, #d3fff0, var(--accent-2));
+  box-shadow: 0 0 12px rgba(76, 201, 164, 0.55);
+}
+.fx-switch:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 3px; }
+
+.fx-preview {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 9px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px dashed rgba(255, 255, 255, 0.13);
+  background: rgba(0, 0, 0, 0.12);
+}
+.fx-preview > span { font-size: 0.72rem; font-weight: 700; color: var(--muted); }
+.fx-preview > div { display: flex; gap: 6px; flex-wrap: wrap; }
+
+.fx-note {
+  margin: 0;
+  font-size: 0.68rem;
+  line-height: 1.65;
+  color: var(--dim);
+  padding: 0 2px;
+}
+
+/* ------------------------------ شريط الحدث ------------------------------ */
+
+.fx-banner {
+  position: fixed;
+  top: 46%;
+  left: 50%;
+  z-index: 9300;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 22px;
+  border-radius: 18px;
+  color: #f6f2e6;
+  font-size: clamp(0.95rem, 2.3vw, 1.2rem);
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  background:
+    radial-gradient(120% 180% at 10% 0%, rgba(225, 180, 92, 0.25), transparent 60%),
+    linear-gradient(145deg, rgba(22, 38, 42, 0.96), rgba(10, 20, 24, 0.96));
+  border: 1px solid rgba(225, 180, 92, 0.38);
+  box-shadow: 0 28px 60px -24px rgba(0, 0, 0, 0.95), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  pointer-events: none;
+  text-align: center;
+  max-width: min(88vw, 620px);
+}
+
+.fx-banner-icon {
+  font-size: 1.25em;
+  line-height: 1;
+}
+
+.fx-banner.win {
+  border-color: rgba(88, 211, 168, 0.55);
+  background:
+    radial-gradient(120% 180% at 10% 0%, rgba(88, 211, 168, 0.26), transparent 60%),
+    linear-gradient(145deg, rgba(16, 44, 38, 0.97), rgba(8, 22, 20, 0.97));
+}
+
+.fx-banner.lose {
+  border-color: rgba(239, 139, 127, 0.4);
+}
+
+.fx-result {
+  position: fixed;
+  inset: 0;
+  z-index: 9200;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  pointer-events: none;
+  background: radial-gradient(circle at 50% 42%, rgba(12, 30, 28, 0.42), transparent 62%);
+}
+
+.fx-result-card {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  padding: 28px 38px;
+  border-radius: 26px;
+  text-align: center;
+  color: #f6f2e6;
+  background:
+    radial-gradient(120% 180% at 50% 0%, rgba(225, 180, 92, 0.22), transparent 62%),
+    linear-gradient(160deg, rgba(22, 40, 42, 0.97), rgba(8, 18, 22, 0.97));
+  border: 1px solid rgba(225, 180, 92, 0.35);
+  box-shadow: 0 40px 90px -30px #000, inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.fx-result-icon {
+  font-size: clamp(2.4rem, 9vw, 4rem);
+  line-height: 1;
+  filter: drop-shadow(0 8px 18px rgba(0, 0, 0, 0.5));
+}
+
+.fx-result h3 {
+  margin: 4px 0 0;
+  font-size: clamp(1.1rem, 3.6vw, 1.6rem);
+}
+
+.fx-result p {
+  margin: 0;
+  max-width: 42ch;
+  font-size: 0.82rem;
+  line-height: 1.7;
+  color: #c3d2ce;
+}
+
+.fx-result.win { border-color: rgba(88, 211, 168, 0.45); }
+
+/* قيمة النرد الطائرة داخل ساحة اللعب */
+.fx-dice-value {
+  position: absolute;
+  z-index: 40;
+  inset-block-start: 34%;
+  inset-inline-start: 50%;
+  transform: translate(-50%, 0);
+  min-width: 44px;
+  padding: 6px 12px;
+  border-radius: 14px;
+  text-align: center;
+  font-size: 1.3rem;
+  font-weight: 900;
+  color: #2a1a06;
+  background: linear-gradient(150deg, #fff6dd, #e9c471);
+  border: 1px solid rgba(255, 244, 214, 0.8);
+  box-shadow: 0 16px 30px -16px #000;
+  pointer-events: none;
+}
+#gameStage { position: relative; }
+
+/* ------------------------------ مواد القطع والحركة ------------------------------ */
+
+[data-fx-piece] {
+  transform-origin: center;
+  backface-visibility: hidden;
+}
+
+/* القطعة أثناء الانتقال بين خانتين: ترتفع فوق الجيران بظل خفيف. */
+.fx-piece-moving {
+  z-index: 7;
+  pointer-events: none;
+  will-change: transform, filter;
+}
+
+/* لمعة زجاجية خفيفة على الأحجار المستديرة دون تغيير ألوانها. */
+.ck-piece[data-fx-piece]::before,
+.cluedo-pawn[data-fx-piece]::before {
+  content: "";
+  position: absolute;
+  inset: 12%;
+  border-radius: inherit;
+  pointer-events: none;
+  background: radial-gradient(circle at 32% 24%, rgba(255, 255, 255, 0.5), transparent 62%);
+  mix-blend-mode: screen;
+}
+
+.cluedo-pawn[data-fx-piece] { position: relative; }
+
+.pan-pawn[data-fx-piece] { position: relative; }
+.pan-pawn[data-fx-piece]::after {
+  content: "";
+  position: absolute;
+  inset: 1px;
+  border-radius: inherit;
+  background: radial-gradient(circle at 32% 24%, rgba(255, 255, 255, 0.8), transparent 60%);
+}
+
+.mtoken[data-fx-piece] {
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.45));
+}
+
+/* حجر طاولة الزهر: لمعة زجاجية تُبرز استدارة الحجر. */
+.tav-checker[data-fx-piece] { position: relative; }
+.tav-checker[data-fx-piece]::before {
+  content: "";
+  position: absolute;
+  inset: 16%;
+  border-radius: inherit;
+  pointer-events: none;
+  background: radial-gradient(circle at 34% 26%, rgba(255, 255, 255, 0.62), transparent 62%);
+  mix-blend-mode: screen;
+}
+.tav-checker.mini[data-fx-piece]::before { inset: 18%; }
+
+/* حجر أخير في كاركاسون يبرز قليلًا فوق بقية الشبكة. */
+.carc-tile.is-last[data-fx-piece] {
+  filter: drop-shadow(0 5px 7px rgba(0, 0, 0, 0.45));
+}
+
+/* توهّج الحفرة عند بذر الأحجار في المنقلة. */
+.mc-pit.is-sowing {
+  animation: mc-pit-sowing 0.36s cubic-bezier(0.2, 0.8, 0.3, 1);
+}
+@keyframes mc-pit-sowing {
+  0% { box-shadow: inset 0 0 0 2px rgba(255, 216, 140, 0); }
+  42% { box-shadow: inset 0 0 0 2px rgba(255, 216, 140, 0.55), 0 0 18px -4px rgba(255, 216, 140, 0.6); }
+  100% { box-shadow: inset 0 0 0 0 rgba(255, 216, 140, 0); }
+}
+
+/* ------------------------------ احترام تقليل الحركة ------------------------------ */
+
+@media (prefers-reduced-motion: reduce) {
+  .fx-float,
+  .fx-fly-card,
+  .fx-confetti,
+  .fx-dice-value,
+  .fx-banner,
+  .fx-result { display: none !important; }
+  .fx-switch span { transition: none; }
+  .mc-pit.is-sowing { animation: none; }
+}
+
+@media (max-width: 560px) {
+  .fx-option { gap: 9px; padding: 11px 11px; }
+  .fx-option-icon { width: 30px; height: 30px; }
+  .fx-preview { flex-direction: column; align-items: flex-start; }
+  .fx-intro { padding: 12px; }
+  .fx-intro p { font-size: 0.72rem; }
+}

@@ -1,0 +1,1700 @@
+/* ==========================================================================
+   ألعاب الطاولة — اللعب الجماعي
+   لوبي الغرف، تبادل الدور بين الأجهزة، وشاشات الانتظار
+   ========================================================================== */
+(function () {
+  "use strict";
+
+  const BG = (window.BG = window.BG || {});
+  const U = BG.util;
+  const esc = (value) => U.escape(value);
+
+  const state = {
+    inRoom: false,
+    inGame: false,
+    hostReady: false,
+    busy: false,
+    name: "",
+    lobbyGame: "",
+    seatCount: 0,
+    level: "normal",
+    config: null,
+    game: null,
+    seats: [],
+    localSeat: -1,
+    isHost: false,
+    api: null,
+    mount: null,
+    overlay: null,
+    waiting: null,
+    hud: null,
+    hostTimer: null,
+    guestTimer: null,
+    readyTimer: null,
+    pendingReady: new Set(),
+    lastSeat: -1,
+    lastHash: "",
+    lastGuestHash: "",
+    lastGuestSeat: -1,
+    lastGuestOver: false,
+    activeGuest: false,
+    spectating: false,
+    spectateSeat: -1,
+    spectateAt: 0,
+    spectateTimer: null,
+    pendingSpectate: null,
+    initialized: false,
+    overShown: false,
+    synced: Object.create(null),
+    askSeq: 0,
+    pendingAsks: new Map(),
+    pendingRefutes: new Map(),
+    pendingTrades: new Map(),
+    starting: false,
+    pendingInvite: "",
+    inviteTried: false,
+    optionsByGame: Object.create(null),
+  };
+
+  function netActive() {
+    return !!(BG.net && BG.net.role);
+  }
+
+  function gameDef(id) {
+    return BG.byId[id] || null;
+  }
+
+  function currentGameDef() {
+    return gameDef(state.lobbyGame) || BG.games[0] || null;
+  }
+
+  /* ------------------------------ خيارات اللعبة ------------------------------ */
+
+  function optionsFor(gameId) {
+    const game = gameDef(gameId);
+    const defaults = Object.assign({}, (game && game.options && game.options.defaults) || {});
+    const saved = state.optionsByGame[gameId];
+    return Object.assign(defaults, saved || {});
+  }
+
+  function rememberOptions(gameId, values) {
+    if (!gameId) return;
+    state.optionsByGame[gameId] = Object.assign(optionsFor(gameId), values || {});
+  }
+
+  function optionsSummary(game, values) {
+    if (!game || !game.options) return "";
+    const opts = values || optionsFor(game.id);
+    try {
+      return typeof game.options.summary === "function" ? String(game.options.summary(opts) || "") : "";
+    } catch (err) {
+      return "";
+    }
+  }
+
+  function normalizeChoices(list) {
+    return (list || []).map((item) => (item && typeof item === "object" ? item : { value: item, label: String(item) }));
+  }
+
+  function coerceChoice(field, raw) {
+    const list = normalizeChoices(field.choices);
+    for (let i = 0; i < list.length; i++) {
+      if (String(list[i].value) === String(raw)) {
+        const value = list[i].value;
+        return typeof value === "string" && /^-?\d+$/.test(value) ? Number(value) : value;
+      }
+    }
+    if (raw === "true") return true;
+    if (raw === "false") return false;
+    return raw;
+  }
+
+  function optionsPanelHTML(game) {
+    const spec = game && game.options;
+    if (!spec || !Array.isArray(spec.fields) || !spec.fields.length) {
+      return '<p class="net-note net-options-empty">هذه اللعبة تُلعب بقواعدها القياسية بلا خيارات إضافية.</p>';
+    }
+    const values = optionsFor(game.id);
+    const fields = spec.fields.filter((field) => typeof field.when !== "function" || field.when(values));
+    const rows = fields.map((field) => {
+      const key = field.key;
+      const label = '<span class="net-option-label">' + esc(field.label || key) + "</span>";
+      const hint = field.hint ? '<small class="net-option-hint">' + esc(field.hint) + "</small>" : "";
+      if (field.type === "toggle") {
+        const on = !!values[key];
+        return (
+          '<div class="net-option is-toggle">' + label +
+          '<button type="button" class="fx-switch' + (on ? " on" : "") + '" role="switch" aria-checked="' + (on ? "true" : "false") +
+          '" aria-label="' + esc(field.label || key) + '" data-net-option="' + esc(key) + '" data-net-toggle="1"><span></span></button>' +
+          hint + "</div>"
+        );
+      }
+      const choices = normalizeChoices(field.choices);
+      if (field.type === "seg") {
+        return (
+          '<div class="net-option is-wide">' + label +
+          '<div class="net-seg" role="group" aria-label="' + esc(field.label || key) + '">' +
+          choices.map((choice) => {
+            const active = String(values[key]) === String(choice.value);
+            return '<button type="button" class="' + (active ? "is-active" : "") + '" aria-pressed="' + (active ? "true" : "false") +
+              '" data-net-option="' + esc(key) + '" data-net-value="' + esc(String(choice.value)) + '">' + esc(choice.label) + "</button>";
+          }).join("") +
+          "</div>" + hint + "</div>"
+        );
+      }
+      return (
+        '<div class="net-option">' + label +
+        '<select data-net-option="' + esc(key) + '">' +
+        choices.map((choice) =>
+          '<option value="' + esc(String(choice.value)) + '"' + (String(values[key]) === String(choice.value) ? " selected" : "") + ">" + esc(choice.label) + "</option>"
+        ).join("") +
+        "</select>" + hint + "</div>"
+      );
+    });
+    const summary = optionsSummary(game, values);
+    return (
+      '<div class="net-options-head"><span class="net-kicker">خيارات اللعبة</span>' +
+      '<small>' + esc(spec.hint || "تُطبَّق على كل اللاعبين في هذه الغرفة.") + "</small></div>" +
+      '<div class="net-options-grid">' + rows.join("") + "</div>" +
+      (summary ? '<p class="net-option-summary">' + esc(summary) + "</p>" : "")
+    );
+  }
+
+  function bindOptionsPanel(box) {
+    if (!box) return;
+    const game = currentGameDef();
+    const spec = game && game.options;
+    if (!spec) return;
+
+    function apply(key, raw, toggle) {
+      const values = optionsFor(game.id);
+      const candidates = (spec.fields || []).filter((item) =>
+        item.key === key && (typeof item.when !== "function" || item.when(values))
+      );
+      const field = candidates.find((item) =>
+        normalizeChoices(item.choices).some((choice) => String(choice.value) === String(raw))
+      ) || candidates[0];
+      if (!field) return;
+      if (toggle || field.type === "toggle") values[key] = !values[key];
+      else values[key] = coerceChoice(field, raw);
+      if (typeof spec.onChange === "function") {
+        try { spec.onChange(values, key); } catch (err) { /* تجاهل */ }
+      }
+      rememberOptions(game.id, values);
+      box.innerHTML = optionsPanelHTML(game);
+      if (BG.fx) BG.fx.sound("select");
+      broadcastConfig();
+    }
+
+    box.addEventListener("click", (event) => {
+      const btn = event.target.closest ? event.target.closest("[data-net-option]") : null;
+      if (!btn) return;
+      const key = btn.getAttribute("data-net-option");
+      if (btn.hasAttribute("data-net-toggle")) apply(key, null, true);
+      else if (btn.hasAttribute("data-net-value")) apply(key, btn.getAttribute("data-net-value"), false);
+    });
+    box.addEventListener("change", (event) => {
+      const sel = event.target.closest ? event.target.closest("select[data-net-option]") : null;
+      if (!sel) return;
+      apply(sel.getAttribute("data-net-option"), sel.value, false);
+    });
+  }
+
+  function seatName(index) {
+    const seat = state.seats[index];
+    return seat ? seat.name : "لاعب";
+  }
+
+  function isCpuSeat(index) {
+    const seat = state.seats[index];
+    return !!(seat && seat.type === "cpu");
+  }
+
+  function localName() {
+    return seatName(state.localSeat);
+  }
+
+  function savedName() {
+    try {
+      return localStorage.getItem("bg.netName") || "";
+    } catch (err) {
+      return "";
+    }
+  }
+
+  function saveName() {
+    try { localStorage.setItem("bg.netName", state.name); } catch (err) { /* ignore */ }
+  }
+
+  /* ============================== اللوبي ============================== */
+
+  function ensureOverlay() {
+    if (state.overlay && document.body.contains(state.overlay)) return state.overlay;
+    const overlay = BG.el("div", { class: "net-overlay", role: "dialog", "aria-modal": "true", "aria-label": "اللعب الجماعي" });
+    overlay.innerHTML = '<div class="net-lobby"><button class="net-close" type="button" aria-label="إغلاق">✕</button><div class="net-lobby-body"></div></div>';
+    document.body.appendChild(overlay);
+    overlay.querySelector(".net-close").addEventListener("click", () => {
+      hideOverlay();
+      if (state.inGame) return;
+      shutdown();
+    });
+    overlay.addEventListener("click", (event) => {
+      if (event.target !== overlay) return;
+      hideOverlay();
+      if (!state.inGame) shutdown();
+    });
+    state.overlay = overlay;
+    return overlay;
+  }
+
+  function showOverlay() {
+    const overlay = ensureOverlay();
+    overlay.classList.add("show");
+    document.body.classList.add("net-locked");
+    renderLobby();
+  }
+
+  function hideOverlay() {
+    if (state.overlay) state.overlay.classList.remove("show");
+    document.body.classList.remove("net-locked");
+  }
+
+  function openLobby() {
+    state.name = state.name || savedName() || "اللاعب";
+    if (state.inGame) {
+      BG.toast("أنت داخل لعبة جماعية بالفعل. استخدم «خروج» لإنهاء الجلسة.", "warn");
+      return;
+    }
+    if (state.inRoom) {
+      showOverlay();
+      return;
+    }
+    showOverlay();
+  }
+
+  function lobbyHumanPeers() {
+    const peers = (BG.net && BG.net.peers) || [];
+    return peers.slice().sort((a, b) => (b.host ? 1 : 0) - (a.host ? 1 : 0));
+  }
+
+  function clampSeatCount(game, value) {
+    if (!game) return 0;
+    const humans = Math.min(lobbyHumanPeers().length, game.maxPlayers);
+    const min = Math.max(game.minPlayers || 2, humans, 2);
+    const max = game.maxPlayers || 4;
+    return Math.min(max, Math.max(min, Number(value) || min));
+  }
+
+  function buildSeats(gameId, count, level) {
+    const game = gameDef(gameId);
+    if (!game) return [];
+    const humans = lobbyHumanPeers().slice(0, game.maxPlayers);
+    const total = clampSeatCount(game, count);
+    const seats = humans.map((peer, index) => ({
+      name: peer.name || "لاعب " + (index + 1),
+      type: "human",
+      level,
+      isCpu: false,
+      peerId: peer.id,
+    }));
+    while (seats.length < total) {
+      seats.push({
+        name: "الكمبيوتر " + (seats.length + 1),
+        type: "cpu",
+        level,
+        isCpu: true,
+        peerId: null,
+      });
+    }
+    return seats;
+  }
+
+  function startDisabledReason() {
+    if (!state.inRoom) return "لست داخل غرفة.";
+    const game = currentGameDef();
+    if (!game) return "اختر لعبة.";
+    const humans = lobbyHumanPeers();
+    if (humans.length < 1) return "لا يوجد لاعبون.";
+    if (BG.net.peers.length > 1 && !BG.net.ready()) return "انتظر اكتمال اتصال اللاعبين…";
+    return "";
+  }
+
+  function renderLobby() {
+    if (!state.overlay) return;
+    const body = state.overlay.querySelector(".net-lobby-body");
+    if (!body) return;
+    if (!state.inRoom) {
+      body.innerHTML = lobbyFormHTML();
+      bindLobbyForm(body);
+      return;
+    }
+    body.innerHTML = lobbyRoomHTML();
+    bindLobbyRoom(body);
+  }
+
+  function lobbyFormHTML() {
+    const cloud = BG.net.mode === "cloud";
+    const modeTabs =
+      '<div class="net-modes" role="tablist" aria-label="نوع الاتصال">' +
+      '<button type="button" class="net-mode-btn' + (cloud ? " is-on" : "") + '" data-net-mode="cloud" role="tab" aria-selected="' + cloud + '">' +
+      '<span aria-hidden="true">🌍</span><strong>لعب عالمي</strong><small>مع أي لاعب في العالم عبر الإنترنت</small></button>' +
+      '<button type="button" class="net-mode-btn' + (!cloud ? " is-on" : "") + '" data-net-mode="lan" role="tab" aria-selected="' + !cloud + '">' +
+      '<span aria-hidden="true">📶</span><strong>شبكة محلية</strong><small>على نفس شبكة Wi-Fi بلا إنترنت</small></button>' +
+      "</div>";
+
+    const status = '<div class="net-status" data-net-status role="status" aria-live="polite"></div>';
+    const nameField =
+      '<label class="net-field"><span>اسمك على الطاولة</span><input data-net-name type="text" maxlength="18" value="' + esc(state.name) + '" placeholder="اسم اللاعب" /></label>';
+
+    if (!cloud) {
+      return (
+        '<div class="net-lobby-head">' +
+        '<span class="net-kicker">📶 لعب عبر الشبكة المحلية</span>' +
+        "<h2>اجلس إلى الطاولة مع من حولك</h2>" +
+        "<p>أنشئ غرفة على هذا الجهاز، أو انضم برمز من أربعة أحرف. الاتصال مباشر بين الأجهزة (WebRTC) عبر خادم الإشارات المحلي، بلا حسابات وبلا إنترنت.</p>" +
+        "</div>" +
+        modeTabs +
+        nameField +
+        '<div class="net-split">' +
+        '<section class="net-card net-card-host">' +
+        '<h3>إنشاء غرفة</h3><p>ستكون المضيف وصاحب الطاولة، وتختار اللعبة والمقاعد.</p>' +
+        '<button type="button" class="bg-btn primary big" data-net-create>إنشاء غرفة جديدة</button>' +
+        "</section>" +
+        '<section class="net-card net-card-join">' +
+        '<h3>الانضمام برمز</h3><p>اطلب الرمز من المضيف ثم أدخله هنا.</p>' +
+        '<div class="net-join-row"><input data-net-code type="text" maxlength="8" inputmode="latin" placeholder="ABCD" aria-label="رمز الغرفة" value="' + esc(state.pendingInvite || "") + '" /><button type="button" class="bg-btn primary" data-net-join>انضم</button></div>' +
+        "</section>" +
+        "</div>" +
+        status +
+        '<p class="net-hint">💡 للعب على أجهزة مختلفة: شغّل <code>node server.js</code> وافتح عنوان الشبكة الظاهر في الطرفية على كل جهاز.</p>'
+      );
+    }
+
+    return (
+      '<div class="net-lobby-head">' +
+      '<span class="net-kicker">🌍 لعب عالمي عبر الإنترنت</span>' +
+      "<h2>اجلس إلى الطاولة مع أي لاعب في العالم</h2>" +
+      "<p>أنشئ غرفة وشارك رابط الدعوة، أو انضم برمز من أربعة أحرف، أو استخدم المطابقة السريعة للعثور على خصم خلال ثوانٍ. الاتصال مشفّر نقطة بنقطة عبر WebRTC، بلا حسابات.</p>" +
+      "</div>" +
+      modeTabs +
+      nameField +
+      '<div class="net-split">' +
+      '<section class="net-card net-card-host">' +
+      '<h3>إنشاء غرفة خاصة</h3><p>ستكون المضيف وصاحب الطاولة، وتختار اللعبة والمقاعد وترسل الرابط لمن تريد.</p>' +
+      '<button type="button" class="bg-btn primary big" data-net-create>إنشاء غرفة جديدة</button>' +
+      "</section>" +
+      '<section class="net-card net-card-join">' +
+      '<h3>الانضمام برمز أو دعوة</h3><p>الصق الرمز من المضيف، أو افتح رابط الدعوة مباشرة.</p>' +
+      '<div class="net-join-row"><input data-net-code type="text" maxlength="8" inputmode="latin" placeholder="ABCD" aria-label="رمز الغرفة" value="' + esc(state.pendingInvite || "") + '" /><button type="button" class="bg-btn primary" data-net-join>انضم</button></div>' +
+      "</section>" +
+      "</div>" +
+      '<section class="net-quick">' +
+      '<div class="net-quick-copy"><strong>⚡ مطابقة سريعة</strong><span>ابحث عن غرفة مفتوحة الآن، أو افتح واحدة ليجدك لاعب آخر تلقائيًا.</span></div>' +
+      '<button type="button" class="bg-btn big net-quick-btn" data-net-quick>ابحث عن خصم</button>' +
+      "</section>" +
+      status +
+      '<p class="net-hint">🔒 تُنشأ الغرف عبر خدمة إشارات عالمية، ثم تنتقل بيانات اللعب مباشرة بين الأجهزة. لا تُخزَّن حالة اللعبة على أي خادم.</p>'
+    );
+  }
+
+  function bindLobbyForm(body) {
+    const nameInput = body.querySelector("[data-net-name]");
+    const codeInput = body.querySelector("[data-net-code]");
+    const status = body.querySelector("[data-net-status]");
+    const create = body.querySelector("[data-net-create]");
+    const join = body.querySelector("[data-net-join]");
+    const quick = body.querySelector("[data-net-quick]");
+    const modeButtons = Array.from(body.querySelectorAll("[data-net-mode]"));
+
+    nameInput.addEventListener("input", () => {
+      state.name = nameInput.value.trim() || "اللاعب";
+      saveName();
+    });
+    if (codeInput) {
+      codeInput.addEventListener("input", () => {
+        codeInput.value = codeInput.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 8);
+      });
+    }
+
+    function busy(flag, text) {
+      create.disabled = flag;
+      join.disabled = flag;
+      if (quick) quick.disabled = flag;
+      modeButtons.forEach((button) => { button.disabled = flag; });
+      if (status) {
+        status.className = "net-status" + (flag ? " is-busy" : "");
+        status.textContent = text || "";
+      }
+    }
+
+    modeButtons.forEach((button) => {
+      button.addEventListener("click", () => {
+        if (state.busy) return;
+        const next = button.getAttribute("data-net-mode");
+        if (!next || next === BG.net.mode) return;
+        BG.net.setMode(next);
+        renderLobby();
+      });
+    });
+
+    create.addEventListener("click", async () => {
+      if (state.busy) return;
+      state.busy = true;
+      busy(true, BG.net.mode === "cloud" ? "جارٍ فتح غرفة على الشبكة العالمية…" : "جارٍ إنشاء الغرفة والاتصال…");
+      try {
+        const msg = await BG.net.createRoom(state.name);
+        state.inRoom = true;
+        state.lobbyGame = state.lobbyGame || (BG.games[0] && BG.games[0].id) || "";
+        state.seatCount = clampSeatCount(currentGameDef(), state.seatCount);
+        renderLobby();
+        BG.net.ensureHostConnections();
+        if (msg && msg.peers) renderLobby();
+      } catch (err) {
+        busy(false, "");
+        BG.toast(err.message || "تعذّر إنشاء الغرفة.", "warn");
+      } finally {
+        state.busy = false;
+        busy(false, "");
+      }
+    });
+
+    join.addEventListener("click", async () => {
+      if (state.busy) return;
+      const code = (codeInput.value || "").trim().toUpperCase();
+      if (code.length < 4) {
+        BG.toast("أدخل رمز الغرفة المكوّن من أربعة أحرف.", "warn");
+        codeInput.focus();
+        return;
+      }
+      state.busy = true;
+      busy(true, "جارٍ الانضمام إلى الغرفة…");
+      try {
+        await BG.net.joinRoom(code, state.name);
+        state.inRoom = true;
+        state.pendingInvite = "";
+        renderLobby();
+      } catch (err) {
+        busy(false, "");
+        BG.toast(err.message || "تعذّر الانضمام.", "warn");
+      } finally {
+        state.busy = false;
+        busy(false, "");
+      }
+    });
+
+    if (quick) {
+      quick.addEventListener("click", async () => {
+        if (state.busy || BG.net.mode !== "cloud") return;
+        state.busy = true;
+        busy(true, "جارٍ البحث عن غرفة مفتوحة…");
+        try {
+          const msg = await BG.net.quickMatch(state.name);
+          state.inRoom = true;
+          state.lobbyGame = state.lobbyGame || (BG.games[0] && BG.games[0].id) || "";
+          state.seatCount = clampSeatCount(currentGameDef(), state.seatCount);
+          renderLobby();
+          if (msg && msg.host) BG.toast("لم نجد غرفة مفتوحة، ففتحنا لك واحدة. شارك الرابط لينضم إليك صديق.", "good");
+          else BG.toast("وُجدت غرفة! أنت الآن مع المضيف.", "good");
+        } catch (err) {
+          busy(false, "");
+          BG.toast(err.message || "تعذّرت المطابقة السريعة.", "warn");
+        } finally {
+          state.busy = false;
+          busy(false, "");
+        }
+      });
+    }
+
+    if (codeInput) {
+      codeInput.addEventListener("keydown", (event) => {
+        if (event.key === "Enter") join.click();
+      });
+    }
+
+    if (state.pendingInvite && !state.inviteTried) {
+      state.inviteTried = true;
+      if (status) {
+        status.className = "net-status is-busy";
+        status.textContent = "دعوة من صديق: جارٍ الانضمام إلى الغرفة " + state.pendingInvite + "…";
+      }
+      setTimeout(() => { if (!state.inRoom) join.click(); }, 450);
+    }
+  }
+
+  function lobbyRoomHTML() {
+    const code = (BG.net && BG.net.roomCode) || "----";
+    const host = !!(BG.net && BG.net.isHost);
+    const cloud = BG.net.mode === "cloud";
+    const game = currentGameDef();
+    const peers = lobbyHumanPeers();
+    const seats = host ? buildSeats(state.lobbyGame, state.seatCount, state.level) : (state.config && state.config.seats) || [];
+    const humans = Math.min(peers.length, game ? game.maxPlayers : peers.length);
+    const spectators = Math.max(0, peers.length - humans);
+    const disabledReason = startDisabledReason();
+    const gamesOptions = BG.games.map((item) => '<option value="' + item.id + '"' + (item.id === state.lobbyGame ? " selected" : "") + ">" + esc(item.name) + "</option>").join("");
+    const countOptions = game
+      ? (() => {
+          const list = [];
+          const min = Math.max(game.minPlayers || 2, humans, 2);
+          const max = game.maxPlayers || 4;
+          const current = clampSeatCount(game, state.seatCount || min);
+          for (let n = min; n <= max; n++) list.push('<option value="' + n + '"' + (n === current ? " selected" : "") + ">" + n + " لاعبين</option>");
+          return list.join("");
+        })()
+      : "";
+    const openPeers = new Set((BG.net && BG.net.connectedPeers && BG.net.connectedPeers()) || []);
+
+    return (
+      '<div class="net-lobby-head net-room-head">' +
+      '<span class="net-kicker">' + (cloud ? "🌍 غرفة عالمية" : "📶 غرفة محلية") + "</span>" +
+      '<div class="net-code-box"><span>رمز الغرفة</span><strong data-net-code-label>' + esc(code) + "</strong>" +
+      '<button type="button" class="bg-btn small" data-net-copy>نسخ الرمز</button>' +
+      '<button type="button" class="bg-btn small primary" data-net-invite>نسخ رابط الدعوة</button></div>' +
+      "<p>" + (cloud
+        ? "شارك رابط الدعوة مع أي شخص في العالم، أو أعطه الرمز لينضم من صفحة «لعب جماعي». اللاعبون المتصلون يظهرون أدناه."
+        : "شارك الرمز مع أصدقائك على الشبكة نفسها. اللاعبون المتصلون يظهرون أدناه.") + "</p>" +
+      "</div>" +
+      '<div class="net-people">' +
+      playersListHTML(peers, openPeers, seats) +
+      "</div>" +
+      (spectators ? '<p class="net-note">👀 ' + spectators + " لاعبًا إضافيًا سيشاهدون الجولة دون مقعد. حد اللعبة " + (game ? game.maxPlayers : "—") + " لاعبين.</p>" : "") +
+      (host
+        ? '<div class="net-host-controls">' +
+          '<div class="net-controls-grid">' +
+          '<label class="net-field"><span>اللعبة</span><select data-net-game>' + gamesOptions + "</select></label>" +
+          '<label class="net-field"><span>عدد المقاعد</span><select data-net-count>' + (countOptions || "<option>2</option>") + "</select></label>" +
+          '<label class="net-field"><span>مستوى الكمبيوتر</span><select data-net-level>' +
+          ["easy", "normal", "hard"].map((id) => {
+            const spec = BG.ai.LEVELS[id];
+            return '<option value="' + id + '"' + (id === state.level ? " selected" : "") + ">" + spec.icon + " " + spec.name + "</option>";
+          }).join("") +
+          "</select></label>" +
+          "</div>" +
+          '<div class="net-seat-preview"><span>توزيع المقاعد</span><div class="net-seat-chips">' +
+          seats.map((seat, index) => '<span class="net-seat-chip ' + (seat.type === "cpu" ? "cpu" : "human") + '">' + (index + 1) + " · " + esc(seat.name) + (seat.type === "cpu" ? " 🤖" : " 👤") + "</span>").join("") +
+          "</div></div>" +
+          '<div class="net-options" data-net-options>' + optionsPanelHTML(game) + "</div>" +
+          '<button type="button" class="bg-btn primary big net-start" data-net-start' + (disabledReason ? " disabled" : "") + ">🚀 ابدأ اللعبة</button>" +
+          (disabledReason ? '<p class="net-disabled">' + esc(disabledReason) + "</p>" : "") +
+          "</div>"
+        : '<div class="net-guest-wait">' +
+          '<div class="net-spinner" aria-hidden="true"></div>' +
+          "<h3>أنت داخل الغرفة</h3>" +
+          '<p data-net-guest-state>' + (state.config && state.config.gameId ? "اختار المضيف: <strong>" + esc((gameDef(state.config.gameId) || {}).name || "") + "</strong>. انتظر بدء اللعبة…" : "انتظر أن يختار المضيف اللعبة ويبدأ.") + "</p>" +
+          (state.config && state.config.options ? '<p class="net-option-summary" data-net-guest-options>' + esc(optionsSummary(gameDef(state.config.gameId), state.config.options)) + "</p>" : "") +
+          "</div>") +
+      '<div class="net-room-foot"><button type="button" class="bg-btn ghost" data-net-leave>مغادرة الغرفة</button><span>' +
+      (cloud ? "إشارات عالمية + اتصال مشفّر نقطة بنقطة عبر WebRTC" : "الاتصال مشفّر نقطة بنقطة عبر WebRTC") + "</span></div>"
+    );
+  }
+
+  function playersListHTML(peers, openPeers, seats) {
+    if (!peers.length) return '<p class="net-empty">لا يوجد لاعبون بعد.</p>';
+    return (
+      '<div class="net-player-list">' +
+      peers.map((peer) => {
+        const seatIndex = (seats || []).findIndex((seat) => seat.peerId === peer.id);
+        const open = openPeers.has(peer.id) || peer.host;
+        return (
+          '<div class="net-player' + (peer.host ? " is-host" : "") + '">' +
+          '<span class="net-avatar" aria-hidden="true">' + (peer.host ? "👑" : "👤") + "</span>" +
+          '<span class="net-player-name">' + esc(peer.name) + (peer.id === (BG.net && BG.net.selfId) ? " <small>(أنت)</small>" : "") + "</span>" +
+          '<span class="net-player-meta">' + (seatIndex >= 0 ? "مقعد " + (seatIndex + 1) : "مشاهد") + " · " + (open ? "متصل" : "جارٍ الاتصال") + "</span>" +
+          "</div>"
+        );
+      }).join("") +
+      "</div>"
+    );
+  }
+
+  function broadcastConfig() {
+    if (!BG.net || !BG.net.isHost) return;
+    const game = currentGameDef();
+    if (!game) return;
+    const seats = buildSeats(state.lobbyGame, state.seatCount, state.level);
+    const options = optionsFor(state.lobbyGame);
+    state.config = { gameId: state.lobbyGame, seatCount: state.seatCount, level: state.level, seats, options };
+    BG.net.broadcast({
+      t: "config",
+      gameId: state.lobbyGame,
+      seatCount: state.seatCount,
+      level: state.level,
+      seats,
+      options,
+    });
+  }
+
+  function bindLobbyRoom(body) {
+    const copy = body.querySelector("[data-net-copy]");
+    const invite = body.querySelector("[data-net-invite]");
+    const leave = body.querySelector("[data-net-leave]");
+    const start = body.querySelector("[data-net-start]");
+    const gameSel = body.querySelector("[data-net-game]");
+    const countSel = body.querySelector("[data-net-count]");
+    const levelSel = body.querySelector("[data-net-level]");
+
+    if (copy) {
+      copy.addEventListener("click", async () => {
+        const code = (BG.net && BG.net.roomCode) || "";
+        try {
+          await navigator.clipboard.writeText(code);
+          BG.toast("نُسخ رمز الغرفة.", "good");
+        } catch (err) {
+          window.prompt("رمز الغرفة:", code);
+        }
+      });
+    }
+
+    if (invite) {
+      invite.addEventListener("click", async () => {
+        const link = BG.net.inviteLink();
+        try {
+          await navigator.clipboard.writeText(link);
+          BG.toast("نُسخ رابط الدعوة. أرسله لمن تريد.", "good");
+        } catch (err) {
+          window.prompt("رابط الدعوة:", link);
+        }
+      });
+    }
+
+    if (leave) {
+      leave.addEventListener("click", () => {
+        hideOverlay();
+        shutdown();
+        if (BG.app) BG.app.goLibrary();
+      });
+    }
+
+    if (gameSel) {
+      gameSel.addEventListener("change", () => {
+        state.lobbyGame = gameSel.value;
+        const game = currentGameDef();
+        state.seatCount = clampSeatCount(game, state.seatCount);
+        renderLobby();
+        broadcastConfig();
+      });
+    }
+    if (countSel) {
+      countSel.addEventListener("change", () => {
+        state.seatCount = Number(countSel.value) || state.seatCount;
+        renderLobby();
+        broadcastConfig();
+      });
+    }
+    if (levelSel) {
+      levelSel.addEventListener("change", () => {
+        state.level = levelSel.value;
+        renderLobby();
+        broadcastConfig();
+      });
+    }
+    if (start) {
+      start.addEventListener("click", () => {
+        const reason = startDisabledReason();
+        if (reason) { BG.toast(reason, "warn"); return; }
+        startAsHost();
+      });
+    }
+
+    bindOptionsPanel(body.querySelector("[data-net-options]"));
+  }
+
+  /* ============================== بدء اللعب ============================== */
+
+  function startAsHost() {
+    if (!BG.net.isHost || state.starting) return;
+    const game = currentGameDef();
+    if (!game) { BG.toast("اختر لعبة.", "warn"); return; }
+    const seats = buildSeats(state.lobbyGame, state.seatCount, state.level);
+    if (seats.length < (game.minPlayers || 2)) {
+      BG.toast("عدد المقاعد أقل من الحد الأدنى لهذه اللعبة.", "warn");
+      return;
+    }
+    state.starting = true;
+    const options = optionsFor(state.lobbyGame);
+    state.config = { gameId: state.lobbyGame, seatCount: state.seatCount, level: state.level, seats, options };
+    const payload = {
+      gameId: state.lobbyGame,
+      seats,
+      level: state.level,
+      options,
+      roomCode: BG.net.roomCode,
+    };
+    state.pendingReady = new Set(
+      seats.filter((seat) => seat.type === "human" && seat.peerId && seat.peerId !== BG.net.selfId).map((seat) => seat.peerId)
+    );
+    BG.net.broadcast({ t: "start", payload });
+    hideOverlay();
+    if (BG.app) BG.app.startNetworkGame(payload);
+    const waitingText = state.pendingReady.size
+      ? "جارٍ تجهيز الأجهزة… (" + state.pendingReady.size + ")"
+      : "جارٍ تجهيز الطاولة…";
+    showWaiting(true, null, waitingText);
+    clearTimeout(state.readyTimer);
+    state.readyTimer = setTimeout(beginHostNow, state.pendingReady.size ? 2000 : 140);
+  }
+
+  function beginHostNow() {
+    clearTimeout(state.readyTimer);
+    state.readyTimer = null;
+    if (!state.inGame || !state.isHost || state.hostReady) return;
+    state.starting = false;
+    if (BG.app) BG.app.netBeginHost();
+  }
+
+  function hostStarted() {
+    state.hostReady = true;
+    state.starting = false;
+    if (state.hostTimer) clearInterval(state.hostTimer);
+    state.hostTimer = setInterval(hostTick, 220);
+    hostTick();
+    updateHud();
+  }
+
+  function guestStarted(payload) {
+    if (state.inGame) return;
+    state.starting = false;
+    if (BG.app) BG.app.startNetworkGame(payload);
+    if (BG.net) BG.net.send({ t: "ready" });
+    showWaiting(true, null, "المضيف يجهّز الطاولة…");
+  }
+
+  function onReady(from) {
+    if (!state.isHost) return;
+    state.pendingReady.delete(from);
+    if (!state.pendingReady.size) beginHostNow();
+    if (state.hostReady && state.lastSeat >= 0) {
+      const seat = state.seats[state.lastSeat];
+      if (seat && seat.peerId === from) {
+        const snap = BG.app && BG.app.netSnapshot();
+        if (snap) sendSync(state.lastSeat, snap, true);
+      }
+    }
+  }
+
+  /* ============================== تبادل الدور ============================== */
+
+  function sendSync(seatIndex, snapshot, force) {
+    const seat = state.seats[seatIndex];
+    if (!seat || !seat.peerId || seat.type !== "human") return false;
+    if (!force && state.synced[seat.peerId]) return true;
+    const ok = BG.net.sendTo(seat.peerId, { t: "sync", state: snapshot, activeSeat: seatIndex });
+    if (ok) state.synced[seat.peerId] = true;
+    return ok;
+  }
+
+  /** كل الأجهزة البشرية التي يجب أن تشاهد اللوحة دون أن تلعب الآن. */
+  function spectateTargets(activeSeat) {
+    const self = (BG.net && BG.net.selfId) || "";
+    const open = new Set((BG.net && BG.net.connectedPeers && BG.net.connectedPeers()) || []);
+    const targets = [];
+    ((BG.net && BG.net.peers) || []).forEach((peer) => {
+      if (!peer || !peer.id || peer.id === self || peer.host) return;
+      if (open.size && !open.has(peer.id)) return;
+      const seatIndex = state.seats.findIndex((seat) => seat && seat.peerId === peer.id);
+      if (seatIndex >= 0 && seatIndex === activeSeat) return;
+      targets.push(peer.id);
+    });
+    return targets;
+  }
+
+  function flushSpectate() {
+    state.spectateTimer = null;
+    const pending = state.pendingSpectate;
+    if (!pending || !state.inGame || !state.isHost) return;
+    state.pendingSpectate = null;
+    const targets = spectateTargets(pending.activeSeat);
+    if (!targets.length) return;
+    state.spectateAt = Date.now();
+    const payload = { t: "spectate", state: pending.snapshot, activeSeat: pending.activeSeat, over: !!pending.over };
+    targets.forEach((peerId) => BG.net.sendTo(peerId, payload));
+  }
+
+  /**
+   * دفع اللوحة الحيّة إلى اللاعبين المنتظرين. نُخفّف التردد إلى ~4 مرات/ثانية
+   * ونحتفظ بآخر نسخة فقط كي لا تتكدّس الرسائل أثناء حركات الكمبيوتر.
+   */
+  function pushSpectate(snapshot, activeSeat, over) {
+    if (!state.isHost || !snapshot) return;
+    state.pendingSpectate = { snapshot, activeSeat, over };
+    if (state.spectateTimer) return;
+    const wait = Math.max(0, 240 - (Date.now() - (state.spectateAt || 0)));
+    if (!wait) flushSpectate();
+    else state.spectateTimer = setTimeout(flushSpectate, wait);
+  }
+
+  function broadcastTurn(activeSeat, over) {
+    BG.net.broadcast({
+      t: "turn",
+      activeSeat,
+      over: !!over,
+      activeName: seatName(activeSeat),
+      seats: state.seats.map((seat) => ({ name: seat.name, type: seat.type, peerId: seat.peerId || null })),
+    });
+  }
+
+  function hostTick() {
+    if (!state.inGame || !state.isHost || !state.hostReady) return;
+    const snap = BG.app && BG.app.netSnapshot();
+    if (!snap) return;
+    const seat = BG.app.netSeat();
+    const over = BG.app.netOver();
+    const hash = JSON.stringify(snap);
+    const changed = hash !== state.lastHash || seat !== state.lastSeat;
+    if (!changed) return;
+    state.lastHash = hash;
+    const seatChanged = seat !== state.lastSeat;
+    state.lastSeat = seat;
+    if (seatChanged || !state.initialized) {
+      state.initialized = true;
+      broadcastTurn(seat, over);
+    }
+    if (seat === state.localSeat && state.localSeat >= 0) {
+      showWaiting(false);
+      if (BG.app) BG.app.setMountVisible(true);
+      if (seatChanged) BG.app.netResume();
+    } else {
+      // المضيف يرى لوحته دائمًا، واللاعبون الآخرون يشاهدون النسخة الحيّة نفسها.
+      if (BG.app) BG.app.setMountVisible(true);
+      showWatchChip(seat, over);
+      if (seatChanged && seat >= 0 && !isCpuSeat(seat)) sendSync(seat, snap, true);
+    }
+    pushSpectate(snap, seat, over);
+    updateHud();
+  }
+
+  function startGuestTick() {
+    if (state.guestTimer) clearInterval(state.guestTimer);
+    state.guestTimer = setInterval(guestTick, 140);
+    guestTick();
+  }
+
+  function guestTick() {
+    if (!state.inGame || state.isHost || !state.activeGuest) return;
+    const snap = BG.app && BG.app.netSnapshot();
+    if (!snap) return;
+    const seat = BG.app.netSeat();
+    const over = BG.app.netOver();
+    const hash = JSON.stringify(snap);
+    if (hash !== state.lastGuestHash || seat !== state.lastGuestSeat || over !== state.lastGuestOver) {
+      state.lastGuestHash = hash;
+      state.lastGuestSeat = seat;
+      state.lastGuestOver = over;
+      BG.net.send({ t: "state", state: snap, activeSeat: seat, over: !!over });
+    }
+    if (!over && seat !== state.localSeat) {
+      enterSpectate(seat);
+    }
+    if (over && state.guestTimer) {
+      clearInterval(state.guestTimer);
+      state.guestTimer = null;
+    }
+  }
+
+  /** الانتقال من اللعب إلى المشاهدة دون تدمير اللوحة. */
+  function enterSpectate(seat) {
+    if (state.spectating) {
+      state.spectateSeat = Number.isInteger(seat) ? seat : state.spectateSeat;
+      showWatchChip(seat);
+      updateHud();
+      return;
+    }
+    state.spectating = true;
+    state.spectateSeat = Number.isInteger(seat) ? seat : -1;
+    if (state.activeGuest) {
+      state.activeGuest = false;
+      if (BG.app) BG.app.netSetSpectate(true);
+    }
+    showWatchChip(seat);
+    updateHud();
+  }
+
+  function deactivateGuest(seat) {
+    if (!state.activeGuest && state.spectating) {
+      enterSpectate(seat);
+      return;
+    }
+    if (!state.activeGuest) return;
+    state.activeGuest = false;
+    if (state.guestTimer) clearInterval(state.guestTimer);
+    state.guestTimer = null;
+    if (BG.app) BG.app.netSetSpectate(true);
+    enterSpectate(seat);
+  }
+
+  function onSpectate(data) {
+    if (!state.inGame || state.isHost || !data || !data.state) return;
+    if (state.activeGuest) return;
+    if (data.activeSeat === state.localSeat && state.localSeat >= 0) return;
+    const ok = BG.app && BG.app.netSpectate(data.state);
+    if (!ok) return;
+    state.spectating = true;
+    state.spectateSeat = Number.isInteger(data.activeSeat) ? data.activeSeat : -1;
+    state.lastSeat = state.spectateSeat;
+    showWatchChip(state.spectateSeat, data.over);
+    updateHud();
+  }
+
+  function onSync(data) {
+    if (!state.inGame || state.isHost) return;
+    if (!data || !data.state) return;
+    if (data.activeSeat !== state.localSeat) return;
+    const ok = BG.app && BG.app.netActivate(data.state);
+    if (!ok) {
+      BG.net.send({ t: "sync-failed" });
+      return;
+    }
+    state.activeGuest = true;
+    state.spectating = false;
+    state.spectateSeat = -1;
+    state.lastGuestHash = "";
+    state.lastGuestSeat = data.activeSeat;
+    state.lastGuestOver = false;
+    showWaiting(false);
+    startGuestTick();
+    updateHud();
+  }
+
+  function onTurn(data) {
+    if (!state.inGame || !data) return;
+    if (state.isHost) return;
+    if (data.over) {
+      showWaiting(false);
+      return;
+    }
+    if (data.activeSeat !== state.localSeat) {
+      if (state.activeGuest || state.spectating) deactivateGuest(data.activeSeat);
+      else showWaiting(true, data.activeSeat);
+      updateHud();
+    }
+  }
+
+  /* ============================== النوافذ/الانتظار ============================== */
+
+  function ensureWaiting() {
+    const stage = document.getElementById("gameStage");
+    if (!stage) return null;
+    if (state.waiting && stage.contains(state.waiting)) return state.waiting;
+    const panel = BG.el("div", { class: "net-wait" });
+    stage.appendChild(panel);
+    state.waiting = panel;
+    return panel;
+  }
+
+  function showWaiting(visible, activeSeat, customText) {
+    const panel = ensureWaiting();
+    if (!panel) return;
+    panel.classList.remove("is-watch");
+    panel.hidden = !visible;
+    if (!visible) {
+      if (BG.app) BG.app.setMountVisible(true);
+      return;
+    }
+    if (BG.app && (state.spectating || state.hostReady)) BG.app.setMountVisible(true);
+    const game = state.game;
+    const host = state.isHost;
+    const seat = Number.isInteger(activeSeat) ? activeSeat : state.lastSeat;
+    let title = "بانتظار الدور";
+    let text = customText || "سيُفتح جهازك تلقائيًا عند دورك، ولا تُرسل إليك معلومات اللاعبين السرّية.";
+    if (state.localSeat < 0) {
+      title = "أنت مشاهد";
+      text = "تابع سجل الأحداث. دور اللعب ينتقل بين اللاعبين أصحاب المقاعد.";
+    } else if (seat === state.localSeat) {
+      title = "دورك الآن";
+      text = "يُفتح مقعدك تلقائيًا…";
+    } else if (isCpuSeat(seat)) {
+      title = "دور الكمبيوتر";
+      text = seatName(seat) + " يفكّر… سيتابع السجل الحركة تلقائيًا.";
+    } else if (seat >= 0) {
+      title = "دور " + seatName(seat);
+      text = "الجهاز الآخر يلعب الآن. لا تُرسل إليك أوراقه السرّية.";
+    }
+
+    const roster = state.seats.length
+      ? state.seats.map((item, index) => {
+          const classes = ["net-wait-seat"];
+          if (index === seat) classes.push("active");
+          if (index === state.localSeat) classes.push("mine");
+          if (item.type === "cpu") classes.push("cpu");
+          const tag = index === state.localSeat ? "أنت" : item.type === "cpu" ? "كمبيوتر" : "لاعب";
+          return '<li class="' + classes.join(" ") + '"><span class="pdot">' + (index + 1) + '</span><span class="net-wait-name">' + esc(item.name) + '</span><span class="net-wait-tag">' + tag + "</span></li>";
+        }).join("")
+      : '<li class="net-wait-seat">لا مقاعد بعد</li>';
+
+    const optionText = game
+      ? optionsSummary(game, (state.config && state.config.options) || null)
+      : "";
+
+    panel.innerHTML =
+      '<div class="net-wait-card">' +
+      '<span class="net-wait-kicker">' + (host ? "👑 المضيف" : "🌐 لاعب") + " · غرفة " + esc((BG.net && BG.net.roomCode) || "—") + (game ? " · " + esc(game.name) : "") + "</span>" +
+      "<h2>" + esc(title) + "</h2>" +
+      '<p class="net-wait-text">' + esc(text) + "</p>" +
+      (optionText ? '<p class="net-wait-options">' + esc(optionText) + "</p>" : "") +
+      '<div class="net-spinner" aria-hidden="true"></div>' +
+      '<ul class="net-wait-roster">' + roster + "</ul>" +
+      '<div class="net-wait-foot"><span>🔒 معلومات هذا الجهاز تبقى خارج أوقات دوره</span><button type="button" class="bg-btn ghost small" data-net-leave-game>مغادرة</button></div>' +
+      "</div>";
+    const leave = panel.querySelector("[data-net-leave-game]");
+    if (leave) leave.addEventListener("click", () => {
+      shutdown();
+      if (BG.app) BG.app.goLibrary();
+    });
+  }
+
+  /** شريط صغير فوق اللوحة أثناء مشاهدة دور لاعب آخر (بدل حجب اللعبة بالكامل). */
+  function showWatchChip(activeSeat, over) {
+    if (!state.inGame) return;
+    const panel = ensureWaiting();
+    if (!panel) return;
+    const seat = Number.isInteger(activeSeat) ? activeSeat : state.spectateSeat;
+    const selfSeated = state.localSeat >= 0;
+    const name = seat >= 0 ? seatName(seat) : "";
+    let line;
+    if (over) line = "انتهت الجولة — راجع النتيجة";
+    else if (!selfSeated) line = "أنت مشاهد · تابع اللعب مباشرة";
+    else if (seat < 0) line = "بانتظار بدء الدور";
+    else if (isCpuSeat(seat)) line = name + " (كمبيوتر) يفكّر…";
+    else line = "دور " + name + " · اللوحة تتحدّث مباشرة";
+
+    panel.hidden = false;
+    panel.classList.add("is-watch");
+    panel.innerHTML =
+      '<div class="net-watch-card">' +
+      '<span class="net-watch-eye" aria-hidden="true">👁</span>' +
+      '<div class="net-watch-copy"><strong>تشاهد الآن</strong><small>' + esc(line) + "</small></div>" +
+      '<span class="net-watch-live"><i></i>مباشر</span>' +
+      '<button type="button" class="net-watch-leave" data-net-leave-game aria-label="مغادرة الغرفة">خروج</button>' +
+      "</div>";
+    const leave = panel.querySelector("[data-net-leave-game]");
+    if (leave) leave.addEventListener("click", () => {
+      shutdown();
+      if (BG.app) BG.app.goLibrary();
+    });
+    if (!state.isHost) {
+      if (BG.app) BG.app.setMountVisible(true);
+    } else if (BG.app && state.hostReady) {
+      BG.app.setMountVisible(true);
+    }
+  }
+
+  function updateWaiting() {
+    if (!state.waiting || state.waiting.hidden) return;
+    showWaiting(true, state.lastSeat);
+  }
+
+  function buildHud() {
+    removeHud();
+    const view = document.getElementById("gameView");
+    if (!view) return;
+    const hud = BG.el("div", { class: "net-hud" });
+    hud.innerHTML =
+      '<span class="net-hud-dot" aria-hidden="true"></span>' +
+      '<span class="net-hud-code">' + esc((BG.net && BG.net.roomCode) || "----") + "</span>" +
+      '<span class="net-hud-sep">·</span>' +
+      '<span class="net-hud-role"></span>' +
+      '<button type="button" class="net-hud-leave" aria-label="مغادرة الغرفة">خروج</button>';
+    hud.querySelector(".net-hud-leave").addEventListener("click", () => {
+      shutdown();
+      if (BG.app) BG.app.goLibrary();
+    });
+    view.appendChild(hud);
+    state.hud = hud;
+    updateHud();
+  }
+
+  function updateHud() {
+    if (!state.hud) return;
+    const role = state.hud.querySelector(".net-hud-role");
+    if (!role) return;
+    const me = state.localSeat >= 0 ? seatName(state.localSeat) : "مشاهد";
+    const icon = BG.net && BG.net.mode === "cloud" ? "🌍" : "📶";
+    const mode = state.spectating ? "👁 مشاهد" : (state.isHost ? "المضيف" : "لاعب");
+    role.textContent = icon + " " + mode + " · " + me;
+  }
+
+  function removeHud() {
+    if (state.hud && state.hud.parentNode) state.hud.parentNode.removeChild(state.hud);
+    state.hud = null;
+  }
+
+  /* ============================== الرسائل ============================== */
+
+  function onNetMessage(event) {
+    const from = event && event.from;
+    const data = event && event.data;
+    if (!data || !data.t) return;
+    if (state.isHost) onHostMessage(from, data);
+    else onGuestMessage(from, data);
+  }
+
+  function onHostMessage(from, data) {
+    if (data.t === "log") {
+      BG.app.appendLog(data.message, data.kind);
+      BG.net.broadcast({ t: "log", message: data.message, kind: data.kind }, from);
+      return;
+    }
+    if (data.t === "ready") {
+      onReady(from);
+      return;
+    }
+    if (data.t === "state") {
+      if (!state.inGame) return;
+      const senderSeat = state.seats.findIndex((seat) => seat && seat.peerId === from);
+      if (senderSeat < 0 || !state.seats[senderSeat] || state.seats[senderSeat].type !== "human") return;
+      const seatIndex = Number.isInteger(data.activeSeat) ? data.activeSeat : state.lastSeat;
+      const seatDef = state.seats[seatIndex];
+      if (!seatDef) return;
+      const ok = BG.app.netReceiveState(data);
+      if (ok) {
+        state.lastHash = "";
+        hostTick();
+      }
+      return;
+    }
+    if (data.t === "over") {
+      if (!state.overShown) {
+        state.overShown = true;
+        BG.net.broadcast({ t: "over", payload: data.payload || {} }, from);
+        BG.app.showGameOver(data.payload || {}, true);
+      }
+      return;
+    }
+    if (data.t === "ask-refute") {
+      hostAskRefute(data.seat, data.combo, data.suggester).then((card) => {
+        BG.net.sendTo(from, { t: "refute-result", id: data.id, card: card || null });
+      });
+      return;
+    }
+    if (data.t === "refute-response") {
+      const pending = state.pendingRefutes.get(data.id);
+      if (!pending) return;
+      state.pendingRefutes.delete(data.id);
+      clearTimeout(pending.timer);
+      pending.resolve(data.card || null);
+      return;
+    }
+    if (data.t === "ask-trade") {
+      hostConfirmTrade(data.seat, data.text).then((ok) => {
+        BG.net.sendTo(from, { t: "trade-result", id: data.id, ok: !!ok });
+      });
+      return;
+    }
+    if (data.t === "trade-response") {
+      const pending = state.pendingTrades.get(data.id);
+      if (!pending) return;
+      state.pendingTrades.delete(data.id);
+      clearTimeout(pending.timer);
+      pending.resolve(!!data.ok);
+      return;
+    }
+    if (data.t === "sync-failed") {
+      state.synced[from] = false;
+      return;
+    }
+  }
+
+  function onGuestMessage(from, data) {
+    if (data.t === "config") {
+      state.config = data;
+      if (data.gameId) state.lobbyGame = data.gameId;
+      if (data.seatCount) state.seatCount = data.seatCount;
+      if (data.level) state.level = data.level;
+      if (data.gameId && data.options) state.optionsByGame[data.gameId] = Object.assign({}, data.options);
+      if (state.inRoom && !state.inGame) renderLobby();
+      return;
+    }
+    if (data.t === "start") {
+      guestStarted(data.payload);
+      return;
+    }
+    if (data.t === "log") {
+      BG.app.appendLog(data.message, data.kind);
+      return;
+    }
+    if (data.t === "turn") {
+      onTurn(data);
+      return;
+    }
+    if (data.t === "sync") {
+      onSync(data);
+      return;
+    }
+    if (data.t === "spectate") {
+      onSpectate(data);
+      return;
+    }
+    if (data.t === "over") {
+      if (!state.overShown) {
+        state.overShown = true;
+        BG.app.showGameOver(data.payload || {}, true);
+      }
+      return;
+    }
+    if (data.t === "refute-request") {
+      promptRefute(data.cards || [], data.suggester || "").then((card) => {
+        BG.net.send({ t: "refute-response", id: data.id, card: card || null });
+      });
+      return;
+    }
+    if (data.t === "refute-result") {
+      const pending = state.pendingAsks.get(data.id);
+      if (!pending) return;
+      state.pendingAsks.delete(data.id);
+      clearTimeout(pending.timer);
+      pending.resolve(data.card || null);
+      return;
+    }
+    if (data.t === "trade-request") {
+      BG.confirm("عرض تبادل جديد", data.text || "", "أوافق", "أرفض").then((ok) => {
+        BG.net.send({ t: "trade-response", id: data.id, ok: !!ok });
+      });
+      return;
+    }
+    if (data.t === "trade-result") {
+      const pending = state.pendingTrades.get(data.id);
+      if (!pending) return;
+      state.pendingTrades.delete(data.id);
+      clearTimeout(pending.timer);
+      pending.resolve(!!data.ok);
+      return;
+    }
+    if (data.t === "abort") {
+      abortGame(data.reason || "توقفت الجلسة.", false);
+      return;
+    }
+    if (data.t === "lobby") {
+      returnToLobbyLocal();
+    }
+  }
+
+  /* ============================== الدحض عبر الأجهزة ============================== */
+
+  function cardInfo(id) {
+    const instance = BG.app && BG.app.instance;
+    if (instance && typeof instance.netCardInfo === "function") {
+      try {
+        const info = instance.netCardInfo(id);
+        if (info) return Object.assign({ id }, info);
+      } catch (err) { /* ignore */ }
+    }
+    return { id, name: id, icon: "🃏", cat: "", color: "#58d3a8" };
+  }
+
+  function promptRefute(cards, suggesterName) {
+    return new Promise((resolve) => {
+      if (!cards || !cards.length) { resolve(null); return; }
+      const wrap = BG.el("div", { class: "cluedo-refute net-refute" });
+      wrap.innerHTML =
+        "<p>طلب دحض من <strong>" + esc(suggesterName) + "</strong>. لا تعرض هذه الشاشة لغيرك.</p>" +
+        '<div class="cluedo-locked"><button type="button" class="bg-btn primary">👁 إظهار بطاقاتي المطابقة</button></div>';
+      const dlg = BG.openDialog({
+        title: "دحض سرّي عبر الشبكة",
+        body: wrap,
+        actions: [{ label: "لا أملك بطاقة مطابقة", value: "skip" }],
+        className: "cluedo-refute-dialog",
+      });
+      wrap.querySelector(".cluedo-locked button").addEventListener("click", () => {
+        wrap.innerHTML =
+          "<p>لديك " + cards.length + " بطاقة مطابقة. اختر <strong>واحدة</strong> لتعرضها على " + esc(suggesterName) + ":</p>" +
+          '<div class="cluedo-refute-grid">' +
+          cards.map((card) =>
+            '<button type="button" class="cluedo-card-chip" data-card="' + esc(card.id) + '" style="--cc:' + esc(card.color || "#58d3a8") + '">' +
+            '<span aria-hidden="true">' + esc(card.icon || "🃏") + "</span>" +
+            '<strong>' + esc(card.name) + "</strong>" +
+            (card.cat ? "<small>" + esc(card.cat) + "</small>" : "") +
+            "</button>"
+          ).join("") +
+          "</div>" +
+          '<p class="cluedo-hint">البطاقة الأخرى تبقى سرّية. لا تُظهر أكثر من بطاقة واحدة.</p>';
+        wrap.querySelectorAll("[data-card]").forEach((chip) => {
+          chip.addEventListener("click", () => dlg.close(chip.getAttribute("data-card")));
+        });
+        if (BG.fx) BG.fx.sound("reveal");
+      });
+      dlg.promise.then((value) => resolve(value && value !== "skip" ? value : null));
+    });
+  }
+
+  function requestRemoteRefute(peerId, cards, suggesterName) {
+    return new Promise((resolve) => {
+      const id = "r" + (++state.askSeq);
+      const timer = setTimeout(() => {
+        state.pendingRefutes.delete(id);
+        resolve(null);
+      }, 90000);
+      state.pendingRefutes.set(id, { resolve, timer });
+      const ok = BG.net.sendTo(peerId, { t: "refute-request", id, cards, suggester: suggesterName });
+      if (!ok) {
+        clearTimeout(timer);
+        state.pendingRefutes.delete(id);
+        resolve(null);
+      }
+    });
+  }
+
+  function hostAskRefute(seat, combo, suggesterName) {
+    const instance = BG.app && BG.app.instance;
+    if (!instance || typeof instance.netRefuteMatches !== "function") return Promise.resolve(null);
+    let ids = [];
+    try { ids = instance.netRefuteMatches(seat, combo) || []; } catch (err) { ids = []; }
+    if (!ids.length) return Promise.resolve(null);
+    const cards = ids.map(cardInfo);
+    if (seat === state.localSeat) return promptRefute(cards, suggesterName);
+    const target = state.seats[seat];
+    if (!target || !target.peerId) return Promise.resolve(cards[0].id);
+    return requestRemoteRefute(target.peerId, cards, suggesterName);
+  }
+
+  function askRefutation(seat, combo, suggesterName) {
+    if (!state.inGame) return Promise.resolve(null);
+    if (state.isHost) return hostAskRefute(seat, combo, suggesterName);
+    return new Promise((resolve) => {
+      const id = "a" + (++state.askSeq);
+      const timer = setTimeout(() => {
+        state.pendingAsks.delete(id);
+        resolve(null);
+      }, 90000);
+      state.pendingAsks.set(id, { resolve, timer });
+      const ok = BG.net.send({ t: "ask-refute", id, seat, combo, suggester: suggesterName });
+      if (!ok) {
+        clearTimeout(timer);
+        state.pendingAsks.delete(id);
+        resolve(null);
+      }
+    });
+  }
+
+  /* ============================== التبادل عبر الأجهزة ============================== */
+
+  function requestRemoteTrade(peerId, text) {
+    return new Promise((resolve) => {
+      const id = "t" + (++state.askSeq);
+      const timer = setTimeout(() => {
+        state.pendingTrades.delete(id);
+        resolve(false);
+      }, 120000);
+      state.pendingTrades.set(id, { resolve, timer });
+      const ok = BG.net.sendTo(peerId, { t: "trade-request", id, text });
+      if (!ok) {
+        clearTimeout(timer);
+        state.pendingTrades.delete(id);
+        resolve(false);
+      }
+    });
+  }
+
+  function hostConfirmTrade(seat, text) {
+    if (seat === state.localSeat) {
+      return BG.confirm("عرض تبادل جديد", text || "", "أوافق", "أرفض");
+    }
+    const target = state.seats[seat];
+    if (!target || !target.peerId) return Promise.resolve(false);
+    return requestRemoteTrade(target.peerId, text);
+  }
+
+  function confirmTrade(seat, text) {
+    if (!state.inGame) return Promise.resolve(false);
+    if (state.isHost) return hostConfirmTrade(seat, text);
+    return new Promise((resolve) => {
+      const id = "q" + (++state.askSeq);
+      const timer = setTimeout(() => {
+        state.pendingTrades.delete(id);
+        resolve(false);
+      }, 120000);
+      state.pendingTrades.set(id, { resolve, timer });
+      const ok = BG.net.send({ t: "ask-trade", id, seat, text });
+      if (!ok) {
+        clearTimeout(timer);
+        state.pendingTrades.delete(id);
+        resolve(false);
+      }
+    });
+  }
+
+  /* ============================== السجل والنهاية ============================== */
+
+  function relayLog(message, kind) {
+    if (!state.inGame) return;
+    if (state.isHost) BG.net.broadcast({ t: "log", message, kind });
+    else BG.net.send({ t: "log", message, kind });
+  }
+
+  function gameOver(payload) {
+    if (!state.inGame || state.overShown) return;
+    state.overShown = true;
+    if (state.isHost) {
+      BG.net.broadcast({ t: "over", payload });
+      BG.app.showGameOver(payload, true);
+    } else {
+      BG.net.send({ t: "over", payload });
+      BG.app.showGameOver(payload, true);
+    }
+  }
+
+  /* ============================== إدارة الجلسة ============================== */
+
+  function begin(detail) {
+    state.inGame = true;
+    state.hostReady = false;
+    state.starting = false;
+    state.game = detail.game;
+    state.seats = detail.seats || [];
+    state.localSeat = Number.isInteger(detail.localSeat) ? detail.localSeat : -1;
+    state.isHost = !!detail.isHost;
+    state.api = detail.api || null;
+    state.mount = detail.mount || null;
+    state.config = Object.assign({}, state.config || {}, {
+      gameId: detail.game ? detail.game.id : state.lobbyGame,
+      seats: state.seats,
+      options: detail.options || (state.config && state.config.options) || null,
+    });
+    state.overShown = false;
+    state.lastSeat = -1;
+    state.lastHash = "";
+    state.lastGuestHash = "";
+    state.lastGuestSeat = -1;
+    state.lastGuestOver = false;
+    state.activeGuest = false;
+    state.spectating = false;
+    state.spectateSeat = -1;
+    state.spectateAt = 0;
+    state.pendingSpectate = null;
+    clearTimeout(state.spectateTimer);
+    state.spectateTimer = null;
+    state.initialized = false;
+    state.synced = Object.create(null);
+    state.pendingAsks.clear();
+    state.pendingRefutes.clear();
+    state.pendingTrades.clear();
+    hideOverlay();
+    buildHud();
+    ensureWaiting();
+    showWaiting(true, null, state.isHost ? "جارٍ تجهيز الطاولة…" : "المضيف يجهّز الطاولة…");
+    if (BG.app) BG.app.setMountVisible(false);
+  }
+
+  function hostStartedHook(instance) {
+    hostStarted();
+    // إن كان الدور الأول لضيف، تُرسل الحالة فورًا بعد بدء المضيف.
+    if (instance) setTimeout(hostTick, 80);
+  }
+
+  function returnToLobbyLocal() {
+    clearInterval(state.hostTimer);
+    clearInterval(state.guestTimer);
+    state.hostTimer = null;
+    state.guestTimer = null;
+    clearTimeout(state.readyTimer);
+    state.readyTimer = null;
+    clearTimeout(state.spectateTimer);
+    state.spectateTimer = null;
+    state.pendingSpectate = null;
+    state.inGame = false;
+    state.hostReady = false;
+    state.starting = false;
+    state.activeGuest = false;
+    state.spectating = false;
+    state.spectateSeat = -1;
+    state.game = null;
+    state.seats = [];
+    state.localSeat = -1;
+    state.api = null;
+    state.mount = null;
+    state.lastSeat = -1;
+    state.lastHash = "";
+    state.overShown = false;
+    state.pendingAsks.clear();
+    state.pendingRefutes.clear();
+    state.pendingTrades.clear();
+    removeHud();
+    if (state.waiting && state.waiting.parentNode) state.waiting.parentNode.removeChild(state.waiting);
+    state.waiting = null;
+    if (BG.app) BG.app.goLibrary();
+    showOverlay();
+  }
+
+  function returnToLobby() {
+    if (!state.inGame) {
+      showOverlay();
+      return;
+    }
+    if (state.isHost) BG.net.broadcast({ t: "lobby" });
+    else BG.net.send({ t: "lobby" });
+    returnToLobbyLocal();
+  }
+
+  function abortGame(reason, notify) {
+    if (!state.inGame) return;
+    if (notify && state.isHost) BG.net.broadcast({ t: "abort", reason });
+    BG.toast(reason || "توقفت الجلسة.", "warn");
+    returnToLobbyLocal();
+    if (state.overlay) {
+      const status = state.overlay.querySelector("[data-net-status]");
+      if (status) status.textContent = reason || "";
+    }
+  }
+
+  function shutdown(silent) {
+    clearInterval(state.hostTimer);
+    clearInterval(state.guestTimer);
+    clearTimeout(state.readyTimer);
+    clearTimeout(state.spectateTimer);
+    state.hostTimer = null;
+    state.guestTimer = null;
+    state.readyTimer = null;
+    state.spectateTimer = null;
+    state.pendingSpectate = null;
+    state.inGame = false;
+    state.inRoom = false;
+    state.hostReady = false;
+    state.starting = false;
+    state.activeGuest = false;
+    state.spectating = false;
+    state.spectateSeat = -1;
+    state.overShown = false;
+    state.game = null;
+    state.seats = [];
+    state.localSeat = -1;
+    state.api = null;
+    state.mount = null;
+    state.pendingReady.clear();
+    state.pendingAsks.clear();
+    state.pendingRefutes.clear();
+    state.pendingTrades.clear();
+    state.config = null;
+    removeHud();
+    if (state.waiting && state.waiting.parentNode) state.waiting.parentNode.removeChild(state.waiting);
+    state.waiting = null;
+    hideOverlay();
+    if (state.overlay && state.overlay.parentNode) {
+      state.overlay.parentNode.removeChild(state.overlay);
+      state.overlay = null;
+    }
+    if (BG.net) BG.net.leave();
+    if (!silent) BG.toast("غادرت الغرفة.");
+  }
+
+  /* ============================== الأحداث ============================== */
+
+  function bindNetworkEvents() {
+    if (!BG.net) return;
+    BG.net.on("room", () => {
+      state.inRoom = true;
+      state.name = state.name || savedName() || "اللاعب";
+      if (BG.net.isHost) {
+        if (!state.lobbyGame) state.lobbyGame = (BG.games[0] && BG.games[0].id) || "";
+        state.seatCount = clampSeatCount(currentGameDef(), state.seatCount);
+        state.config = { gameId: state.lobbyGame, seatCount: state.seatCount, level: state.level, seats: buildSeats(state.lobbyGame, state.seatCount, state.level) };
+      }
+      renderLobby();
+    });
+    BG.net.on("peers", () => {
+      if (state.inRoom) {
+        if (BG.net.isHost) {
+          state.seatCount = clampSeatCount(currentGameDef(), state.seatCount);
+          BG.net.ensureHostConnections();
+        }
+        if (!state.inGame) renderLobby();
+      }
+    });
+    BG.net.on("peer-joined", () => {
+      if (state.inRoom && BG.net.isHost) {
+        BG.net.ensureHostConnections();
+        if (!state.inGame) {
+          renderLobby();
+          broadcastConfig();
+        }
+      }
+    });
+    BG.net.on("peer-open", () => {
+      if (state.inRoom && BG.net.isHost && !state.inGame) broadcastConfig();
+      if (state.inRoom && !state.inGame) renderLobby();
+    });
+    BG.net.on("peer-state", () => { if (state.inRoom && !state.inGame) renderLobby(); });
+    BG.net.on("peer-left", (id) => {
+      if (state.inRoom && !state.inGame) renderLobby();
+      if (state.inGame) {
+        const seat = state.seats.findIndex((item) => item.peerId === id);
+        if (seat >= 0) {
+          if (state.isHost) abortGame("انقطع اتصال " + (state.seats[seat].name || "أحد اللاعبين") + " — عاد الجميع إلى غرفة الانتظار.", true);
+          else if (state.localSeat === seat) abortGame("انقطع اتصالك بالجلسة.", false);
+        }
+      }
+    });
+    BG.net.on("room-closed", (info) => {
+      const reason = (info && info.reason) || "أُغلقت الغرفة.";
+      state.inRoom = false;
+      state.inGame = false;
+      shutdown(true);
+      BG.alert("انتهت الغرفة", reason).then(() => {
+        if (BG.app) BG.app.goLibrary();
+      });
+    });
+    BG.net.on("close", () => {
+      if (state.inRoom) {
+        state.inRoom = false;
+        const wasGame = state.inGame;
+        state.inGame = false;
+        shutdown(true);
+        if (wasGame) BG.toast("انقطع الاتصال بخادم الإشارات.", "warn");
+        if (BG.app) BG.app.goLibrary();
+      }
+    });
+    BG.net.on("error", (message) => {
+      if (!state.inRoom) {
+        const status = state.overlay && state.overlay.querySelector("[data-net-status]");
+        if (status) {
+          status.textContent = message || "";
+          status.className = "net-status is-error";
+        }
+      } else {
+        BG.toast(message || "خطأ في الشبكة.", "warn");
+      }
+    });
+    BG.net.on("message", onNetMessage);
+  }
+
+  /* ============================== الإقلاع ============================== */
+
+  function initOnline() {
+    const btn = document.getElementById("btnOnline");
+    if (btn) btn.addEventListener("click", openLobby);
+    state.name = savedName() || "اللاعب";
+    try {
+      const params = new URLSearchParams(location.search);
+      const requestedMode = params.get("mode");
+      if (requestedMode === "cloud" || requestedMode === "lan") BG.net.setMode(requestedMode);
+      const join = (params.get("join") || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 8);
+      if (join.length >= 4) {
+        state.pendingInvite = join;
+        state.inviteTried = false;
+      }
+    } catch (err) { /* ignore */ }
+    bindNetworkEvents();
+    if (state.pendingInvite) openLobby();
+  }
+
+  BG.online = {
+    openLobby,
+    begin,
+    hostStarted: hostStartedHook,
+    showWaiting,
+    relayLog,
+    gameOver,
+    askRefutation,
+    confirmTrade,
+    returnToLobby,
+    shutdown,
+    abortGame,
+    get active() { return state.inGame; },
+    get room() { return state.inRoom; },
+    get localSeat() { return state.localSeat; },
+    get seats() { return state.seats.slice(); },
+    get isHost() { return state.isHost; },
+    get debug() { return state; },
+  };
+
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", initOnline);
+  else initOnline();
+})();

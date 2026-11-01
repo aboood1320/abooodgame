@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="color-scheme" content="dark light" />
+<meta name="theme-color" content="#0b151a" />
+<meta name="description" content="سياسة الخصوصية لتطبيق ألعاب الطاولة — نُبلاء: بلا حسابات، بلا إعلانات، وبلا تتبّع." />
+<title>سياسة الخصوصية — ألعاب الطاولة</title>
+<link rel="icon" type="image/svg+xml" href="assets/brand/icon.svg" />
+<link rel="icon" type="image/png" sizes="32x32" href="assets/icons/favicon-32.png" />
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #07120f;
+    --panel: rgba(255, 255, 255, 0.04);
+    --stroke: rgba(255, 255, 255, 0.1);
+    --fg: #f6f2e8;
+    --muted: #a9b6b2;
+    --gold: #e9c471;
+    --accent: #58d3a8;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; min-height: 100%; }
+  body {
+    font-family: "Segoe UI", "Tahoma", "Arial", sans-serif;
+    color: var(--fg);
+    line-height: 1.85;
+    background:
+      radial-gradient(70% 40% at 50% 0%, rgba(88, 211, 168, 0.12), transparent 70%),
+      linear-gradient(168deg, #14262d 0%, #0b1a20 48%, #07120f 100%);
+    background-attachment: fixed;
+  }
+  .wrap { max-width: 820px; margin: 0 auto; padding: clamp(20px, 5vw, 56px); }
+  .top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    flex-wrap: wrap;
+    margin-bottom: clamp(20px, 4vw, 38px);
+  }
+  .brand { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; color: var(--fg); }
+  .brand img { width: 40px; height: 40px; border-radius: 10px; }
+  .brand strong { display: block; font-size: 1rem; line-height: 1.3; }
+  .brand small { display: block; color: var(--muted); font-size: 0.68rem; letter-spacing: 0.12em; }
+  .back {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 9px 16px;
+    border-radius: 999px;
+    border: 1px solid rgba(225, 180, 92, 0.36);
+    background: rgba(225, 180, 92, 0.1);
+    color: #ffe3a8;
+    text-decoration: none;
+    font-size: 0.82rem;
+    font-weight: 700;
+  }
+  .back:hover { background: rgba(225, 180, 92, 0.18); }
+  h1 { margin: 0 0 6px; font-size: clamp(1.6rem, 4vw, 2.4rem); line-height: 1.3; }
+  .updated { margin: 0 0 26px; color: var(--muted); font-size: 0.8rem; }
+  .lead {
+    margin: 0 0 26px;
+    padding: 16px 18px;
+    border-radius: 16px;
+    border: 1px solid rgba(88, 211, 168, 0.28);
+    background: rgba(88, 211, 168, 0.08);
+    font-size: 0.95rem;
+  }
+  section {
+    margin: 0 0 14px;
+    padding: 18px 20px;
+    border-radius: 18px;
+    border: 1px solid var(--stroke);
+    background: var(--panel);
+  }
+  h2 { margin: 0 0 8px; font-size: 1.02rem; color: var(--gold); }
+  p { margin: 0 0 10px; }
+  p:last-child, ul:last-child { margin-bottom: 0; }
+  ul { margin: 0 0 10px; padding-inline-start: 20px; }
+  li { margin-bottom: 5px; }
+  code {
+    padding: 1px 6px;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.08);
+    font-size: 0.82em;
+    direction: ltr;
+    display: inline-block;
+  }
+  a { color: #ffe3a8; }
+  .table { width: 100%; border-collapse: collapse; font-size: 0.86rem; }
+  .table th, .table td { padding: 8px 10px; border-bottom: 1px solid var(--stroke); text-align: start; vertical-align: top; }
+  .table th { color: var(--muted); font-weight: 700; }
+  .table tr:last-child td { border-bottom: none; }
+  footer { margin-top: 30px; text-align: center; color: var(--muted); font-size: 0.76rem; }
+  @media (max-width: 560px) {
+    section { padding: 15px 15px; }
+    .table th, .table td { padding: 7px 6px; }
+  }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <a class="brand" href="./">
+        <img src="assets/icons/icon-192.png" alt="" width="40" height="40" />
+        <span><strong>ألعاب الطاولة</strong><small>نُبلاء</small></span>
+      </a>
+      <a class="back" href="./">← العودة إلى الألعاب</a>
+    </div>
+
+    <h1>سياسة الخصوصية</h1>
+    <p class="updated">آخر تحديث: ٢٧ أكتوبر ٢٠٢٦</p>
+
+    <p class="lead">
+      «ألعاب الطاولة — نُبلاء» تطبيق ألعاب يعمل داخل المتصفح ويمكن تثبيته على جهازك.
+      لا نطلب إنشاء حساب، ولا نعرض إعلانات، ولا نستخدم أدوات تتبّع أو تحليلات،
+      ولا نجمع بيانات شخصية على خوادم نملكها.
+    </p>
+
+    <section>
+      <h2>١. البيانات المحفوظة على جهازك</h2>
+      <p>يحفظ التطبيق بعض الإعدادات محليًا داخل المتصفح (التخزين المحلي <code>localStorage</code>) حتى يبقى اللعب مريحًا عند العودة:</p>
+      <ul>
+        <li>اسم اللاعب المفضل، وأسماء المقاعد الأخيرة، ونوع كل مقعد (لاعب أو كمبيوتر).</li>
+        <li>مستوى الذكاء الاصطناعي المختار وخيارات كل لعبة.</li>
+        <li>تفضيلات الصوت والحركة ومستوى الصوت، وتفضيل إظهار المعلومات السرّية تلقائيًا في اللعب الجماعي.</li>
+        <li>حفظ تلقائي لآخر مباراة محلية لاستكمالها لاحقًا.</li>
+        <li>تذكّر وسيلة الاتصال (محلي أو عالمي) وإعدادات خادم TURN إن أدخلتها بنفسك.</li>
+      </ul>
+      <p>تبقى هذه البيانات على جهازك فقط، ولا تُرسَل إلينا ولا إلى أي جهة إعلانية.</p>
+    </section>
+
+    <section>
+      <h2>٢. اللعب الجماعي</h2>
+      <p>
+        عند إنشاء غرفة أو الانضمام إليها، تُنشأ قناة اتصال مباشرة بين المتصفحات (WebRTC).
+        تُتبادل حالة اللعبة والحركات والدردشة داخل الغرفة مباشرة بين الأجهزة المشاركة.
+        لا نحتفظ بسجل للمباريات على أي خادم.
+      </p>
+      <p>لتسهيل العثور على بعضكم، قد يستخدم التطبيق خدمة إشارات عامة (PeerJS Cloud) وخدمات تحديد مسار الشبكة (STUN) من مزوّدين خارجيين:</p>
+      <table class="table">
+        <thead><tr><th>الخدمة</th><th>الغرض</th><th>ما قد يظهر لها</th></tr></thead>
+        <tbody>
+          <tr><td>PeerJS Cloud</td><td>تبادل رسائل الاتصال الأولى ورموز الغرف</td><td>رمز الغرفة، معرّف اتصال عشوائي، عنوان IP، ونوع المتصفح</td></tr>
+          <tr><td>Google STUN</td><td>معرفة عنوان الشبكة العام لإتمام الاتصال المباشر</td><td>عنوان IP العام وبيانات الشبكة التقنية</td></tr>
+          <tr><td>Cloudflare STUN</td><td>خدمة احتياطية لتحديد المسار</td><td>عنوان IP العام وبيانات الشبكة التقنية</td></tr>
+          <tr><td>خادم TURN اختياري</td><td>تمرير الاتصال عند تعذّر الاتصال المباشر</td><td>عنوان IP وحركة الاتصال تمر عبر مشغّل الخادم الذي اخترته</td></tr>
+        </tbody>
+      </table>
+      <p>
+        اللعب المباشر بين الأجهزة (Peer-to-Peer) يجعل عنوان IP الخاص بك مرئيًا للاعبين المتصلين بالغرفة بحكم طبيعة الشبكة.
+        شارك رمز الغرفة مع أشخاص تثق بهم فقط.
+      </p>
+    </section>
+
+    <section>
+      <h2>٣. الصور والأصوات</h2>
+      <p>
+        جميع الأصوات والبطاقات والأيقونات تُحمَّل من ملفات التطبيق نفسها، ولا تُرسل أي صور أو تسجيلات من جهازك.
+        لا يطلب التطبيق صلاحية الكاميرا أو الميكروفون أو الموقع أو جهات الاتصال.
+      </p>
+    </section>
+
+    <section>
+      <h2>٤. الإعلانات والتتبّع</h2>
+      <p>
+        لا توجد إعلانات، ولا مشغّلات إحصاءات، ولا ملفات تعريف ارتباط إعلانية، ولا بيع لأي بيانات.
+        قد يحفظ عامل الخدمة (Service Worker) ملفات التطبيق محليًا ليعمل دون اتصال، وهي ملفات لازمة للتشغيل فقط.
+      </p>
+    </section>
+
+    <section>
+      <h2>٥. الأطفال</h2>
+      <p>
+        التطبيق مناسب لجميع الأعمار ولا يجمع بيانات شخصية. لا نطلب عمرًا أو بريدًا إلكترونيًا،
+        وننصح الأهل بالإشراف على الغرف الجماعية وعدم مشاركة رموزها مع الغرباء.
+      </p>
+    </section>
+
+    <section>
+      <h2>٦. حذف بياناتك</h2>
+      <p>
+        يمكنك حذف كل البيانات المحفوظة من إعدادات المتصفح: إعدادات الموقع ← بيانات الموقع ← حذف البيانات،
+        أو من إعدادات التطبيق المثبّت عبر «مسح بيانات التطبيق». حذف بيانات الموقع يزيل الإعدادات والحفظ التلقائي نهائيًا.
+      </p>
+    </section>
+
+    <section>
+      <h2>٧. التغييرات على هذه السياسة</h2>
+      <p>
+        إذا تغيّرت طريقة عمل التطبيق بشكل يؤثر على الخصوصية، سنحدّث هذه الصفحة ونغيّر تاريخ آخر تحديث أعلاها.
+        استمرارك في استخدام التطبيق بعد التحديث يعني موافقتك على النسخة المنشورة.
+      </p>
+    </section>
+
+    <section>
+      <h2>٨. التواصل</h2>
+      <p>
+        لأي سؤال عن الخصوصية أو لطلب حذف بيانات مرتبطة بدعم فني، راسلنا على
+        <a href="mailto:privacy@nubala.games">privacy@nubala.games</a>.
+      </p>
+    </section>
+
+    <footer>ألعاب الطاولة — نُبلاء · صُنع بعناية لعشّاق الطاولة</footer>
+  </div>
+</body>
+</html>

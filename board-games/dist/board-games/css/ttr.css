@@ -1,0 +1,513 @@
+/* ==========================================================================
+   تيكيت تو رايد — خريطة، سوق بطاقات، وتذاكر
+   ========================================================================== */
+
+.ttr-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 350px;
+  gap: 16px;
+  align-items: start;
+}
+
+.ttr-board-wrap {
+  position: relative;
+  width: 100%;
+  max-width: 960px;
+  margin-inline: auto;
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  overflow: hidden;
+  background: radial-gradient(90% 80% at 50% 0%, #15303a, #081720);
+  box-shadow: 0 30px 70px -38px rgba(0, 0, 0, 0.95);
+}
+
+.ttr-board-scroll { overflow: hidden; }
+
+.ttr-board-hint {
+  display: none;
+  padding: 6px 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.25);
+  color: var(--dim);
+  font-size: 0.6rem;
+  letter-spacing: 0.01em;
+  text-align: center;
+}
+
+.ttr-svg { display: block; width: 100%; height: auto; }
+
+/* ------------------------------ المسارات ------------------------------ */
+
+.ttr-route { cursor: pointer; }
+
+.ttr-route-casing {
+  fill: none;
+  stroke: rgba(58, 44, 24, 0.5);
+  stroke-width: 13;
+  stroke-linecap: round;
+}
+
+.ttr-car {
+  pointer-events: none;
+  transition: filter 0.15s ease;
+}
+.ttr-route:hover .ttr-car { filter: brightness(1.22) drop-shadow(0 0 3px rgba(255, 255, 255, 0.55)); }
+.ttr-route.affordable .ttr-car { filter: drop-shadow(0 0 4px rgba(255, 225, 150, 0.65)); }
+
+.ttr-route-line {
+  fill: none;
+  stroke-width: 6;
+  stroke-linecap: round;
+  opacity: 0.82;
+  transition: stroke-width 0.15s ease, opacity 0.15s ease, filter 0.15s ease;
+}
+
+.ttr-route-dots {
+  fill: none;
+  stroke-width: 2.6;
+  stroke-linecap: round;
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.ttr-route-hit {
+  fill: none;
+  stroke: transparent;
+  stroke-width: 22;
+  pointer-events: stroke;
+}
+
+.ttr-route.claimed .ttr-route-line {
+  stroke-width: 7;
+  opacity: 1;
+  filter: drop-shadow(0 0 4px rgba(0, 0, 0, 0.7));
+}
+
+.ttr-route.claimed .ttr-route-dots { opacity: 0.5; }
+
+.ttr-route.affordable .ttr-route-line {
+  animation: ttr-route-glow 1.8s ease-in-out infinite;
+}
+
+.ttr-route:hover .ttr-route-line {
+  stroke-width: 9;
+  opacity: 1;
+  filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.5));
+}
+
+.ttr-route:hover .ttr-route-casing { stroke: rgba(0, 0, 0, 0.75); }
+
+.ttr-route-label {
+  fill: rgba(240, 249, 251, 0.7);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 900;
+  text-anchor: middle;
+  pointer-events: none;
+}
+
+.ttr-city-halo {
+  fill: #f7efd9;
+  stroke: #3a2f1d;
+  stroke-width: 2.2;
+}
+.ttr-city-dot {
+  fill: #3a2f1d;
+  stroke: #f7efd9;
+  stroke-width: 1.2;
+}
+.ttr-city-core { fill: #f7efd9; }
+
+.ttr-city-label {
+  fill: #2f2718;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  text-anchor: middle;
+  paint-order: stroke;
+  stroke: #f2e8ce;
+  stroke-width: 4;
+  stroke-linejoin: round;
+  pointer-events: none;
+}
+
+.ttr-water-label {
+  fill: #38616d;
+  font-family: inherit;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-anchor: middle;
+  pointer-events: none;
+}
+
+.ttr-compass { pointer-events: none; }
+
+.ttr-key rect {
+  fill: rgba(7, 26, 33, 0.82);
+  stroke: rgba(240, 200, 121, 0.34);
+}
+
+.ttr-key-title {
+  fill: #f0c879;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 800;
+  text-anchor: middle;
+}
+
+.ttr-key-item {
+  fill: #b9cbd1;
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+@keyframes ttr-route-glow {
+  0%, 100% { opacity: 0.72; filter: drop-shadow(0 0 0 rgba(255, 255, 255, 0)); }
+  50% { opacity: 1; filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.45)); }
+}
+
+/* ------------------------------ العمود الجانبي ------------------------------ */
+
+.ttr-side {
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+  min-width: 0;
+}
+
+.ttr-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 11px 14px;
+  border-radius: 15px;
+  border: 1px solid var(--stroke);
+  background:
+    radial-gradient(320px 130px at 100% 0%, rgba(224, 120, 90, 0.18), transparent 72%),
+    rgba(0, 0, 0, 0.2);
+}
+
+.ttr-banner-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ttr-eyebrow { font-size: 0.58rem; letter-spacing: 0.14em; color: #f0a58c; font-weight: 800; }
+.ttr-banner-main strong { font-size: 0.94rem; color: var(--p, var(--text)); }
+.ttr-banner-main small { font-size: 0.63rem; color: var(--dim); }
+.ttr-banner-score { display: flex; flex-direction: column; align-items: center; flex: 0 0 auto; }
+.ttr-banner-score b { font-size: 1.25rem; line-height: 1; color: #f0c879; }
+.ttr-banner-score small { font-size: 0.52rem; color: var(--dim); white-space: nowrap; }
+
+.ttr-notice {
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(240, 200, 121, 0.24);
+  background: linear-gradient(120deg, rgba(240, 200, 121, 0.1), rgba(240, 200, 121, 0.03));
+  color: #f4dfb4;
+  font-size: 0.68rem;
+  line-height: 1.6;
+}
+
+.ttr-panel {
+  border: 1px solid var(--stroke);
+  border-radius: 15px;
+  background: linear-gradient(170deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.012));
+  overflow: hidden;
+}
+
+.ttr-panel-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 9px 13px 7px;
+  border-bottom: 1px solid var(--stroke);
+}
+
+.ttr-panel-head h2 { margin: 0; font-size: 0.78rem; }
+.ttr-panel-head span { color: var(--dim); font-size: 0.6rem; }
+
+.ttr-controls { padding: 11px 12px; display: flex; flex-direction: column; gap: 8px; }
+.ttr-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.ttr-actions .bg-btn { flex: 1 1 auto; }
+.ttr-hint { margin: 0; font-size: 0.66rem; color: var(--muted); line-height: 1.65; }
+.ttr-hint strong { color: #ffb59e; }
+.ttr-final {
+  display: inline-block;
+  margin-top: 3px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  border: 1px solid rgba(239, 111, 104, 0.45);
+  background: rgba(239, 111, 104, 0.12);
+  color: #ffb3ae;
+  font-size: 0.62rem;
+  animation: ttr-final-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes ttr-final-pulse {
+  0%, 100% { box-shadow: 0 0 0 rgba(239, 111, 104, 0); }
+  50% { box-shadow: 0 0 12px rgba(239, 111, 104, 0.35); }
+}
+
+.ttr-draw-note {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 7px 9px;
+  border-radius: 10px;
+  border: 1px dashed rgba(240, 165, 140, 0.45);
+  background: rgba(224, 120, 90, 0.09);
+}
+
+.ttr-draw-note span { font-size: 1.15rem; }
+.ttr-draw-note p { margin: 0; font-size: 0.67rem; color: var(--muted); line-height: 1.5; }
+.ttr-draw-note strong { color: #ffc9b9; }
+.ttr-controls-row { display: flex; gap: 6px; }
+.ttr-controls-row .bg-btn { flex: 1; }
+
+/* ------------------------------ سوق البطاقات ------------------------------ */
+
+.ttr-market-wrap { padding: 10px 11px 11px; }
+
+.ttr-market {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.ttr-market-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  aspect-ratio: 0.72;
+  padding: 4px 2px;
+  border-radius: 9px;
+  border: 1px solid color-mix(in srgb, var(--c) 70%, #000);
+  background:
+    linear-gradient(160deg, color-mix(in srgb, var(--c) 92%, #fff), var(--c) 55%, color-mix(in srgb, var(--c) 55%, #000));
+  color: var(--ink);
+  cursor: pointer;
+  overflow: hidden;
+  transition: transform 0.14s ease, box-shadow 0.14s ease, filter 0.14s ease;
+}
+
+.ttr-market-card::after {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  pointer-events: none;
+}
+
+.ttr-market-card span { font-size: 1rem; line-height: 1; }
+.ttr-market-card strong { font-size: 0.5rem; font-weight: 800; line-height: 1.1; }
+.ttr-market-card:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 8px 18px -10px rgba(0, 0, 0, 0.9); filter: brightness(1.07); }
+.ttr-market-card:disabled { cursor: not-allowed; opacity: 0.55; }
+.ttr-market-card.empty { background: rgba(255, 255, 255, 0.035); border-color: var(--stroke); color: var(--dim); cursor: default; }
+.ttr-market-card.loco { box-shadow: inset 0 0 0 2px rgba(255, 240, 190, 0.55); }
+
+.ttr-deck {
+  width: 100%;
+  margin-top: 7px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--stroke);
+  background:
+    repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0 6px, rgba(255, 255, 255, 0.015) 6px 12px),
+    rgba(0, 0, 0, 0.22);
+  color: var(--text);
+  cursor: pointer;
+  text-align: start;
+  transition: border-color 0.14s ease, background 0.14s ease;
+}
+
+.ttr-deck:hover:not(:disabled) { border-color: rgba(240, 200, 121, 0.55); background: rgba(240, 200, 121, 0.09); }
+.ttr-deck:disabled, .ttr-deck.disabled { opacity: 0.45; cursor: not-allowed; }
+.ttr-deck span { font-size: 1.35rem; line-height: 1; }
+.ttr-deck strong { font-size: 0.7rem; }
+.ttr-deck small { font-size: 0.6rem; color: var(--dim); margin-inline-start: auto; }
+
+/* ------------------------------ اللاعبون ------------------------------ */
+
+.ttr-prow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 11px;
+  border-bottom: 1px dashed rgba(255, 255, 255, 0.05);
+}
+
+.ttr-prow:last-child { border-bottom: 0; }
+.ttr-prow.active { background: linear-gradient(90deg, color-mix(in srgb, var(--p) 13%, transparent), transparent); box-shadow: inset 3px 0 0 var(--p); }
+.ttr-prow .pdot { background: var(--p); }
+.ttr-pmain { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.ttr-pmain strong { font-size: 0.72rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ttr-pmain small { font-size: 0.59rem; color: var(--dim); }
+.ttr-pscore { display: flex; flex-direction: column; align-items: center; flex: 0 0 auto; }
+.ttr-pscore b { font-size: 1rem; line-height: 1; color: #f0c879; }
+.ttr-pscore small { font-size: 0.5rem; color: var(--dim); }
+
+/* ------------------------------ اليد والتذاكر ------------------------------ */
+
+.ttr-secret-section + .ttr-secret-section { margin-top: 11px; }
+.ttr-secret-section h4 { margin: 0 0 5px; font-size: 0.62rem; color: var(--dim); font-weight: 700; }
+
+.ttr-hand { display: flex; flex-wrap: wrap; gap: 5px; }
+
+.ttr-hand-card {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 7px 4px 5px;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--c) 65%, #000);
+  background:
+    linear-gradient(150deg, color-mix(in srgb, var(--c) 88%, #fff), var(--c) 62%, color-mix(in srgb, var(--c) 58%, #000));
+  color: var(--ink);
+  box-shadow: 0 4px 10px -8px rgba(0, 0, 0, 0.9);
+}
+
+.ttr-hand-card span { font-size: 0.72rem; line-height: 1; }
+.ttr-hand-card strong { font-size: 0.58rem; }
+.ttr-hand-card b { font-size: 0.66rem; }
+.ttr-hand-total { margin-top: 6px; font-size: 0.61rem; color: var(--muted); }
+.ttr-hand-total strong { color: #f0c879; }
+
+.ttr-tickets { display: flex; flex-direction: column; gap: 5px; }
+
+.ttr-ticket {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  border: 1px solid var(--stroke);
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.ttr-ticket.done { border-color: rgba(111, 207, 151, 0.35); background: rgba(111, 207, 151, 0.07); }
+.ttr-ticket-route { display: flex; align-items: center; gap: 4px; font-size: 0.64rem; min-width: 0; }
+.ttr-ticket-route span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ttr-ticket-route i { font-style: normal; color: var(--dim); font-size: 0.6rem; }
+.ttr-ticket-side { display: flex; align-items: center; gap: 6px; flex: 0 0 auto; }
+.ttr-ticket-side b { font-size: 0.72rem; color: #f0c879; }
+.ttr-ticket-side small { font-size: 0.52rem; color: var(--dim); white-space: nowrap; }
+.ttr-ticket.done .ttr-ticket-side small { color: var(--good); }
+
+/* ------------------------------ اختيار التذاكر ------------------------------ */
+
+.ttr-ticket-pick { display: flex; flex-direction: column; gap: 9px; }
+
+.ttr-pass-note {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px dashed rgba(240, 200, 121, 0.42);
+  background: rgba(240, 200, 121, 0.08);
+  font-size: 0.7rem;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+.ttr-pass-note strong { color: #ffd89a; }
+
+.ttr-ticket-list { display: flex; flex-direction: column; gap: 6px; max-height: 320px; overflow-y: auto; padding-inline-end: 2px; }
+
+.ttr-ticket-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 9px;
+  border-radius: 10px;
+  border: 1px solid var(--stroke);
+  background: rgba(0, 0, 0, 0.18);
+  cursor: pointer;
+  transition: border-color 0.14s ease, background 0.14s ease;
+}
+
+.ttr-ticket-option:hover { border-color: var(--stroke-2); background: rgba(255, 255, 255, 0.04); }
+.ttr-ticket-option:has(input:checked) { border-color: rgba(240, 200, 121, 0.5); background: rgba(240, 200, 121, 0.09); }
+.ttr-ticket-option input { accent-color: var(--accent); width: 15px; height: 15px; flex: 0 0 auto; }
+.ttr-ticket-option .ttr-ticket { flex: 1; border: 0; padding: 0; background: none; }
+
+/* ------------------------------ نافذة الاستحواذ ------------------------------ */
+
+.ttr-claim { display: flex; flex-direction: column; gap: 10px; }
+
+.ttr-claim-head {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 9px 11px;
+  border-radius: 11px;
+  border: 1px solid var(--stroke);
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.ttr-claim-route { font-size: 0.86rem; font-weight: 800; color: #ffd89a; }
+.ttr-claim-meta { display: flex; flex-wrap: wrap; gap: 5px; }
+.ttr-claim-meta span { font-size: 0.6rem; padding: 2px 7px; border-radius: 999px; border: 1px solid var(--stroke); background: rgba(255, 255, 255, 0.04); color: var(--muted); }
+
+.ttr-claim-pay { display: flex; flex-wrap: wrap; gap: 5px; }
+
+.ttr-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 9px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--c) 70%, #000);
+  background: linear-gradient(140deg, color-mix(in srgb, var(--c) 90%, #fff), var(--c));
+  color: var(--ink);
+  font-size: 0.64rem;
+  font-weight: 800;
+}
+
+.ttr-chip.loco {
+  --c: #c89b3f;
+  --ink: #241a05;
+  border-color: rgba(240, 200, 121, 0.6);
+}
+
+/* ------------------------------ استجابة الشاشات ------------------------------ */
+
+@media (max-width: 1120px) {
+  .ttr-layout { grid-template-columns: minmax(0, 1fr); }
+  .ttr-side { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; max-width: 960px; margin-inline: auto; width: 100%; }
+  .ttr-banner, .ttr-secret { grid-column: 1 / -1; }
+  .ttr-notice { grid-column: 1 / -1; }
+}
+
+@media (max-width: 900px) {
+  .ttr-board-hint { display: block; }
+  .ttr-board-scroll { overflow-x: auto; overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch; }
+  .ttr-board-scroll .ttr-svg { min-width: 720px; }
+  .ttr-board-scroll::-webkit-scrollbar { height: 8px; }
+  .ttr-board-scroll::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.18); border-radius: 999px; }
+}
+
+@media (max-width: 720px) {
+  .ttr-side { grid-template-columns: minmax(0, 1fr); }
+  .ttr-banner { padding: 9px 11px; }
+  .ttr-banner-main strong { font-size: 0.84rem; }
+  .ttr-banner-score b { font-size: 1.08rem; }
+  .ttr-market-card strong { font-size: 0.46rem; }
+  .ttr-market-card span { font-size: 0.9rem; }
+  .ttr-actions .bg-btn { flex: 1 1 46%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ttr-route.affordable .ttr-route-line { animation: none; }
+  .ttr-final { animation: none; }
+  .ttr-route-line,
+  .ttr-car { transition: none; }
+}

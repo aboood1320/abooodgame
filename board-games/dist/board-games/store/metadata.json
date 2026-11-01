@@ -1,0 +1,179 @@
+{
+  "schema": 1,
+  "app": {
+    "nameAr": "ألعاب الطاولة — نُبلاء",
+    "nameEn": "Board Games — Nubala",
+    "shortNameAr": "ألعاب الطاولة",
+    "version": "1.2.1",
+    "packageId": "games.nubala.boardgames",
+    "category": "Games / Board",
+    "contentRating": "3+ / Everyone",
+    "price": "free",
+    "languages": [
+      "ar"
+    ],
+    "defaultLanguage": "ar",
+    "orientation": "any",
+    "supportedPlatforms": [
+      "web",
+      "pwa",
+      "android-twa",
+      "ios-webclip"
+    ],
+    "taglineAr": "عشرون لعبة عربية — محليًا ومع الأصدقاء حول العالم",
+    "taglineEn": "Twenty Arabic board games — locally and worldwide"
+  },
+  "web": {
+    "startUrl": "./",
+    "scope": "./",
+    "display": "standalone",
+    "displayOverride": [
+      "window-controls-overlay",
+      "standalone",
+      "minimal-ui"
+    ],
+    "themeColor": "#181009",
+    "backgroundColor": "#100b07",
+    "serviceWorker": "sw.js",
+    "offline": true
+  },
+  "assets": {
+    "icon512": "assets/icons/icon-512.png",
+    "icon192": "assets/icons/icon-192.png",
+    "iconMaskable512": "assets/icons/icon-maskable-512.png",
+    "appleTouchIcon": "assets/icons/apple-touch-icon.png",
+    "featureGraphic": "store/feature-graphic.png",
+    "screenshots": [
+      {
+        "file": "assets/screenshots/library-wide.png",
+        "size": "1440x950",
+        "formFactor": "wide",
+        "captionAr": "مكتبة فاخرة لعشرين لعبة، برسوم مخصصة وعدّاد مباشر",
+        "captionEn": "A luxury library of twenty games with custom art and a live count"
+      },
+      {
+        "file": "assets/screenshots/waraq-wide.png",
+        "size": "1440x950",
+        "formFactor": "wide",
+        "captionAr": "الورق — بصرة ورامي مع خيارات كاملة",
+        "captionEn": "Waraq — Basra and Rummy with full options"
+      },
+      {
+        "file": "assets/screenshots/ludo-wide.png",
+        "size": "1440x950",
+        "formFactor": "wide",
+        "captionAr": "لودو — أربعة لاعبين على لوحة واحدة",
+        "captionEn": "Ludo — four players on one board"
+      },
+      {
+        "file": "assets/screenshots/mancala-narrow.png",
+        "size": "390x844",
+        "formFactor": "narrow",
+        "captionAr": "المنقلة — تجربة هاتف مصمّمة للمس",
+        "captionEn": "Mancala — a touch-first mobile experience"
+      }
+    ],
+    "splash": [
+      "assets/splash/splash-1242x2688.png",
+      "assets/splash/splash-1536x2048.png",
+      "assets/splash/splash-2048x2048.png",
+      "assets/splash/splash-1080x1920.png"
+    ]
+  },
+  "permissions": {
+    "required": [
+      "internet (online rooms only)"
+    ],
+    "notRequested": [
+      "camera",
+      "microphone",
+      "location",
+      "contacts",
+      "notifications",
+      "storage-write"
+    ]
+  },
+  "privacy": {
+    "url": "https://nubala.games/board-games/privacy.html",
+    "page": "privacy.html",
+    "accounts": false,
+    "ads": false,
+    "analytics": false,
+    "tracking": false,
+    "dataSold": false,
+    "localStorage": [
+      "player names and seat types",
+      "AI level and per-game options",
+      "sound and motion preferences",
+      "last local match autosave",
+      "network mode and optional TURN settings"
+    ],
+    "thirdParties": [
+      "PeerJS Cloud — WebRTC signalling for online rooms",
+      "Google STUN — NAT traversal",
+      "Cloudflare STUN — NAT traversal fallback",
+      "optional user-supplied TURN relay"
+    ]
+  },
+  "support": {
+    "email": "privacy@nubala.games",
+    "emailConfirmed": false,
+    "website": "https://nubala.games/board-games/",
+    "websiteConfirmed": false
+  },
+  "release": {
+    "date": "2026-11-01",
+    "notesAr": [
+      "تحديث بصري كبير لعشر ألعاب: خريطة تيكيت تو رايد الورقية، قصر كلودو، لوحة لودو العاجية، خريطة وباء، بلاطات كاركاسون، وموارد كاتان.",
+      "إصلاحات تخطيط وعرض للورق وسكرابل ودومينو وأونو، مع مقاعد حول طاولة أونو ولوح سكرابل كلاسيكي.",
+      "تجربة جوال مكتملة حتى ٣٦٠ بكسل: كلودو وأونو وكاركاسون تملأ الشاشة، وخرائط تيكيت تو رايد ووباء وكاتان قابلة للسحب الأفقي.",
+      "دعم prefers-reduced-motion لكل الحركات الجديدة في المسارات والقطع والمقاعد.",
+      "جديد: مكتبة فاخرة بالكامل — صفحة رئيسية دافئة، بطاقات أكبر بترتيب مريح، وعدّاد مباشر للألعاب العشرين.",
+      "رسم SVG مخصص لكل لعبة يعبّر عنها فعليًا: بومة سكرابل، سفينة تيكيت تو رايد، قصر كلودو، وبيادق الشطرنج وغيرها، مع حركات هادئة.",
+      "أزرار سريعة في الواجهة: «استكشف المكتبة» و«لعبة عشوائية»، وتصميم متجاوب من ٣٦٠ بكسل حتى الشاشات العريضة.",
+      "جديد: الشطرنج وكوت بو ستة، مع خيارات كوت بو ستة (٤/٦ لاعبين، هدف ١٠١/٥١، قواعد الجوكر).",
+      "جديد: مشاهدة مباشرة — من ينتظر مقعده يرى اللعبة تُلعب فورًا دون كشف الأيدي السرية.",
+      "أصوات أكثر تنوعًا: طبقات صوتية لكل حدث وتباين أوسع في النبرة والشدة.",
+      "حركة قطع محسّنة في الألعاب العشرين مع مواد ولمعات واقعية للقطع.",
+      "جديد: سبْلندور — اجمع الجواهر واشترِ بطاقات التطوير واستقطب النبلاء للوصول إلى ١٥ نقطة.",
+      "الإصدار الأول: ست عشرة لعبة كاملة مع قواعد عربية مفصّلة.",
+      "لعب جماعي عالمي عبر غرف فورية ورابط دعوة ومطابقة سريعة.",
+      "ثلاثة مستويات ذكاء اصطناعي وخلط بشري/آلي على المقاعد.",
+      "مؤثرات صوتية ورسوم مرخّصة، وحركات سلسة، ودعم تقليل الحركة.",
+      "حفظ تلقائي للمباريات المحلية واستكمالها، وعمل دون اتصال بعد أول زيارة."
+    ],
+    "notesEn": [
+      "Major visual update for ten games: the paper Ticket to Ride map, Cluedo manor, ivory Ludo board, Pandemic world map, Carcassonne tiles, and Catan resources.",
+      "Layout and display fixes for Waraq, Scrabble, Dominoes, and Uno, with Uno table seating and a classic Scrabble board.",
+      "Complete mobile experience down to 360px: Cluedo, Uno, and Carcassonne fill the screen, while Ticket to Ride, Pandemic, and Catan maps scroll horizontally.",
+      "prefers-reduced-motion support for all new route, piece, and seat animations.",
+      "New: a completely redesigned luxury library — a warm landing page, larger cards, and a live count of all twenty games.",
+      "Custom SVG artwork for every game — the Scrabble owl, the Ticket to Ride ship, the Cluedo manor, the chess pieces, and more — with gentle motion.",
+      "Quick hero actions: “Explore the library” and “Random game”, with a responsive layout from 360px to wide screens.",
+      "New: live spectating — waiting players watch the game as it unfolds, without exposing hidden hands.",
+      "Richer audio: per-event sound layers with wider pitch and intensity variation.",
+      "Enhanced piece motion across all twenty games with realistic materials and gloss.",
+      "New: Splendor — collect gems, buy development cards, and attract nobles to reach 15 points.",
+      "First release: sixteen complete games with detailed Arabic rules.",
+      "Worldwide online rooms with invite links and quick match.",
+      "Three AI levels with mixed human/CPU seats.",
+      "Licensed audio and art, smooth animation, reduced-motion support.",
+      "Local autosave/resume and offline play after the first visit."
+    ]
+  },
+  "reviewNotesAr": [
+    "لا يتطلب التطبيق حسابًا أو تسجيل دخول.",
+    "لاختبار اللعب الجماعي: افتح نافذتين، أنشئ غرفة من الأولى، وانسخ رمز الغرفة أو رابط الدعوة إلى الثانية.",
+    "للعب دون اتصال: حمّل الصفحة مرة واحدة ثم أوقف الشبكة وأعد التحميل.",
+    "جميع الأصوات والبطاقات محلية ومرخّصة (CC0) ولا تُحمَّل من خوادم خارجية.",
+    "البريد الإلكتروني والدومين في هذا الملف قيم مؤقتة يجب تأكيدها قبل النشر."
+  ],
+  "licenses": {
+    "art": "Kenney Boardgame Pack — CC0 1.0",
+    "cards": "Kenney Playing Cards Pack — CC0 1.0",
+    "dice": "Kenney Boardgame Pack — CC0 1.0",
+    "audio": "Kenney Casino Audio, Interface Sounds, UI Audio, Music Jingles — CC0 1.0",
+    "peerjs": "PeerJS 1.5.5 — MIT",
+    "details": "ASSETS.md"
+  }
+}

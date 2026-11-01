@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<title>ألعاب الطاولة — صورة المتجر</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; }
+  body {
+    font-family: "Segoe UI", "Tahoma", "Arial", sans-serif;
+    color: #f6f2e8;
+    background:
+      radial-gradient(52% 70% at 78% 18%, rgba(88, 211, 168, 0.28), transparent 72%),
+      radial-gradient(46% 60% at 8% 96%, rgba(225, 180, 92, 0.22), transparent 74%),
+      linear-gradient(150deg, #172b32 0%, #0d1f25 44%, #07120f 100%);
+  }
+  .frame {
+    position: absolute;
+    inset: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 40px;
+    padding: 42px 52px;
+    border-radius: 26px;
+    border: 1px solid rgba(225, 180, 92, 0.34);
+    background: linear-gradient(120deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.012));
+    box-shadow: inset 0 0 90px rgba(0, 0, 0, 0.4);
+  }
+  .copy { max-width: 560px; }
+  .eyebrow {
+    display: inline-block;
+    margin-bottom: 14px;
+    padding: 6px 16px;
+    border-radius: 999px;
+    border: 1px solid rgba(88, 211, 168, 0.4);
+    background: rgba(88, 211, 168, 0.1);
+    color: #9ff0d2;
+    font-size: 17px;
+    font-weight: 800;
+    letter-spacing: 0.01em;
+  }
+  h1 {
+    margin: 0 0 14px;
+    font-size: 68px;
+    line-height: 1.06;
+    font-weight: 900;
+    letter-spacing: -0.015em;
+    background: linear-gradient(180deg, #fff8e7, #f0d391 58%, #cca04b);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .tag {
+    margin: 0 0 22px;
+    font-size: 23px;
+    line-height: 1.55;
+    font-weight: 700;
+    color: rgba(246, 242, 232, 0.86);
+  }
+  .pills { display: flex; flex-wrap: wrap; gap: 10px; }
+  .pills span {
+    padding: 8px 15px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.05);
+    color: #e7dfcc;
+    font-size: 16px;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  .art {
+    position: relative;
+    width: 286px;
+    height: 286px;
+    flex: 0 0 auto;
+  }
+  .art img {
+    width: 100%;
+    height: 100%;
+    border-radius: 64px;
+    filter: drop-shadow(0 26px 46px rgba(0, 0, 0, 0.58));
+  }
+  .art::before {
+    content: "";
+    position: absolute;
+    inset: -24px;
+    border-radius: 88px;
+    border: 1px dashed rgba(225, 180, 92, 0.28);
+  }
+  .brandline {
+    position: absolute;
+    inset-block-end: 34px;
+    inset-inline-start: 54px;
+    font-size: 14px;
+    letter-spacing: 0.4em;
+    color: rgba(246, 242, 232, 0.4);
+    text-transform: uppercase;
+  }
+</style>
+</head>
+<body>
+  <div class="frame">
+    <div class="copy">
+      <span class="eyebrow">🎲 عشرون لعبة · دليل عربي كامل</span>
+      <h1>ألعاب الطاولة</h1>
+      <p class="tag">ليلة ألعاب لا تُنسى — محليًا ومع الأصدقاء حول العالم</p>
+      <div class="pills">
+        <span>👥 لعب جماعي</span>
+        <span>🤖 ذكاء بثلاثة مستويات</span>
+        <span>📚 قواعد مفصّلة</span>
+        <span>📶 يعمل دون اتصال</span>
+      </div>
+    </div>
+    <div class="art"><img src="icon.svg" alt="" /></div>
+  </div>
+  <div class="brandline">نُبلاء</div>
+</body>
+</html>

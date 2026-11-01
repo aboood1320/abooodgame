@@ -1,0 +1,703 @@
+/* ==========================================================================
+   كلودو — قصر الجريمة
+   ========================================================================== */
+
+.game-view[data-game="cluedo"] { --accent: #c983b8; }
+
+.cluedo-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 344px;
+  gap: 14px;
+  align-items: start;
+}
+
+/* ------------------------------ القصر ------------------------------ */
+
+.cluedo-board-wrap {
+  border-radius: 24px;
+  border: 1px solid rgba(246, 242, 232, 0.12);
+  background:
+    radial-gradient(90% 70% at 50% 0%, rgba(201, 131, 184, 0.08), transparent 66%),
+    linear-gradient(165deg, #16222a, #0a151a 74%);
+  box-shadow: 0 34px 74px -44px rgba(0, 0, 0, 0.96);
+  overflow: hidden;
+}
+.cluedo-board-wrap .board-head {
+  --bh-accent: #c983b8;
+  margin: 10px 10px 0;
+  background: rgba(6, 18, 23, 0.62);
+}
+
+.cluedo-board-scroll {
+  padding: 12px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.cluedo-board {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-rows: repeat(3, minmax(0, 1fr));
+  gap: 15px;
+  width: 100%;
+  min-width: 330px;
+  max-width: 860px;
+  max-width: min(860px, calc((100dvh - 330px) * 1.28));
+  margin-inline: auto;
+  aspect-ratio: 1.28;
+  padding: 16px;
+  border-radius: 20px;
+  background:
+    radial-gradient(70% 55% at 50% 50%, rgba(201, 131, 184, 0.08), transparent 72%),
+    repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.16) 0 1px, transparent 1px 24px),
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.02) 0 1px, transparent 1px 24px),
+    linear-gradient(150deg, #1d343a, #102329 58%, #0a171d);
+  border: 1px solid rgba(226, 196, 130, 0.24);
+  box-shadow: inset 0 0 90px rgba(0, 0, 0, 0.62), 0 18px 42px -30px rgba(0, 0, 0, 0.9);
+}
+.cluedo-board::after {
+  content: "";
+  position: absolute;
+  inset: 7px;
+  border-radius: 15px;
+  border: 1px solid rgba(226, 196, 130, 0.12);
+  pointer-events: none;
+}
+
+.cluedo-links {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  pointer-events: none;
+}
+.cluedo-links line {
+  stroke: rgba(246, 242, 232, 0.14);
+  stroke-width: 1.6px;
+  vector-effect: non-scaling-stroke;
+}
+.cluedo-links line.is-secret {
+  stroke: rgba(242, 180, 94, 0.32);
+  stroke-dasharray: 4 5;
+  stroke-width: 1.4px;
+}
+
+/* ------------------------------ الغرف ------------------------------ */
+
+.cluedo-room {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: space-between;
+  min-width: 0;
+  min-height: 0;
+  padding: 12px 12px 10px;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--rc) 34%, transparent);
+  background:
+    radial-gradient(120% 100% at 18% 0%, color-mix(in srgb, var(--rc) 24%, transparent), transparent 68%),
+    repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.15) 0 1px, transparent 1px 22px),
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.03) 0 1px, transparent 1px 16px),
+    linear-gradient(162deg, rgba(255, 255, 255, 0.075), rgba(255, 255, 255, 0.018));
+  color: var(--text);
+  font-family: inherit;
+  text-align: start;
+  cursor: default;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 10px 22px -18px rgba(0, 0, 0, 0.9);
+  transition: box-shadow 0.16s ease, border-color 0.16s ease, background 0.16s ease, transform 0.16s ease;
+  overflow: hidden;
+}
+.cluedo-room:hover { border-color: color-mix(in srgb, var(--rc) 52%, transparent); }
+
+.cluedo-room.is-reachable {
+  cursor: pointer;
+  border-color: rgba(242, 180, 94, 0.52);
+  background:
+    radial-gradient(120% 100% at 18% 0%, color-mix(in srgb, var(--rc) 26%, transparent), transparent 68%),
+    linear-gradient(162deg, rgba(242, 180, 94, 0.14), rgba(255, 255, 255, 0.02));
+  box-shadow:
+    0 0 0 1px rgba(242, 180, 94, 0.55),
+    0 0 26px -6px rgba(242, 180, 94, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+.cluedo-room.is-reachable:hover,
+.cluedo-room.is-reachable:focus-visible {
+  transform: translateY(-2px);
+  box-shadow:
+    0 0 0 2px rgba(242, 180, 94, 0.8),
+    0 0 32px -4px rgba(242, 180, 94, 0.52),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  outline: none;
+}
+.cluedo-room.is-current { border-color: rgba(88, 211, 168, 0.42); }
+.cluedo-room.is-current::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 1px rgba(88, 211, 168, 0.36);
+  pointer-events: none;
+}
+.cluedo-room.is-over { opacity: 0.82; }
+
+/* أرضيات الغرف */
+.cluedo-room[data-room="ballroom"] {
+  background:
+    radial-gradient(120% 100% at 18% 0%, rgba(201, 139, 181, 0.2), transparent 68%),
+    repeating-conic-gradient(from 0deg, rgba(255, 255, 255, 0.05) 0% 25%, rgba(0, 0, 0, 0.12) 0% 50%) 0 0 / 34px 34px,
+    linear-gradient(162deg, #3a2c36, #241b26);
+}
+.cluedo-room[data-room="billiard"] {
+  background:
+    radial-gradient(120% 100% at 18% 0%, rgba(122, 167, 199, 0.16), transparent 68%),
+    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.022) 0 2px, transparent 2px 9px),
+    linear-gradient(162deg, #234237, #162b25);
+}
+.cluedo-room[data-room="conservatory"] {
+  background:
+    radial-gradient(120% 100% at 18% 0%, rgba(120, 185, 140, 0.2), transparent 68%),
+    repeating-linear-gradient(90deg, rgba(180, 220, 190, 0.1) 0 1px, transparent 1px 30px),
+    repeating-linear-gradient(0deg, rgba(180, 220, 190, 0.08) 0 1px, transparent 1px 30px),
+    linear-gradient(162deg, #223a2d, #14261e);
+}
+.cluedo-room[data-room="library"] {
+  background:
+    radial-gradient(120% 100% at 18% 0%, rgba(164, 139, 199, 0.2), transparent 68%),
+    repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.18) 0 2px, transparent 2px 18px),
+    linear-gradient(162deg, #332a3f, #1e1928);
+}
+.cluedo-room[data-room="kitchen"] {
+  background:
+    radial-gradient(120% 100% at 18% 0%, rgba(217, 160, 91, 0.2), transparent 68%),
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.05) 0 1px, transparent 1px 18px),
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.045) 0 1px, transparent 1px 18px),
+    linear-gradient(162deg, #3a3026, #241d16);
+}
+.cluedo-room[data-room="lounge"] {
+  background:
+    radial-gradient(120% 100% at 18% 0%, rgba(209, 176, 114, 0.2), transparent 68%),
+    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.025) 0 1px, transparent 1px 14px),
+    linear-gradient(162deg, #3a3024, #241d16);
+}
+.cluedo-room[data-room="hall"] {
+  background:
+    radial-gradient(120% 100% at 18% 0%, rgba(143, 182, 167, 0.18), transparent 68%),
+    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.045) 0 1px, transparent 1px 22px),
+    linear-gradient(162deg, #2b3a38, #192624);
+}
+.cluedo-room[data-room="study"] {
+  background:
+    radial-gradient(120% 100% at 18% 0%, rgba(154, 166, 184, 0.18), transparent 68%),
+    repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.14) 0 1px, transparent 1px 24px),
+    linear-gradient(162deg, #2b333d, #192028);
+}
+
+.cluedo-furniture {
+  position: absolute;
+  inset: auto 0 0 0;
+  width: 100%;
+  height: 66%;
+  z-index: 0;
+  opacity: 0.62;
+  pointer-events: none;
+  filter: drop-shadow(0 4px 5px rgba(0, 0, 0, 0.35));
+}
+.cluedo-room.is-reachable .cluedo-furniture { opacity: 0.78; }
+
+.cluedo-door {
+  position: absolute;
+  z-index: 4;
+  display: block;
+  background: linear-gradient(180deg, #d9b878, #8a6434 58%, #5f4322);
+  border: 1px solid rgba(20, 14, 6, 0.6);
+  box-shadow: 0 0 0 1px rgba(255, 230, 180, 0.18), 0 2px 5px rgba(0, 0, 0, 0.55);
+  pointer-events: none;
+}
+.cluedo-door.is-top,
+.cluedo-door.is-bottom {
+  width: 30px;
+  height: 7px;
+  left: 50%;
+  transform: translateX(-50%);
+  border-radius: 0 0 5px 5px;
+}
+.cluedo-door.is-top { top: -4px; }
+.cluedo-door.is-bottom { bottom: -4px; border-radius: 5px 5px 0 0; }
+.cluedo-door.is-start,
+.cluedo-door.is-end {
+  width: 7px;
+  height: 30px;
+  top: 50%;
+  transform: translateY(-50%);
+  border-radius: 0 5px 5px 0;
+}
+.cluedo-door.is-start { inset-inline-start: -4px; }
+.cluedo-door.is-end { inset-inline-end: -4px; border-radius: 5px 0 0 5px; }
+
+.cluedo-room-head {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
+}
+.cluedo-room-icon {
+  width: 30px;
+  height: 30px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  border-radius: 9px;
+  font-size: 0.95rem;
+  background: color-mix(in srgb, var(--rc) 20%, transparent);
+  border: 1px solid color-mix(in srgb, var(--rc) 34%, transparent);
+}
+.cluedo-room-copy {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding-top: 1px;
+}
+.cluedo-room-copy strong {
+  font-size: 0.78rem;
+  font-weight: 800;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cluedo-room-copy small {
+  font-size: 0.52rem;
+  color: var(--dim);
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cluedo-passage {
+  margin-inline-start: auto;
+  flex: 0 0 auto;
+  font-size: 0.46rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: #ffdfab;
+  padding: 2px 5px;
+  border-radius: 999px;
+  background: rgba(242, 180, 94, 0.14);
+  border: 1px solid rgba(242, 180, 94, 0.26);
+}
+
+.cluedo-pawns {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: flex-end;
+  gap: 5px;
+  margin-top: 8px;
+  min-height: 30px;
+  padding-inline-start: 2px;
+}
+.cluedo-pawn {
+  position: relative;
+  width: 23px;
+  height: 25px;
+  display: grid;
+  place-items: center;
+  border-radius: 50% 50% 38% 38% / 42% 42% 58% 58%;
+  font-size: 0.58rem;
+  font-style: normal;
+  font-weight: 900;
+  color: #0b171c;
+  background:
+    radial-gradient(60% 45% at 36% 22%, rgba(255, 255, 255, 0.55), transparent 62%),
+    linear-gradient(160deg, var(--pc), color-mix(in srgb, var(--pc) 62%, #08120f));
+  border: 2px solid rgba(8, 18, 23, 0.6);
+  box-shadow: 0 3px 7px -2px rgba(0, 0, 0, 0.85);
+}
+.cluedo-pawn::before {
+  content: "";
+  position: absolute;
+  top: -6px;
+  left: 50%;
+  width: 11px;
+  height: 11px;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: radial-gradient(60% 60% at 34% 26%, rgba(255, 255, 255, 0.55), transparent 60%), var(--pc);
+  border: 2px solid rgba(8, 18, 23, 0.6);
+}
+.cluedo-pawn::after {
+  content: "";
+  position: absolute;
+  bottom: -3px;
+  left: 50%;
+  width: 20px;
+  height: 6px;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.45);
+  filter: blur(1px);
+  z-index: -1;
+}
+.cluedo-pawn b {
+  display: block;
+  transform: translateY(1px);
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+.cluedo-pawn.is-active {
+  box-shadow: 0 0 0 2px #ffd995, 0 0 14px -2px rgba(255, 214, 140, 0.7), 0 3px 8px -2px rgba(0, 0, 0, 0.85);
+}
+.cluedo-pawn.is-active::before { box-shadow: 0 0 0 2px #ffd995; }
+.cluedo-steps {
+  position: absolute;
+  top: 9px;
+  inset-inline-end: 9px;
+  min-width: 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  font-size: 0.58rem;
+  font-weight: 800;
+  color: #12202a;
+  background: linear-gradient(150deg, #ffe6b4, #f2b45e);
+  box-shadow: 0 2px 6px -2px rgba(0, 0, 0, 0.7);
+}
+
+/* ------------------------------ العمود الجانبي ------------------------------ */
+
+.cluedo-side {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+.cluedo-panel {
+  border: 1px solid var(--stroke);
+  border-radius: 17px;
+  background: linear-gradient(172deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.014));
+  box-shadow: var(--shadow-soft);
+  padding: 13px 14px;
+}
+
+.cluedo-kicker {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 0.55rem;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  color: var(--accent);
+}
+
+.cluedo-turn > strong { display: block; font-size: 1.2rem; font-weight: 800; line-height: 1.25; }
+.cluedo-turn > small { display: block; margin-top: 3px; font-size: 0.7rem; color: var(--muted); }
+
+.cluedo-dice {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 11px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(246, 242, 232, 0.08);
+}
+.cluedo-die {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  font-size: 1rem;
+  font-weight: 800;
+  color: #17262a;
+  background: linear-gradient(155deg, #fff8e8, #eddcbd 64%, #ddc7a0);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8), inset 0 -2px 0 rgba(120, 92, 48, 0.2), 0 5px 10px -5px rgba(0, 0, 0, 0.75);
+}
+.cluedo-steps-label { margin-inline-start: 4px; font-size: 0.66rem; color: var(--muted); }
+.cluedo-steps-label strong { color: var(--accent); font-size: 0.82rem; }
+
+.cluedo-actions { display: flex; flex-direction: column; gap: 7px; }
+.cluedo-actions .bg-btn { justify-content: center; height: 38px; font-size: 0.74rem; }
+.cluedo-action-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
+.cluedo-hint { margin: 2px 0 0; font-size: 0.6rem; line-height: 1.6; color: var(--dim); }
+
+.cluedo-notice {
+  padding: 9px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(201, 131, 184, 0.24);
+  background: rgba(201, 131, 184, 0.09);
+  font-size: 0.66rem;
+  line-height: 1.65;
+  color: #f2d7ec;
+}
+
+.cluedo-players { display: flex; flex-direction: column; gap: 6px; }
+.cluedo-player {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 9px;
+  border-radius: 11px;
+  border: 1px solid rgba(246, 242, 232, 0.07);
+  background: rgba(255, 255, 255, 0.025);
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.cluedo-player.active {
+  border-color: color-mix(in srgb, var(--p) 48%, transparent);
+  background: color-mix(in srgb, var(--p) 12%, transparent);
+}
+.cluedo-player.out { opacity: 0.5; }
+.cluedo-player .pdot {
+  width: 24px;
+  height: 24px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  font-size: 0.66rem;
+  font-weight: 800;
+  background: var(--p);
+  color: #08120f;
+}
+.cluedo-player-copy { display: flex; flex-direction: column; min-width: 0; flex: 1 1 auto; }
+.cluedo-player-copy strong { font-size: 0.74rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cluedo-player-copy small { font-size: 0.57rem; color: var(--dim); }
+.cluedo-player-state { font-size: 0.55rem; color: var(--muted); white-space: nowrap; }
+
+.cluedo-history { display: flex; flex-direction: column; gap: 6px; }
+.cluedo-history-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 8px;
+  border-radius: 10px;
+  border: 1px solid rgba(246, 242, 232, 0.06);
+  background: rgba(255, 255, 255, 0.022);
+  border-inline-start: 2px solid var(--p);
+}
+.cluedo-history-copy { display: flex; flex-direction: column; min-width: 0; flex: 1 1 auto; }
+.cluedo-history-copy strong { font-size: 0.64rem; }
+.cluedo-history-copy small { font-size: 0.54rem; color: var(--dim); line-height: 1.5; }
+.cluedo-history-row .is-refuted { font-size: 0.54rem; font-weight: 700; color: #ffd4cc; }
+.cluedo-history-row .is-clear { font-size: 0.54rem; font-weight: 700; color: #b6efd8; }
+.cluedo-empty { margin: 0; font-size: 0.6rem; line-height: 1.65; color: var(--dim); }
+
+.cluedo-legend { display: flex; flex-direction: column; gap: 6px; }
+.cluedo-legend-row { display: flex; align-items: flex-start; gap: 7px; font-size: 0.6rem; line-height: 1.65; color: var(--muted); }
+.cluedo-legend-row b { flex: 0 0 auto; font-size: 0.68rem; }
+
+/* ------------------------------ أوراق المحقق ------------------------------ */
+
+.cluedo-side .secret-panel { border-radius: 17px; }
+.cluedo-cpu {
+  border-color: rgba(201, 131, 184, 0.36);
+  background: linear-gradient(172deg, rgba(201, 131, 184, 0.12), rgba(255, 255, 255, 0.014));
+}
+.cluedo-cpu > strong { display: block; font-size: 1.05rem; font-weight: 800; }
+.cluedo-cpu .cluedo-hint { margin-top: 7px; }
+.cluedo-cpu-tag {
+  display: inline-block;
+  margin-inline-start: 4px;
+  padding: 1px 5px;
+  border-radius: 6px;
+  font-size: 0.48rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  background: rgba(201, 131, 184, 0.2);
+  color: #f2d9ec;
+  vertical-align: middle;
+}
+.cluedo-hand { display: flex; flex-direction: column; gap: 9px; }
+.cluedo-hand-group { display: flex; flex-direction: column; gap: 5px; }
+.cluedo-hand-label {
+  font-size: 0.54rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: var(--dim);
+}
+.cluedo-hand-cards { display: flex; flex-wrap: wrap; gap: 5px; }
+
+/* ------------------------------ رقاقات البطاقات ------------------------------ */
+
+.cluedo-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 8px 4px 5px;
+  border-radius: 9px;
+  border: 1px solid color-mix(in srgb, var(--cc) 32%, transparent);
+  background: color-mix(in srgb, var(--cc) 11%, transparent);
+  font-size: 0.62rem;
+  line-height: 1.3;
+  color: var(--text);
+  max-width: 100%;
+}
+.cluedo-chip i {
+  flex: 0 0 auto;
+  width: 19px;
+  height: 19px;
+  display: grid;
+  place-items: center;
+  border-radius: 6px;
+  font-style: normal;
+  font-size: 0.66rem;
+  background: color-mix(in srgb, var(--cc) 24%, transparent);
+}
+.cluedo-chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cluedo-chip.is-action {
+  cursor: pointer;
+  transition: background 0.14s ease, border-color 0.14s ease, transform 0.14s ease;
+}
+.cluedo-chip.is-action:hover,
+.cluedo-chip.is-action:focus-visible {
+  background: color-mix(in srgb, var(--cc) 22%, transparent);
+  border-color: color-mix(in srgb, var(--cc) 60%, transparent);
+  transform: translateY(-1px);
+  outline: none;
+}
+
+.cluedo-combo { display: flex; flex-wrap: wrap; gap: 5px; }
+
+/* ------------------------------ النوافذ ------------------------------ */
+
+.cluedo-form p { margin: 0 0 12px; font-size: 0.72rem; line-height: 1.7; color: var(--muted); }
+.cluedo-field { display: flex; flex-direction: column; gap: 5px; margin-bottom: 11px; }
+.cluedo-field label,
+.cluedo-field-label {
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: var(--dim);
+}
+.cluedo-select {
+  height: 40px;
+  padding: 0 10px;
+  border-radius: 10px;
+  border: 1px solid var(--stroke-2);
+  background: rgba(10, 23, 28, 0.84);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 0.74rem;
+  cursor: pointer;
+}
+.cluedo-select:focus-visible { outline: 2px solid rgba(242, 180, 94, 0.55); outline-offset: 1px; }
+.cluedo-fixed { display: flex; flex-direction: column; gap: 5px; margin-bottom: 12px; }
+.cluedo-warning {
+  padding: 9px 11px;
+  border-radius: 10px;
+  border: 1px solid rgba(240, 125, 114, 0.32);
+  background: rgba(240, 125, 114, 0.1);
+  color: #ffd6d0 !important;
+  font-size: 0.68rem !important;
+}
+
+.cluedo-refute p { margin: 0 0 12px; font-size: 0.72rem; line-height: 1.7; color: var(--muted); }
+.cluedo-locked {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 22px 16px;
+  border-radius: 14px;
+  border: 1px dashed rgba(246, 242, 232, 0.24);
+  background: rgba(255, 255, 255, 0.025);
+}
+.cluedo-locked::before { content: "🔒"; font-size: 1.5rem; }
+.cluedo-locked .bg-btn { height: 38px; font-size: 0.74rem; }
+.cluedo-refute-grid { display: flex; flex-wrap: wrap; gap: 7px; }
+.cluedo-refute-grid .cluedo-chip { font-size: 0.7rem; padding: 7px 10px; }
+
+.cluedo-reveal-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 26px 20px;
+  border-radius: 16px;
+  border: 1px solid color-mix(in srgb, var(--cc) 44%, transparent);
+  background:
+    radial-gradient(90% 80% at 50% 0%, color-mix(in srgb, var(--cc) 26%, transparent), transparent 72%),
+    linear-gradient(165deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.02));
+  text-align: center;
+}
+.cluedo-reveal-icon { font-size: 2.4rem; line-height: 1; }
+.cluedo-reveal-card strong { font-size: 1.14rem; font-weight: 800; }
+.cluedo-reveal-card small { font-size: 0.62rem; color: var(--dim); }
+
+/* ------------------------------ الاستجابة ------------------------------ */
+
+@media (max-width: 1120px) {
+  .cluedo-layout { grid-template-columns: minmax(0, 1fr) 318px; }
+}
+
+@media (max-width: 980px) {
+  .cluedo-layout { grid-template-columns: minmax(0, 1fr); }
+  .cluedo-side { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
+  .cluedo-side .secret-panel,
+  .cluedo-notice,
+  .cluedo-actions { grid-column: 1 / -1; }
+  .cluedo-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+  }
+  .cluedo-actions > .cluedo-kicker,
+  .cluedo-actions > .bg-btn.primary,
+  .cluedo-actions > .cluedo-hint { grid-column: 1 / -1; }
+  .cluedo-action-row { display: contents; }
+  .cluedo-actions > .bg-btn:last-of-type { grid-column: 1 / -1; }
+}
+
+@media (max-width: 700px) {
+  .cluedo-side { grid-template-columns: minmax(0, 1fr); }
+  .cluedo-actions { display: flex; }
+  .cluedo-board { gap: 13px; padding: 13px; aspect-ratio: 1.02; min-width: 300px; }
+  .cluedo-board-scroll { padding: 7px; }
+  .cluedo-room { padding: 8px 8px 7px; border-radius: 11px; }
+  .cluedo-room-icon { width: 24px; height: 24px; font-size: 0.8rem; border-radius: 7px; }
+  .cluedo-room-copy strong { font-size: 0.66rem; white-space: normal; overflow: visible; text-overflow: clip; line-height: 1.18; }
+  .cluedo-room-copy small { font-size: 0.46rem; }
+  .cluedo-passage { display: none; }
+  .cluedo-pawn { width: 19px; height: 19px; font-size: 0.54rem; }
+  .cluedo-steps { top: 6px; inset-inline-end: 6px; min-width: 18px; height: 18px; font-size: 0.52rem; }
+  .cluedo-board-wrap .board-head { margin: 8px 8px 0; }
+}
+
+@media (max-width: 700px) {
+  .game-mount.is-mono-mobile .cluedo-board-wrap .cluedo-board {
+    min-width: 0;
+    width: 100%;
+    margin-inline: 0;
+    gap: 7px;
+    padding: 8px;
+    aspect-ratio: 1.02;
+  }
+  .game-mount.is-mono-mobile .cluedo-board-wrap .cluedo-room { padding: 20px 6px 5px; border-radius: 9px; }
+  .game-mount.is-mono-mobile .cluedo-board-wrap .cluedo-room-icon { display: none; }
+  .game-mount.is-mono-mobile .cluedo-board-wrap .cluedo-room-head { gap: 4px; }
+  .game-mount.is-mono-mobile .cluedo-board-wrap .cluedo-room-copy strong { font-size: 0.62rem; line-height: 1.15; }
+  .game-mount.is-mono-mobile .cluedo-board-wrap .cluedo-room-copy small { display: none; }
+  .game-mount.is-mono-mobile .cluedo-board-wrap .cluedo-passage { display: none; }
+  .game-mount.is-mono-mobile .cluedo-board-wrap .cluedo-steps { top: 4px; inset-inline-end: 4px; min-width: 16px; height: 16px; font-size: 0.46rem; }
+  .game-mount.is-mono-mobile .cluedo-board-wrap .cluedo-pawns { gap: 3px; margin-top: 4px; min-height: 22px; padding-inline-start: 0; }
+  .game-mount.is-mono-mobile .cluedo-board-wrap .cluedo-pawn { width: 16px; height: 18px; font-size: 0.44rem; }
+  .game-mount.is-mono-mobile .cluedo-board-wrap .cluedo-pawn::before { width: 8px; height: 8px; top: -5px; }
+  .game-mount.is-mono-mobile .cluedo-board-wrap .cluedo-pawn::after { width: 14px; height: 5px; bottom: -2px; }
+  .game-mount.is-mono-mobile .cluedo-board-wrap .cluedo-furniture { height: 52%; opacity: 0.5; }
+  .game-mount.is-mono-mobile .cluedo-board-wrap .cluedo-door.is-top,
+  .game-mount.is-mono-mobile .cluedo-board-wrap .cluedo-door.is-bottom { width: 20px; height: 5px; }
+  .game-mount.is-mono-mobile .cluedo-board-wrap .cluedo-door.is-start,
+  .game-mount.is-mono-mobile .cluedo-board-wrap .cluedo-door.is-end { width: 5px; height: 20px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cluedo-room, .cluedo-player, .cluedo-chip.is-action { transition: none; }
+  .cluedo-room.is-reachable:hover { transform: none; }
+}
