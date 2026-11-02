@@ -295,7 +295,7 @@
         if (!settles) {
           settles = true;
           socketPromise = null;
-          setStatus("error", "تعذّر الاتصال بخادم الإشارات المحلي. تأكد من فتح الموقع عبر http://localhost:8790/board-games/ وتشغيل server.js");
+          setStatus("error", "لا يوجد خادم لعب محلي يعمل. شغّل الملف start-lan.bat (أو node board-games/server.js) على جهاز المضيف ثم افتح الرابط الذي يظهر في نافذته.");
           reject(new Error("signal-error"));
         }
       });
@@ -367,6 +367,7 @@
       hostId = msg.hostId;
       peers = msg.peers || [];
       roomStarted = true;
+      if (!msg.host) hostConn = { pc: null, dc: makeRelayChannel(msg.hostId), peerId: msg.hostId, relay: true };
       startAppPing();
       setStatus("room", msg);
       emit("room", msg);
@@ -390,6 +391,15 @@
         guestConns.delete(msg.id);
       }
       emit("peer-left", msg.id);
+      return;
+    }
+    if (msg.t === "relay") {
+      let data;
+      try { data = JSON.parse(msg.data); } catch (err) { return; }
+      if (!data || typeof data !== "object") return;
+      const conn = role === "host" ? guestConns.get(msg.from) : hostConn;
+      if (conn && handlePingMessage(conn, data)) return;
+      emit("message", { from: msg.from, data });
       return;
     }
     if (msg.t === "signal") {
@@ -471,25 +481,26 @@
     };
   }
 
+  /* قناة تمرير عبر خادم الإشارات: نفس واجهة DataChannel لكن بلا WebRTC.
+     على الشبكة المحلية هذا أمتن: لا تعتمد على mDNS ولا UDP ولا جدار الحماية. */
+  function makeRelayChannel(peerId) {
+    return {
+      open: true,
+      readyState: "open",
+      relay: true,
+      send(text) { rawSend({ t: "relay", to: peerId, data: String(text) }); },
+      close() { /* لا شيء لإغلاقه */ },
+    };
+  }
+
   function ensureGuest(peerId) {
     if (role !== "host" || !peerId || guestConns.has(peerId)) return guestConns.get(peerId) || null;
-    const pc = makePeerConnection(peerId);
-    const conn = { pc, dc: null, peerId, polite: false };
+    const conn = { pc: null, dc: makeRelayChannel(peerId), peerId, relay: true };
     guestConns.set(peerId, conn);
-    const channel = pc.createDataChannel("bg", { ordered: true });
-    bindChannel(conn, channel, peerId);
-
-    emit("peer-state", { id: peerId, state: "connecting" });
-    (async () => {
-      try {
-        const offer = await pc.createOffer();
-        await pc.setLocalDescription(offer);
-        rawSend({ t: "signal", to: peerId, data: { sdp: pc.localDescription } });
-      } catch (err) {
-        console.warn("offer", err);
-        emit("error", "تعذّر بدء اتصال WebRTC مع لاعب.");
-      }
-    })();
+    emit("peer-state", { id: peerId, state: "connected" });
+    emit("peer-open", { id: peerId });
+    startAppPing();
+    setStatus("connected");
     return conn;
   }
 
@@ -834,7 +845,6 @@
       setStatus("reconnecting");
       scheduleCloudReconnect();
     });
-    cloudPeer.on("error", (err) => handleCloudPeerError(err));
     startAppPing();
     setStatus("room");
     const msg = { t: "room", host: true, code: roomCode, selfId, hostId, peers: cloudPeers() };
@@ -863,7 +873,7 @@
         finish(reject, wrapped);
       };
       const timer = setTimeout(() => {
-        finish(reject, new Error("انتهت مهلة الاتصال بالمضيف. تأكد من الرمز وأن المضيف متصل."));
+        finish(reject, new Error("انتهت مهلة الاتصال بالمضيف. تأكد من الرمز وأن المضيف متصل، وإن استمرت المشكلة فقد تحتاج الشبكة إلى خادم TURN (الإعدادات المتقدمة في نافذة اللعب الجماعي)."));
       }, timeoutMs || 14000);
       conn.on("open", () => finish(resolve));
       conn.on("error", (err) => {
@@ -951,7 +961,6 @@
       setStatus("reconnecting");
       scheduleCloudReconnect();
     });
-    cloudPeer.on("error", (err) => handleCloudPeerError(err));
 
     try { conn.send(JSON.stringify({ t: "__hello", name: (name || "لاعب").slice(0, 24) })); } catch (err) { /* ignore */ }
     startAppPing();
@@ -1028,7 +1037,7 @@
     const conn = guestConns.get(peerId);
     if (!channelOpen(conn)) return false;
     try {
-      conn.dc.send(JSON.stringify(payload));
+      conn.dc.send(typeof payload === "string" ? payload : JSON.stringify(payload));
       return true;
     } catch (err) {
       return false;
@@ -1038,11 +1047,13 @@
   function broadcast(payload, exceptId) {
     if (role !== "host") return 0;
     let count = 0;
+    /* تسلسل الحالة مرة واحدة لكل المستلمين (كان يُعاد لكل ضيف) */
+    const text = typeof payload === "string" ? payload : JSON.stringify(payload);
     guestConns.forEach((conn, id) => {
       if (exceptId && id === exceptId) return;
       if (!channelOpen(conn)) return;
       try {
-        conn.dc.send(JSON.stringify(payload));
+        conn.dc.send(text);
         count += 1;
       } catch (err) { /* ignore */ }
     });
@@ -1113,7 +1124,41 @@
     return readTurn();
   }
 
+  let lanInfoCache = null;
+
+  /** معلومات خادم اللعب المحلي (عناوين الشبكة). null إن لم يكن الخادم موجودًا (استضافة ثابتة). */
+  async function lanInfo() {
+    if (lanInfoCache) return lanInfoCache;
+    if (!/^https?:$/.test(location.protocol)) return null;
+    try {
+      const res = await fetch("/lan-info", { cache: "no-store" });
+      if (!res.ok) return null;
+      const data = await res.json();
+      if (data && data.ok) lanInfoCache = data;
+    } catch (err) { /* لا خادم */ }
+    return lanInfoCache;
+  }
+
+  /** رابط دعوة يعمل فعلًا على أجهزة الآخرين (عنوان الشبكة بدل localhost). */
+  async function inviteLinkFor(code) {
+    const upper = String(code || roomCode || "").toUpperCase();
+    if (mode === "lan" && /^(localhost|127\.|\[?::1\]?$)/.test(location.hostname)) {
+      const info = await lanInfo();
+      if (info && info.urls && info.urls.length) {
+        try {
+          const url = new URL(info.urls[0]);
+          url.searchParams.set("join", upper);
+          url.searchParams.set("mode", "lan");
+          return url.toString();
+        } catch (err) { /* نكمل بالرابط العادي */ }
+      }
+    }
+    return BG.net.inviteLink(upper);
+  }
+
   BG.net = {
+    lanInfo,
+    inviteLinkFor,
     on,
     off,
     connect,

@@ -11,8 +11,6 @@
   const FX = BG.fx;
   const AI = BG.ai;
 
-  const CARD_BASE = new URL("vendor/kenney/cards/", document.baseURI).href;
-
   const SUITS = {
     spades: { key: "spades", sym: "♠", name: "بستوني", file: "spades", color: "#20303c" },
     hearts: { key: "hearts", sym: "♥", name: "قلوب", file: "hearts", color: "#b83b34" },
@@ -54,11 +52,62 @@
     return deck;
   }
 
-  function cardFile(card) {
-    if (!card) return "card_back.png";
-    if (card.joker) return card.jokerColor === "black" ? "card_joker_black.png" : "card_joker_red.png";
-    const rank = card.rank === 1 ? "A" : card.rank === 11 ? "J" : card.rank === 12 ? "Q" : card.rank === 13 ? "K" : String(card.rank).padStart(2, "0");
-    return "card_" + SUITS[card.suit].file + "_" + rank + ".png";
+  const PIP_LAYOUT = {
+    2: [[1, 2], [5, 2]],
+    3: [[1, 2], [3, 2], [5, 2]],
+    4: [[1, 1], [1, 3], [5, 1], [5, 3]],
+    5: [[1, 1], [1, 3], [3, 2], [5, 1], [5, 3]],
+    6: [[1, 1], [1, 3], [3, 1], [3, 3], [5, 1], [5, 3]],
+    7: [[1, 1], [1, 3], [2, 2], [3, 1], [3, 3], [5, 1], [5, 3]],
+    8: [[1, 1], [1, 3], [2, 2], [3, 1], [3, 3], [4, 2], [5, 1], [5, 3]],
+    9: [[1, 1], [1, 3], [2, 1], [2, 3], [3, 2], [4, 1], [4, 3], [5, 1], [5, 3]],
+    10: [[1, 1], [1, 3], [2, 1], [2, 3], [3, 1], [3, 3], [4, 1], [4, 3], [5, 1], [5, 3]],
+  };
+
+  function cardFaceHTML(card) {
+    if (!card) return "";
+    if (card.joker) {
+      const red = card.jokerColor !== "black";
+      return (
+        '<span class="wq-corner wq-corner-tl"><b>J</b><i>★</i></span>' +
+        '<span class="wq-corner wq-corner-br"><b>J</b><i>★</i></span>' +
+        '<span class="wq-art wq-joker ' + (red ? "is-red" : "is-black") + '">' +
+        '<span class="wq-joker-star">✦</span><span class="wq-joker-word">JOKER</span>' +
+        '<span class="wq-joker-star is-small">✦</span></span>'
+      );
+    }
+    const suit = SUITS[card.suit];
+    const rank = RANK_LABEL[card.rank] || String(card.rank);
+    const corner =
+      '<span class="wq-corner wq-corner-tl"><b>' + rank + '</b><i>' + suit.sym + "</i></span>" +
+      '<span class="wq-corner wq-corner-br"><b>' + rank + '</b><i>' + suit.sym + "</i></span>";
+    let art;
+    if (card.rank === 1) {
+      art = '<span class="wq-ace"><span class="wq-ace-ring"></span><span class="wq-suit-big">' + suit.sym + "</span></span>";
+    } else if (card.rank >= 11) {
+      const court = card.rank === 13 ? "♚" : card.rank === 12 ? "♛" : "♞";
+      art =
+        '<span class="wq-court"><span class="wq-court-frame"></span>' +
+        '<span class="wq-court-letter">' + rank + "</span>" +
+        '<span class="wq-court-emblem" aria-hidden="true">' + court + "</span>" +
+        '<span class="wq-court-suit" aria-hidden="true">' + suit.sym + "</span></span>";
+    } else {
+      const layout = PIP_LAYOUT[card.rank] || [];
+      art =
+        '<span class="wq-pips">' +
+        layout.map((pos) => '<i style="grid-area:' + pos[0] + "/" + pos[1] + '">' + suit.sym + "</i>").join("") +
+        "</span>";
+    }
+    return corner + '<span class="wq-art">' + art + "</span>";
+  }
+
+  function cardBackHTML() {
+    return (
+      '<span class="wq-card-back">' +
+      '<span class="wq-back-frame"></span>' +
+      '<span class="wq-back-medallion"><span>✦</span></span>' +
+      "</span>"
+    );
   }
 
   function cardLabel(card) {
@@ -88,11 +137,14 @@
     const o = opts || {};
     const classes = ["wq-card"];
     if (o.back) classes.push("is-back");
+    else if (card) {
+      const red = card.joker ? card.jokerColor !== "black" : SUITS[card.suit].color === "#b83b34";
+      classes.push(red ? "is-red" : "is-black");
+    }
     if (o.selected) classes.push("is-selected");
     if (o.dim) classes.push("is-dim");
     if (o.small) classes.push("is-small");
     if (o.hover) classes.push("is-lift");
-    const art = o.back ? CARD_BASE + "card_back.png" : CARD_BASE + cardFile(card);
     const tag = o.interactive === false ? "span" : "button";
     const attrs = o.interactive === false
       ? ' role="img"'
@@ -100,12 +152,12 @@
     const pieceAttr = o.piece
       ? ' data-fx-piece="' + esc(o.piece) + '" data-fx-enter="' + (o.enter || "pop") + '"'
       : "";
+    const face = o.back ? cardBackHTML() : cardFaceHTML(card);
     return (
       "<" + tag + attrs + ' class="' + classes.join(" ") + '"' + pieceAttr +
-      ' style="--wq-art:url(\'' + art + "')\"" +
       ' aria-label="' + esc(o.label || (o.back ? "ورقة مقلوبة" : cardLabel(card))) + '"' +
       ' aria-pressed="' + (o.selected ? "true" : "false") + '">' +
-      '<span class="wq-card-face" aria-hidden="true"></span>' +
+      '<span class="wq-card-face" aria-hidden="true">' + face + "</span>" +
       (o.badge ? '<span class="wq-card-badge">' + esc(o.badge) + "</span>" : "") +
       "</" + tag + ">"
     );
@@ -1015,7 +1067,7 @@
       cardHTML(null, { back: true, interactive: false, small: true }) +
       '<span class="wq-pile-label">السحب<b>' + ar(state.deck.length) + "</b></span></button>" +
       '<button type="button" class="wq-pile-card' + (mine && phase === "draw" ? " is-live" : "") + '" data-wq-act="draw-discard" aria-label="خذ المكشوفة">' +
-      (top ? cardHTML(top, { interactive: false, small: true, piece: "wq-discard-" + top.id, enter: "deal" }) : '<span class="wq-card is-back is-small"><span class="wq-card-face"></span></span>') +
+      (top ? cardHTML(top, { interactive: false, small: true, piece: "wq-discard-" + top.id, enter: "deal" }) : cardHTML(null, { back: true, interactive: false, small: true })) +
       '<span class="wq-pile-label">المكشوفة<b>' + ar(state.discard.length) + "</b></span></button>" +
       "</div>" +
       '<p class="wq-turn-note">' + (phase === "draw"

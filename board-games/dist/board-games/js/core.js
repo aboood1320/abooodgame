@@ -321,7 +321,8 @@
   });
 
   /**
-   * لوحة معلومات مخفية تلقائيًا. لا تضع المحتوى في الصفحة إلا بعد الضغط على «إظهار».
+   * لوحة معلومات سرّية. عند تفعيل «إخفاء المعلومات السرية» من الإعدادات الرئيسية
+   * تظهر أزرار إظهار/إخفاء. وعند تعطيله تُعرض المعلومات مباشرة بلا أي زر إخفاء.
    * @param {{title:string, hint?:string, owner?:string, render:Function, open?:boolean, autoKey?:string}} opts
    */
   BG.secretPanel = function (opts) {
@@ -332,7 +333,12 @@
         BG.el("strong", { class: "secret-title", text: opts.title || "معلوماتك السرّية" }),
         BG.el("span", { class: "secret-owner", text: opts.owner || "" }),
       ]),
-      BG.el("button", { type: "button", class: "bg-btn small", text: "👁 إظهار" }),
+      BG.el("button", {
+        type: "button",
+        class: "bg-btn small secret-toggle",
+        text: "👁 إظهار",
+        "aria-expanded": "false",
+      }),
     ]);
     const body = BG.el("div", { class: "secret-body", "aria-live": "polite" });
     const hint = BG.el("p", { class: "secret-hint", text: opts.hint || "المحتوى مخفي. تأكد أن الجهاز أمام صاحبه فقط ثم اضغط «إظهار»." });
@@ -349,13 +355,18 @@
     }
 
     function setVisible(next, silent) {
-      const changed = visible !== !!next;
-      visible = !!next;
+      const canHide = BG.prefs.hideSecrets;
+      const target = canHide ? !!next : true;
+      const changed = visible !== target;
+      visible = target;
       panel.classList.toggle("revealed", visible);
+      panel.classList.toggle("open", visible);
+      panel.classList.toggle("is-static", !canHide);
+      btn.hidden = !canHide;
       btn.textContent = visible ? "🙈 إخفاء" : "👁 إظهار";
       btn.setAttribute("aria-pressed", visible ? "true" : "false");
-      hint.hidden = visible;
-      panel.classList.toggle("open", visible);
+      btn.setAttribute("aria-expanded", visible ? "true" : "false");
+      hint.hidden = visible || !canHide;
       if (visible) render();
       else body.innerHTML = "";
       if (changed && autoKey && !silent) {
@@ -366,8 +377,22 @@
       if (changed && !silent && typeof opts.onToggle === "function") opts.onToggle(visible);
     }
 
+    function onPrefsChange() {
+      if (!panel.isConnected) {
+        document.removeEventListener("bgprefschange", onPrefsChange);
+        return;
+      }
+      // عند تفعيل الإخفاء نبدأ مخفيين، وعند تعطيله نعرض المحتوى مباشرة.
+      if (BG.prefs.hideSecrets) setVisible(false, true);
+      else setVisible(true, true);
+    }
+
     btn.addEventListener("click", () => setVisible(!visible));
-    setVisible(Boolean(opts.open) && (!autoKey || !autoDismissed.has(autoKey)), true);
+    document.addEventListener("bgprefschange", onPrefsChange);
+    setVisible(
+      !BG.prefs.hideSecrets || (Boolean(opts.open) && (!autoKey || !autoDismissed.has(autoKey))),
+      true
+    );
 
     return {
       el: panel,
@@ -377,7 +402,8 @@
       isVisible() { return visible; },
       setOwner(name) {
         head.querySelector(".secret-owner").textContent = name || "";
-        setVisible(false, true);
+        if (BG.prefs.hideSecrets) setVisible(false, true);
+        else render();
       },
       setTitle(title) {
         head.querySelector(".secret-title").textContent = title;
@@ -525,34 +551,25 @@
   /* ------------------------------ التفضيلات العامة ------------------------------ */
 
   const PREFS_KEY = "prefs.v1";
-  const PREF_DEFAULTS = { autoReveal: true };
+  const PREF_DEFAULTS = { hideSecrets: false };
   const storedPrefs = BG.store.get(PREFS_KEY, {}) || {};
   const prefs = Object.assign({}, PREF_DEFAULTS, storedPrefs);
-  prefs.autoReveal = prefs.autoReveal !== false;
+  // ترحيل الإعداد القديم: من كان يفضّل الإخفاء التلقائي يبدأ بخاصية الإخفاء مفعّلة.
+  if (!Object.prototype.hasOwnProperty.call(storedPrefs, "hideSecrets")) {
+    prefs.hideSecrets = storedPrefs.autoReveal === false;
+  } else {
+    prefs.hideSecrets = prefs.hideSecrets === true;
+  }
+  delete prefs.autoReveal;
 
   BG.prefs = {
-    get autoReveal() { return prefs.autoReveal !== false; },
-    setAutoReveal(on) {
-      prefs.autoReveal = !!on;
+    get hideSecrets() { return prefs.hideSecrets === true; },
+    setHideSecrets(on) {
+      prefs.hideSecrets = !!on;
       BG.store.set(PREFS_KEY, Object.assign({}, prefs));
       document.dispatchEvent(new CustomEvent("bgprefschange", { detail: Object.assign({}, prefs) }));
-      return prefs.autoReveal;
+      return prefs.hideSecrets;
     },
     get all() { return Object.assign({}, prefs); },
-  };
-
-  /**
-   * يحسم إظهار المعلومات السرية: قيمة اللعبة الصريحة تتقدّم،
-   * وإلا يُستخدم الإعداد العام من نافذة الإعدادات.
-   */
-  BG.autoRevealEnabled = function (override) {
-    if (override === true || override === false) return override;
-    return BG.prefs.autoReveal;
-  };
-
-  BG.autoRevealLabel = function (value) {
-    if (value === true) return "إظهار تلقائي";
-    if (value === false) return "إخفاء تلقائي";
-    return BG.prefs.autoReveal ? "حسب الإعداد العام (إظهار)" : "حسب الإعداد العام (إخفاء)";
   };
 })();

@@ -34,7 +34,6 @@
   };
 
   const DEFAULT_OPTIONS = {
-    autoReveal: null,
     startMoney: 1500,
     jailFine: 50,
     auction: false,
@@ -154,17 +153,6 @@
       defaults: DEFAULT_OPTIONS,
       fields: [
         {
-          key: "autoReveal",
-          label: "المعلومات السرية (لعب جماعي)",
-          type: "seg",
-          choices: [
-            { value: null, label: "حسب الإعدادات" },
-            { value: true, label: "إظهار تلقائي" },
-            { value: false, label: "إخفاء تلقائي" },
-          ],
-          hint: "«حسب الإعدادات» يتبع خيار المعلومات السرية في الإعدادات الرئيسية.",
-        },
-        {
           key: "startMoney",
           label: "رأس المال الابتدائي",
           type: "seg",
@@ -200,7 +188,6 @@
       ],
       summary(options) {
         return (
-          BG.autoRevealLabel(options.autoReveal) + " · " +
           U.money(Number(options.startMoney) || 1500) + " · غرامة " +
           U.money(Number(options.jailFine) === 100 ? 100 : 50) +
           (options.auction ? " · مزاد" : "") +
@@ -255,7 +242,6 @@
       const startMoney = [1000, 1500, 2500].indexOf(Number(opts.startMoney)) !== -1 ? Number(opts.startMoney) : 1500;
       const jailFine = Number(opts.jailFine) === 100 ? 100 : 50;
       const config = {
-        autoReveal: opts.autoReveal === true || opts.autoReveal === false ? opts.autoReveal : null,
         startMoney,
         jailFine,
         auction: !!opts.auction,

@@ -451,7 +451,7 @@ body.library-mode .hero-scene {
 .hero-seal {
   will-change: transform;
 }
-.hero-seal {
+.hero-visual:hover .hero-seal {
   animation: heroSeal 7s ease-in-out infinite;
 }
 
@@ -1091,43 +1091,48 @@ body.library-mode .bg-foot a:hover {
   }
 }
 
-body.library-mode .la-float {
+/* الصور ثابتة افتراضيًا، وتتحرك فقط عند مرور الماوس فوق البطاقة أو مشهد البطل
+   (أو عند التركيز عليها بلوحة المفاتيح) */
+body.library-mode :is(.game-card:hover, .game-card:focus-visible, .hero-visual:hover) .la-float {
   animation: laFloat 5.6s ease-in-out infinite;
 }
-body.library-mode .la-float-slow {
+body.library-mode :is(.game-card:hover, .game-card:focus-visible, .hero-visual:hover) .la-float-slow {
   animation: laFloatSlow 8.2s ease-in-out infinite;
 }
-body.library-mode .la-sway {
+body.library-mode :is(.game-card:hover, .game-card:focus-visible, .hero-visual:hover) .la-sway {
   animation: laSway 6.4s ease-in-out infinite;
 }
-body.library-mode .la-lift {
+body.library-mode :is(.game-card:hover, .game-card:focus-visible, .hero-visual:hover) .la-lift {
   animation: laLift 6s ease-in-out infinite;
 }
-body.library-mode .la-recoil {
+body.library-mode :is(.game-card:hover, .game-card:focus-visible, .hero-visual:hover) .la-recoil {
   animation: laRecoil 6.8s ease-in-out infinite;
 }
-body.library-mode .la-steam {
+body.library-mode :is(.game-card:hover, .game-card:focus-visible, .hero-visual:hover) .la-steam {
   animation: laSteam 3.4s ease-in-out infinite;
 }
-body.library-mode .la-spark {
+body.library-mode :is(.game-card:hover, .game-card:focus-visible, .hero-visual:hover) .la-spark {
   animation: laTwinkle 3.6s ease-in-out infinite;
 }
-body.library-mode .la-blink {
+body.library-mode :is(.game-card:hover, .game-card:focus-visible, .hero-visual:hover) .la-blink {
   animation: laBlink 4.8s steps(1, end) infinite;
 }
-body.library-mode .la-flicker {
+body.library-mode :is(.game-card:hover, .game-card:focus-visible, .hero-visual:hover) .la-flicker {
   animation: laFlicker 3.2s ease-in-out infinite;
 }
-body.library-mode .la-pulse {
+body.library-mode :is(.game-card:hover, .game-card:focus-visible, .hero-visual:hover) .la-pulse {
   animation: laPulse 3.8s ease-in-out infinite;
 }
 body.library-mode .la-spin,
 body.library-mode .la-spin-slow {
   transform-box: fill-box;
   transform-origin: 50% 50%;
+}
+body.library-mode :is(.game-card:hover, .game-card:focus-visible, .hero-visual:hover) .la-spin,
+body.library-mode :is(.game-card:hover, .game-card:focus-visible, .hero-visual:hover) .la-spin-slow {
   animation: laSpin 24s linear infinite;
 }
-body.library-mode .la-spin-slow {
+body.library-mode :is(.game-card:hover, .game-card:focus-visible, .hero-visual:hover) .la-spin-slow {
   animation-duration: 44s;
 }
 

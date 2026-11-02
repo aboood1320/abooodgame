@@ -10,6 +10,7 @@
   const U = BG.util;
 
   const STORE_KEY = "fx.v1";
+  const isLite = () => document.documentElement.classList.contains("lite");
   const DEFAULTS = { sound: true, volume: 0.55, motion: true };
   const ASSET_BASE = "vendor/kenney/audio/";
 
@@ -141,6 +142,25 @@
     return ctx;
   }
 
+  /* مخازن صوتية مفكوكة مسبقًا: أخف بكثير من إنشاء عنصر Audio جديد مع كل نقرة */
+  const buffers = new Map();
+  const bufLoading = new Set();
+  const bufFailed = new Set();
+
+  function loadBuffer(file) {
+    if (!ctx || buffers.has(file) || bufLoading.has(file) || bufFailed.has(file)) return;
+    bufLoading.add(file);
+    fetch(ASSET_BASE + file)
+      .then((res) => { if (!res.ok) throw new Error("http"); return res.arrayBuffer(); })
+      .then((data) => new Promise((resolve, reject) => {
+        const p = ctx.decodeAudioData(data, resolve, reject);
+        if (p && p.catch) p.catch(reject);
+      }))
+      .then((buf) => { buffers.set(file, buf); })
+      .catch(() => { bufFailed.add(file); })
+      .then(() => { bufLoading.delete(file); });
+  }
+
   function preloadFile(file) {
     if (preloaded.has(file) || typeof window.Audio !== "function") return;
     preloaded.add(file);
@@ -155,7 +175,10 @@
   }
 
   function preloadAll() {
-    PRELOAD.forEach(preloadFile);
+    PRELOAD.forEach((file, i) => {
+      if (ctx) setTimeout(() => loadBuffer(file), 400 + i * 180);
+      else preloadFile(file);
+    });
   }
 
   function applyVolume() {
@@ -189,6 +212,20 @@
     const list = SAMPLES[name];
     if (!list || !list.length || typeof window.Audio !== "function") return null;
     const file = list.length === 1 ? list[0] : list[Math.floor(Math.random() * list.length)];
+    if (ctx && buffers.has(file)) {
+      try {
+        const src = ctx.createBufferSource();
+        const g = ctx.createGain();
+        src.buffer = buffers.get(file);
+        src.playbackRate.value = o.rate || (o.vary !== false ? 0.97 + Math.random() * 0.06 : 1);
+        g.gain.value = U.clamp((o.gain == null ? 0.92 : o.gain) / 0.62, 0, 1.6);
+        src.connect(g);
+        g.connect(master);
+        src.start();
+        return { el: null, promise: Promise.resolve() };
+      } catch (err) { /* نكمل بالطريقة القديمة */ }
+    }
+    if (ctx && !bufFailed.has(file)) loadBuffer(file);
     preloadFile(file);
     try {
       const el = new window.Audio(ASSET_BASE + file);
@@ -690,7 +727,7 @@
 
   function confetti(opts) {
     if (!motionEnabled()) return null;
-    const o = Object.assign({ pieces: 46, duration: 2400 }, opts || {});
+    const o = Object.assign({ pieces: isLite() ? 18 : 46, duration: 2400 }, opts || {});
     if (document.querySelector(".fx-confetti")) return null;
     const layer = document.createElement("div");
     layer.className = "fx-confetti";
@@ -788,7 +825,7 @@
    * السابق إلى موقعها الجديد (FLIP)، ونُدخل القطع الجديدة بحركة مناسبة.
    */
   function observePieces(mount, opts) {
-    if (!mount || typeof window.MutationObserver !== "function") return function () {};
+    if (!mount || typeof window.MutationObserver !== "function" || isLite()) return function () {};
     const o = Object.assign({ skip: false, limit: 260, maxDistance: 760 }, opts || {});
     let previous = new Map();
     let first = true;
@@ -921,8 +958,16 @@
       '<button type="button" class="fx-switch" data-toggle="motion" role="switch" aria-checked="' + (prefs.motion ? "true" : "false") + '"><span></span></button>' +
       "</div>" +
       '<div class="fx-option">' +
-      '<div class="fx-option-copy"><span class="fx-option-icon">' + icon("i-eye") + "</span><div><strong>المعلومات السرية أونلاين</strong><small>إظهار أوراقك وبطاقاتك وسجلك تلقائيًا في اللعب الجماعي، مع زر «إخفاء» في أي وقت. أوقفه لتبقى مخفية حتى تضغط «إظهار».</small></div></div>" +
-      '<button type="button" class="fx-switch" data-toggle="autoReveal" role="switch" aria-label="المعلومات السرية أونلاين" aria-checked="' + (BG.prefs.autoReveal ? "true" : "false") + '"><span></span></button>' +
+      '<div class="fx-option-copy"><span class="fx-option-icon">' + icon("i-eye") + "</span><div><strong>إخفاء المعلومات السرية</strong><small>أضف زر «إخفاء/إظهار» لأوراقك وبطاقاتك وسجلك في كل الألعاب. عند إيقافه تُعرض معلوماتك مباشرة بلا أزرار إخفاء.</small></div></div>" +
+      '<button type="button" class="fx-switch" data-toggle="hideSecrets" role="switch" aria-label="إخفاء المعلومات السرية" aria-checked="' + (BG.prefs.hideSecrets ? "true" : "false") + '"><span></span></button>' +
+      "</div>" +
+      '<div class="fx-option">' +
+      '<div class="fx-option-copy"><span class="fx-option-icon">' + icon("i-gauge") + "</span><div><strong>وضع الأداء</strong><small>«خفيف» يقلّل الظلال والمؤثرات ليعمل الموقع بسلاسة على الأجهزة الضعيفة (يُختار تلقائيًا على الجوال)</small></div></div>" +
+      '<div class="seg seg-compact" data-perf-seg>' +
+      '<button type="button" class="seg-btn" data-perf="auto">تلقائي</button>' +
+      '<button type="button" class="seg-btn" data-perf="lite">خفيف</button>' +
+      '<button type="button" class="seg-btn" data-perf="full">كامل</button>' +
+      "</div>" +
       "</div>" +
       '<div class="fx-preview"><span>جرّب المؤثرات</span><div>' +
       '<button type="button" class="bg-btn small" data-test="dice">🎲 نرد</button>' +
@@ -934,14 +979,40 @@
 
     const soundSwitch = body.querySelector('[data-toggle="sound"]');
     const motionSwitch = body.querySelector('[data-toggle="motion"]');
-    const autoRevealSwitch = body.querySelector('[data-toggle="autoReveal"]');
+    const hideSecretsSwitch = body.querySelector('[data-toggle="hideSecrets"]');
     const volume = body.querySelector("[data-volume]");
     const label = body.querySelector("[data-volume-label]");
 
-    function syncAutoReveal() {
-      const on = BG.prefs.autoReveal;
-      autoRevealSwitch.classList.toggle("on", on);
-      autoRevealSwitch.setAttribute("aria-checked", on ? "true" : "false");
+    const perfButtons = Array.from(body.querySelectorAll("[data-perf]"));
+    function syncPerf() {
+      const cur = BG.store.get("perf", "auto") || "auto";
+      perfButtons.forEach((b) => {
+        const on = b.getAttribute("data-perf") === cur;
+        b.classList.toggle("active", on);
+        b.setAttribute("aria-pressed", on ? "true" : "false");
+      });
+    }
+    perfButtons.forEach((b) => b.addEventListener("click", () => {
+      const val = b.getAttribute("data-perf");
+      BG.store.set("perf", val);
+      let weak = false;
+      try {
+        const n = navigator;
+        weak = (n.hardwareConcurrency && n.hardwareConcurrency <= 4) || (n.deviceMemory && n.deviceMemory <= 4) ||
+          (window.matchMedia && window.matchMedia("(pointer: coarse)").matches);
+      } catch (err) { /* تجاهل */ }
+      const lite = val === "lite" || (val !== "full" && !!weak);
+      document.documentElement.classList.toggle("lite", lite);
+      document.documentElement.setAttribute("data-perf", lite ? "lite" : "full");
+      syncPerf();
+      BG.toast(lite ? "تفعّل الوضع الخفيف." : "تفعّل الوضع الكامل.", "good");
+    }));
+    syncPerf();
+
+    function syncHideSecrets() {
+      const on = BG.prefs.hideSecrets;
+      hideSecretsSwitch.classList.toggle("on", on);
+      hideSecretsSwitch.setAttribute("aria-checked", on ? "true" : "false");
     }
 
     soundSwitch.addEventListener("click", () => {
@@ -954,11 +1025,11 @@
       motionSwitch.classList.toggle("on", on);
       motionSwitch.setAttribute("aria-checked", on ? "true" : "false");
     });
-    autoRevealSwitch.addEventListener("click", () => {
-      const on = BG.prefs.setAutoReveal(!BG.prefs.autoReveal);
-      syncAutoReveal();
-      if (on) BG.toast("ستظهر معلوماتك السرية تلقائيًا في اللعب الجماعي.", "good");
-      else BG.toast("ستبقى معلوماتك السرية مخفية حتى تضغط «إظهار».");
+    hideSecretsSwitch.addEventListener("click", () => {
+      const on = BG.prefs.setHideSecrets(!BG.prefs.hideSecrets);
+      syncHideSecrets();
+      if (on) BG.toast("أصبح زر «إخفاء/إظهار» متاحًا في الألعاب.", "good");
+      else BG.toast("ستظهر معلوماتك السرية مباشرة بلا أزرار إخفاء.");
     });
     volume.addEventListener("input", () => {
       label.textContent = Math.round(Number(volume.value)) + "%";
@@ -984,7 +1055,7 @@
 
     soundSwitch.classList.toggle("on", prefs.sound);
     motionSwitch.classList.toggle("on", prefs.motion);
-    syncAutoReveal();
+    syncHideSecrets();
     if (volume) volume.disabled = !prefs.sound;
 
     document.addEventListener("bgfxchange", function sync() {
@@ -1007,7 +1078,7 @@
         document.removeEventListener("bgprefschange", syncPrefs);
         return;
       }
-      syncAutoReveal();
+      syncHideSecrets();
     });
 
     BG.openDialog({
@@ -1076,7 +1147,7 @@
       get sound() { return prefs.sound; },
       get volume() { return prefs.volume; },
       get motion() { return prefs.motion; },
-      get autoReveal() { return BG.prefs.autoReveal; },
+      get hideSecrets() { return BG.prefs.hideSecrets; },
     },
   });
 

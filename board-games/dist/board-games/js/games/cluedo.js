@@ -106,10 +106,6 @@
     return state.players[state.current];
   }
 
-  function autoRevealEnabled() {
-    const opts = (apiRef && apiRef.options) || {};
-    return BG.autoRevealEnabled(opts.autoReveal);
-  }
   function isOnline() {
     return !!(apiRef && apiRef.net && apiRef.net.enabled);
   }
@@ -971,7 +967,7 @@
         title: "🕵️ أوراق " + player.name,
         owner: player.name,
         hint: "بطاقاتك سرّية. أظهرها فقط عند دورك أو عند طلب دحض، ثم أخفها قبل تمرير الجهاز.",
-        open: (isOnline() && autoRevealEnabled()) || (state.handRevealed && state.current === player.index),
+        open: isOnline() || (state.handRevealed && state.current === player.index),
         autoKey: "cluedo:" + player.index + ":" + state.turn,
         onToggle(visible) {
           state.handRevealed = visible;
@@ -1031,27 +1027,6 @@
     minPlayers: 2,
     maxPlayers: 6,
     defaultPlayers: 3,
-
-    options: {
-      hint: "\u062e\u064a\u0627\u0631\u0627\u062a \u0642\u0648\u0627\u0646\u064a\u0646 \u0625\u0636\u0627\u0641\u064a\u0629.",
-      defaults: { autoReveal: null },
-      fields: [
-        {
-          key: "autoReveal",
-          label: "المعلومات السرية (أونلاين)",
-          type: "seg",
-          choices: [
-            { value: null, label: "حسب الإعدادات" },
-            { value: true, label: "إظهار تلقائي" },
-            { value: false, label: "إخفاء تلقائي" },
-          ],
-          hint: "«حسب الإعدادات» يتبع خيار المعلومات السرية في نافذة الإعدادات الرئيسية. الإظهار التلقائي يفتح بطاقاتك مع زر للإخفاء.",
-        },
-      ],
-      summary(options) {
-        return BG.autoRevealLabel(options.autoReveal);
-      },
-    },
 
     rules: {
       goal: "اكتشف ثلاث بطاقات القضية المخبأة في الظرف: من ارتكب الجريمة، وبأي سلاح، وفي أي غرفة. اطرح اقتراحات لتضيّق الاحتمالات، ودحض اقتراحات خصومك، ثم قدّم اتهامًا نهائيًا صحيحًا قبل أن يسبقك أحد.",

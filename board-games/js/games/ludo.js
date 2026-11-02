@@ -1,6 +1,14 @@
 /* ==========================================================================
    لودو — سباق البيوت الأربعة
    مسار من ٥٢ خانة، أربع قطع لكل لاعب، نرد، أسر، وخانات آمنة.
+
+   v2:
+   - اللوحة تُبنى مرة واحدة وتُحدَّث القطع فقط (كانت تُعاد كل ٢٢٥ خلية في كل خطوة).
+   - لاعبان = زاويتان متقابلتان (القاعدة الرسمية).
+   - علامات الوجهة تظهر لكل القطع المتاحة وتُضغط (يعمل على اللمس بلا hover).
+   - ثلاث ستات متتالية تُلغي الدور، وخيارات قوانين قابلة للتخصيص.
+   - ذكاء اصطناعي يقيّم الخطر والأسر وسلامة الخانات.
+   - اختصار: مسطرة المسافة / Enter لرمي النرد.
    ========================================================================== */
 (function () {
   "use strict";
@@ -23,11 +31,15 @@
   }
   const esc = (value) => U.escape(value);
 
+  const OPT_DEFAULTS = { tripleSix: true, exitOne: false, captureBonus: true };
+
   let rootRef = null;
   let apiRef = null;
   let state = null;
   let moveTimer = null;
   let autoTimer = null;
+  let keyHandler = null;
+  const tokenEls = new Map();
 
   /* ------------------------------ المسار ------------------------------ */
 
@@ -72,30 +84,51 @@
   const CENTER = [7, 7];
   const FINISH = 56;
 
-  function cellOf(playerIndex, pos) {
-    if (pos < 0) return BASES[playerIndex][pos === -1 ? 0 : 0];
-    if (pos <= 50) return PATH[(START[playerIndex] + pos) % 52];
-    if (pos < FINISH) return LANES[playerIndex][pos - 51];
+  /* كل الهندسة تعتمد على «الزاوية» (slot) لا على ترتيب اللاعب */
+  function cellOf(slot, pos) {
+    if (pos < 0) return BASES[slot][0];
+    if (pos <= 50) return PATH[(START[slot] + pos) % 52];
+    if (pos < FINISH) return LANES[slot][pos - 51];
     return CENTER;
   }
 
-  function slotOf(playerIndex, tokenIndex, pos) {
-    if (pos >= 0) return cellOf(playerIndex, pos);
-    return BASES[playerIndex][tokenIndex];
+  function slotCell(slot, tokenIndex, pos) {
+    if (pos >= 0) return cellOf(slot, pos);
+    return BASES[slot][tokenIndex];
   }
 
-  function absCell(playerIndex, pos) {
+  function absCell(slot, pos) {
     if (pos < 0 || pos > 50) return null;
-    return (START[playerIndex] + pos) % 52;
+    return (START[slot] + pos) % 52;
+  }
+
+  // مراكز دوائر القواعد المرسومة (نسبة من عرض اللوحة)، لتجلس القطع داخلها تمامًا.
+  const BASE_NEAR = [14.69, 25.71];
+  const BASE_FAR = [74.29, 85.31];
+
+  function baseSlotXY(slot, tokenIndex) {
+    const right = slot === 1 || slot === 2;
+    const bottom = slot === 2 || slot === 3;
+    const xs = right ? BASE_FAR : BASE_NEAR;
+    const ys = bottom ? BASE_FAR : BASE_NEAR;
+    return [xs[tokenIndex % 2], ys[tokenIndex >> 1]];
   }
 
   /* ------------------------------ الحالة ------------------------------ */
 
+  function slotsFor(count) {
+    if (count === 2) return [0, 2];
+    return [0, 1, 2, 3].slice(0, count);
+  }
+
   function makePlayers() {
-    return (apiRef.players || []).slice(0, 4).map((player, index) => ({
+    const list = (apiRef.players || []).slice(0, 4);
+    const slots = slotsFor(list.length);
+    return list.map((player, index) => ({
       index,
+      slot: slots[index],
       name: player.name || "اللاعب " + (index + 1),
-      color: COLORS[index],
+      color: COLORS[slots[index]],
       type: player.type === "cpu" ? "cpu" : "human",
       level: AI.level(player.level),
       isCpu: AI.isCpu(player),
@@ -106,11 +139,12 @@
   function newState() {
     return {
       players: makePlayers(),
+      opts: Object.assign({}, OPT_DEFAULTS, (apiRef && apiRef.options) || {}),
       current: 0,
       dice: null,
       phase: "roll",
       round: 1,
-      extra: false,
+      sixes: 0,
       notice: "ارمِ النرد. تحتاج ٦ لإخراج قطعة من القاعدة.",
       last: null,
       over: false,
@@ -154,6 +188,10 @@
     return homeCount(player) === 4;
   }
 
+  function canExit(dice) {
+    return dice === 6 || (state.opts.exitOne && dice === 1);
+  }
+
   /* ------------------------------ القانون ------------------------------ */
 
   function legalMoves(player) {
@@ -164,7 +202,7 @@
     player.tokens.forEach((token) => {
       if (token.pos >= FINISH) return;
       if (token.pos < 0) {
-        if (dice === 6) moves.push({ token, target: 0, from: -1, exit: true });
+        if (canExit(dice)) moves.push({ token, target: 0, from: -1, exit: true });
         return;
       }
       const target = token.pos + dice;
@@ -179,23 +217,33 @@
     state.dice = value;
     state.rolls += 1;
     const player = cur();
+    state.sixes = value === 6 ? (state.sixes || 0) + 1 : 0;
     state.phase = "wait";
     state.notice = player.name + " رمى " + ar(value) + "…";
     if (apiRef) apiRef.log("<strong>" + esc(player.name) + "</strong> رمى النرد: <strong>" + ar(value) + "</strong>.", "accent");
     if (FX) FX.dice(value);
-    renderMotion();
+
+    /* ثلاث ستات متتالية: يضيع الدور */
+    if (state.opts.tripleSix && state.sixes >= 3) {
+      state.notice = player.name + " رمى ٦ ثلاث مرات متتالية — يضيع الدور!";
+      if (apiRef) apiRef.log("ثلاث ستات متتالية لـ<strong>" + esc(player.name) + "</strong> — يضيع الدور.", "warn");
+      update();
+      clearTimeout(autoTimer);
+      autoTimer = setTimeout(() => endTurn(false), 1100);
+      return value;
+    }
 
     const moves = legalMoves(player);
     if (!moves.length) {
       state.notice = player.name + " رمى " + ar(value) + " ولا يملك حركة ممكنة.";
       if (apiRef) apiRef.log("لا توجد حركة ممكنة — يُمرَّر الدور.", "warn");
-      renderMotion();
+      update();
       clearTimeout(autoTimer);
       autoTimer = setTimeout(() => endTurn(false), 850);
       return value;
     }
     state.phase = "move";
-    renderMotion();
+    update();
     if (moves.length === 1) {
       clearTimeout(autoTimer);
       autoTimer = setTimeout(() => performMove(moves[0].token), 520);
@@ -216,6 +264,7 @@
     state.busy = true;
     state.phase = "move";
     clearTimeout(autoTimer);
+    clearTargets();
 
     const steps = move.exit ? 1 : move.target - move.from;
     let step = 0;
@@ -225,7 +274,7 @@
         step += 1;
         token.pos = move.exit ? 0 : move.from + step;
         if (FX) FX.sound("step");
-        renderMotion();
+        update();
         moveTimer = setTimeout(tick, 120);
         return;
       }
@@ -235,7 +284,7 @@
     if (move.exit) {
       token.pos = 0;
       if (FX) FX.sound("step");
-      renderMotion();
+      update();
       moveTimer = setTimeout(() => {
         finishMove(player, token, move);
         if (done) done();
@@ -251,12 +300,12 @@
     state.phase = "wait";
     let captured = false;
     if (token.pos <= 50) {
-      const cell = absCell(player.index, token.pos);
+      const cell = absCell(player.slot, token.pos);
       state.players.forEach((other) => {
         if (other === player) return;
         other.tokens.forEach((enemy) => {
           if (enemy.pos < 0 || enemy.pos > 50) return;
-          if (absCell(other.index, enemy.pos) !== cell) return;
+          if (absCell(other.slot, enemy.pos) !== cell) return;
           if (SAFE.has(cell)) return;
           enemy.pos = -1;
           captured = true;
@@ -282,9 +331,9 @@
       return;
     }
 
-    const extra = state.dice === 6 || captured || token.pos >= FINISH;
+    const extra = state.dice === 6 || (captured && state.opts.captureBonus) || token.pos >= FINISH;
     state.busy = false;
-    renderMotion();
+    update();
     clearTimeout(autoTimer);
     autoTimer = setTimeout(() => endTurn(extra), 450);
   }
@@ -297,17 +346,18 @@
     if (extra && !finished(player)) {
       state.notice = "دور إضافي لـ" + player.name + " بعد ٦ أو أسر أو وصول للبيت.";
       if (apiRef) apiRef.log("دور إضافي لـ<strong>" + esc(player.name) + "</strong>.", "accent");
-      renderMotion();
+      update();
       settle();
       return;
     }
+    state.sixes = 0;
     let guard = 0;
     do {
       state.current = (state.current + 1) % state.players.length;
       guard += 1;
     } while (finished(state.players[state.current]) && guard < 8);
     state.notice = "دور " + cur().name + " — ارمِ النرد.";
-    renderMotion();
+    update();
     settle();
   }
 
@@ -325,32 +375,60 @@
     }
   }
 
+  /* كم ضربة نرد (١–٦) من خصم تصل إلى هذه الخانة */
+  function threatsAt(player, cell) {
+    if (cell == null || SAFE.has(cell)) return 0;
+    let count = 0;
+    state.players.forEach((other) => {
+      if (other === player) return;
+      other.tokens.forEach((enemy) => {
+        if (enemy.pos < 0 || enemy.pos > 50) return;
+        const enemyCell = absCell(other.slot, enemy.pos);
+        const gap = (cell - enemyCell + 52) % 52;
+        if (gap >= 1 && gap <= 6) count += 1;
+      });
+      /* قطعة في القاعدة تُخرَج بـ٦ إلى خانة بدايتها: تهديد لخانة البداية القريبة */
+    });
+    return count;
+  }
+
   function cpuChoose(player, moves) {
     if (!state || state.over || state.current !== player.index) return;
+    const outCount = player.tokens.filter((token) => token.pos >= 0 && token.pos < FINISH).length;
     const pick = AI.choose(
       moves,
       (move) => {
         let score = 0;
-        if (move.exit) score += 34;
-        if (move.target >= FINISH) score += 80;
-        else if (move.target > 50) score += 30 + move.target;
-        const targetCell = move.target <= 50 ? absCell(player.index, move.target) : null;
+        if (move.exit) score += 36 + (outCount === 0 ? 14 : 0);
+        if (move.target >= FINISH) score += 90;
+        else if (move.target > 50) score += 32 + move.target * 0.5;
+
+        const fromCell = move.from >= 0 && move.from <= 50 ? absCell(player.slot, move.from) : null;
+        const targetCell = move.target <= 50 ? absCell(player.slot, move.target) : null;
+
         if (targetCell != null) {
-          if (SAFE.has(targetCell)) score += 12;
+          if (SAFE.has(targetCell)) score += 14;
+          /* أسر */
           state.players.forEach((other) => {
             if (other === player) return;
             other.tokens.forEach((enemy) => {
               if (enemy.pos < 0 || enemy.pos > 50) return;
-              const enemyCell = absCell(other.index, enemy.pos);
-              if (enemyCell === targetCell && !SAFE.has(targetCell)) score += 55;
-              if (enemyCell != null && targetCell != null) {
-                const gap = (targetCell - enemyCell + 52) % 52;
-                if (gap >= 1 && gap <= 6) score -= 8;
+              if (absCell(other.slot, enemy.pos) === targetCell && !SAFE.has(targetCell)) {
+                score += 58 + enemy.pos * 0.7;
               }
             });
           });
+          /* خطر البقاء في الخانة الجديدة */
+          const risk = threatsAt(player, targetCell);
+          if (risk) score -= (14 + move.target * 0.3) * risk;
         }
-        score += move.target * 0.12;
+        /* الهروب من خانة مهدَّدة */
+        if (fromCell != null) {
+          const riskNow = threatsAt(player, fromCell);
+          if (riskNow) score += 20 + move.from * 0.25;
+        }
+        /* لا نترك القطع الخلفية دائمًا: قليل من الأفضلية للمتقدمة */
+        score += move.target * 0.14;
         return score;
       },
       player.level
@@ -380,7 +458,7 @@
         tone: "win",
       });
     }
-    renderMotion();
+    update();
   }
 
   function bestPos(player) {
@@ -395,6 +473,16 @@
 
   /* ------------------------------ الواجهة ------------------------------ */
 
+  const PAWN_SVG =
+    '<svg class="ld-pawn" viewBox="0 0 24 28" aria-hidden="true" focusable="false">' +
+    '<ellipse class="pw-shadow" cx="12" cy="25" rx="8.4" ry="2.4"/>' +
+    '<path class="pw-foot" d="M5.6 24.2c0-2.3 2.8-3.6 6.4-3.6s6.4 1.3 6.4 3.6c0 .9-2.9 1.6-6.4 1.6s-6.4-.7-6.4-1.6z"/>' +
+    '<path class="pw-body" d="M8.4 21c1.5-3 2.3-5.4 2.5-8.6h2.2c.2 3.2 1 5.6 2.5 8.6c-1.4.9-2.9 1.2-3.6 1.2S9.8 21.9 8.4 21z"/>' +
+    '<ellipse class="pw-collar" cx="12" cy="12.6" rx="4.4" ry="1.5"/>' +
+    '<circle class="pw-head" cx="12" cy="8.2" r="4.7"/>' +
+    '<ellipse class="pw-shine" cx="10.3" cy="6.3" rx="1.7" ry="1.2"/>' +
+    "</svg>";
+
   function dieHTML(value) {
     const dots = {
       1: [4], 2: [0, 8], 3: [0, 4, 8], 4: [0, 2, 6, 8], 5: [0, 2, 4, 6, 8], 6: [0, 2, 3, 5, 6, 8],
@@ -405,11 +493,15 @@
     return '<span class="ld-die' + (value ? " has-value" : "") + '">' + cells + "</span>";
   }
 
+  /* اللوحة الثابتة (تُبنى مرة واحدة فقط) */
   function boardHTML() {
+    const trackIndex = new Map();
+    PATH.forEach((cell, i) => trackIndex.set(cell[0] * 15 + cell[1], i));
+
     let cells = "";
     for (let r = 0; r < 15; r++) {
       for (let c = 0; c < 15; c++) {
-        const idx = PATH.findIndex((cell) => cell[0] === r && cell[1] === c);
+        const idx = trackIndex.has(r * 15 + c) ? trackIndex.get(r * 15 + c) : -1;
         const classes = ["ld-cell"];
         let style = "";
         if (idx >= 0) {
@@ -430,8 +522,7 @@
       const slots = BASES[index].map((slot, i) =>
         '<span class="ld-slot" data-ld-slot="' + index + "-" + i + '"></span>'
       ).join("");
-      const turn = state.players[index] && index === state.current && !state.over ? " is-turn" : "";
-      return '<span class="ld-base p' + index + turn + '" style="--pc:' + color.css + '">' + slots + "</span>";
+      return '<span class="ld-base p' + index + '" data-ld-base="' + index + '" style="--pc:' + color.css + '">' + slots + "</span>";
     }).join("");
 
     const lanes = LANES.map((lane, index) => lane.map((cell) =>
@@ -448,78 +539,58 @@
       '<circle cx="50" cy="50" r="11" fill="#fbf6e8" stroke="#b48a3e" stroke-width="2"/>' +
       '<path d="M50 42.4 l2.3 4.7 5.2.7 -3.8 3.7 1 5.1 -4.7-2.6 -4.7 2.6 1-5.1 -3.8-3.7 5.2-.7z" fill="#b48a3e"/>' +
       "</svg></span>";
-    return '<div class="ld-board">' + bases + cells + lanes + center +
-      '<div class="ld-tokens">' + tokensHTML() + "</div></div>";
+    return '<div class="ld-board">' + bases + cells + lanes + center + '<div class="ld-tokens"></div></div>';
   }
 
-  // مراكز دوائر القواعد المرسومة (نسبة من عرض اللوحة)، لتجلس القطع داخلها تمامًا.
-  const BASE_NEAR = [14.69, 25.71];
-  const BASE_FAR = [74.29, 85.31];
-
-  function baseSlotXY(playerIndex, tokenIndex) {
-    const right = playerIndex === 1 || playerIndex === 2;
-    const bottom = playerIndex === 2 || playerIndex === 3;
-    const xs = right ? BASE_FAR : BASE_NEAR;
-    const ys = bottom ? BASE_FAR : BASE_NEAR;
-    return [xs[tokenIndex % 2], ys[tokenIndex >> 1]];
+  function build() {
+    tokenEls.clear();
+    rootRef.innerHTML =
+      '<div class="cg-game ld-game">' +
+      '<div class="cg-top">' +
+      '<div class="cg-brand"><span class="cg-emblem">🎲</span><div><strong>لودو</strong>' +
+      "<small>أخرج قطعك بـ٦، أسر خصومك، وأوصل الأربع إلى البيت أولًا</small></div></div>" +
+      '<div class="cg-pills">' +
+      '<span class="cg-pill">دور <b data-ld-turn>—</b></span>' +
+      '<span class="cg-pill">النرد <b data-ld-dice>—</b></span>' +
+      '<span class="cg-pill">الرميات <b data-ld-rolls>٠</b></span>' +
+      '<span class="cg-pill is-net" data-ld-net hidden></span>' +
+      "</div></div>" +
+      '<div class="cg-grid">' +
+      '<section class="ld-board-wrap">' +
+      '<div class="ld-board-head"><span class="cg-kicker">لوحة لودو</span>' +
+      '<span class="cg-count">الخانات الآمنة ★ · القطع في القاعدة تحتاج ٦</span></div>' +
+      boardHTML() +
+      '<p class="ld-rule-line" data-ld-rule></p>' +
+      "</section>" +
+      '<aside class="cg-side">' +
+      '<div class="cg-panel"><div class="cg-side-head"><span class="cg-kicker">اللاعبون</span></div>' +
+      '<div class="ld-players" data-ld-players></div></div>' +
+      '<div data-ld-actions></div>' +
+      '<div class="ld-notice" data-ld-notice></div>' +
+      '<div class="cg-panel ld-legend"><span class="cg-kicker">تذكير سريع</span>' +
+      '<p>٦ لإخراج قطعة · الأسر يعيد الخصم للقاعدة · لا أسر على ★ · الفوز بأربع قطع في البيت.</p></div>' +
+      "</aside></div></div>";
   }
 
-  const PAWN_SVG =
-    '<svg class="ld-pawn" viewBox="0 0 24 28" aria-hidden="true" focusable="false">' +
-    '<ellipse class="pw-shadow" cx="12" cy="25" rx="8.4" ry="2.4"/>' +
-    '<path class="pw-foot" d="M5.6 24.2c0-2.3 2.8-3.6 6.4-3.6s6.4 1.3 6.4 3.6c0 .9-2.9 1.6-6.4 1.6s-6.4-.7-6.4-1.6z"/>' +
-    '<path class="pw-body" d="M8.4 21c1.5-3 2.3-5.4 2.5-8.6h2.2c.2 3.2 1 5.6 2.5 8.6c-1.4.9-2.9 1.2-3.6 1.2S9.8 21.9 8.4 21z"/>' +
-    '<ellipse class="pw-collar" cx="12" cy="12.6" rx="4.4" ry="1.5"/>' +
-    '<circle class="pw-head" cx="12" cy="8.2" r="4.7"/>' +
-    '<ellipse class="pw-shine" cx="10.3" cy="6.3" rx="1.7" ry="1.2"/>' +
-    "</svg>";
+  function q(sel) {
+    return rootRef ? rootRef.querySelector(sel) : null;
+  }
 
-  function tokensHTML() {
-    const groups = new Map();
-    const items = [];
-    const active = cur();
-    const canMove = state.phase === "move" && humanCanAct(active);
-    const movable = canMove
-      ? new Set(legalMoves(active).map((move) => move.token.id))
-      : null;
-    state.players.forEach((player) => {
-      player.tokens.forEach((token) => {
-        const slot = slotOf(player.index, token.index, token.pos);
-        const key = slot[0] + ":" + slot[1];
-        const list = groups.get(key) || [];
-        list.push({ player, token, slot });
-        groups.set(key, list);
-      });
-    });
-    groups.forEach((list) => {
-      list.forEach((item, i) => {
-        const shift = (i - (list.length - 1) / 2) * 3.4;
-        let left = ((item.slot[1] + 0.5) / 15) * 100 + shift * 0.7;
-        let top = ((item.slot[0] + 0.5) / 15) * 100 + shift * 0.7;
-        const inBase = item.token.pos < 0;
-        if (inBase) {
-          const xy = baseSlotXY(item.player.index, item.token.index);
-          left = xy[0];
-          top = xy[1];
-        }
-        const mine = isOnline() && item.player.index === localSeat();
-        const canPlay = !!(movable && movable.has(item.token.id));
-        items.push(
-          '<button type="button" class="ld-token p' + item.player.index + (mine ? " is-mine" : "") + (canPlay ? " is-movable" : "") +
-          (state.last && state.last.token === item.token.id ? " is-last" : "") + (item.token.pos >= FINISH ? " is-home" : "") + (inBase ? " is-base" : "") + '"' +
-          ' data-ld-token="' + item.token.id + '" data-player="' + item.player.index + '"' +
-          ' style="left:' + left.toFixed(2) + "%;top:" + top.toFixed(2) + "%;--pc:" + item.player.color.css + '"' +
-          ' aria-label="قطعة ' + esc(item.player.name) + " " + ar(item.token.index + 1) + '">' +
-          PAWN_SVG + '</button>'
-        );
-      });
-    });
-    return items.join("");
+  /* لا نلمس DOM إن لم يتغيّر المحتوى */
+  function setHTML(node, html) {
+    if (!node || node.__html === html) return false;
+    node.innerHTML = html;
+    node.__html = html;
+    return true;
+  }
+
+  function setText(node, text) {
+    if (node && node.textContent !== text) node.textContent = text;
   }
 
   function playersHTML() {
     return state.players.map((player) => {
-      const classes = ["ld-player", "p" + player.index];
+      const classes = ["ld-player", "p" + player.slot];
       if (player.index === state.current && !state.over) classes.push("active");
       if (player.isCpu) classes.push("cpu");
       return (
@@ -545,47 +616,111 @@
       dieHTML(state.dice) +
       "<span>" + (state.phase === "roll" ? "ارمِ النرد" : state.phase === "move" ? "اختر قطعة" : "…") + "</span></button>" +
       (state.phase === "move" && mine
-        ? '<p class="ld-action-hint">' + (moves.length ? "اضغط إحدى القطع المتاحة لنقلها " + ar(state.dice) + " خطوات." : "لا حركة.") + "</p>"
+        ? '<p class="ld-action-hint">' + (moves.length ? "اضغط قطعة أو الدائرة المضيئة لنقلها " + ar(state.dice) + " خطوات." : "لا حركة.") + "</p>"
         : "") +
       "</div>"
     );
   }
 
-  function render() {
-    if (!rootRef || !state) return;
+  function ruleLine() {
+    const o = state.opts;
+    return "★ خانات آمنة لا يمكن الأسر عليها. ٦ تمنح دورًا إضافيًا" +
+      (o.captureBonus ? "، والأسر" : "") + " والوصول للبيت يمنحان دورًا إضافيًا أيضًا. يجب أن تكون الخطوة الأخيرة للبيت مضبوطة تمامًا." +
+      (o.tripleSix ? " ثلاث ستات متتالية تُلغي الدور." : "") +
+      (o.exitOne ? " يخرج الواحد أيضًا." : "");
+  }
+
+  function syncTokens() {
+    const layer = q(".ld-tokens");
+    if (!layer) return;
+    const active = cur();
+    const canMove = state.phase === "move" && humanCanAct(active);
+    const movable = canMove ? new Set(legalMoves(active).map((move) => move.token.id)) : null;
+
+    const groups = new Map();
+    state.players.forEach((player) => {
+      player.tokens.forEach((token) => {
+        const cell = slotCell(player.slot, token.index, token.pos);
+        const key = token.pos < 0 ? "b" + player.slot + "-" + token.index : cell[0] + ":" + cell[1];
+        const list = groups.get(key) || [];
+        list.push({ player, token, cell });
+        groups.set(key, list);
+      });
+    });
+
+    const seen = new Set();
+    groups.forEach((list) => {
+      list.forEach((item, i) => {
+        const inBase = item.token.pos < 0;
+        const shift = (i - (list.length - 1) / 2) * 3.4;
+        let left = ((item.cell[1] + 0.5) / 15) * 100 + shift * 0.7;
+        let top = ((item.cell[0] + 0.5) / 15) * 100 + shift * 0.7;
+        if (inBase) {
+          const xy = baseSlotXY(item.player.slot, item.token.index);
+          left = xy[0];
+          top = xy[1];
+        }
+        let el = tokenEls.get(item.token.id);
+        if (!el) {
+          el = document.createElement("button");
+          el.type = "button";
+          el.setAttribute("data-ld-token", item.token.id);
+          el.innerHTML = PAWN_SVG;
+          layer.appendChild(el);
+          tokenEls.set(item.token.id, el);
+        }
+        seen.add(item.token.id);
+        const mine = isOnline() && item.player.index === localSeat();
+        const classes =
+          "ld-token p" + item.player.slot + (mine ? " is-mine" : "") +
+          (movable && movable.has(item.token.id) ? " is-movable" : "") +
+          (state.last && state.last.token === item.token.id ? " is-last" : "") +
+          (item.token.pos >= FINISH ? " is-home" : "") + (inBase ? " is-base" : "");
+        if (el.className !== classes) el.className = classes;
+        el.setAttribute("data-player", String(item.player.index));
+        el.style.left = left.toFixed(2) + "%";
+        el.style.top = top.toFixed(2) + "%";
+        el.style.setProperty("--pc", item.player.color.css);
+        el.setAttribute("aria-label", "قطعة " + item.player.name + " " + ar(item.token.index + 1));
+      });
+    });
+    tokenEls.forEach((el, id) => {
+      if (!seen.has(id)) { el.remove(); tokenEls.delete(id); }
+    });
+  }
+
+  function clearTargets() {
+    if (!rootRef) return;
+    rootRef.querySelectorAll(".ld-target").forEach((node) => node.remove());
+  }
+
+  /* دوائر الوجهة لكل القطع المتاحة — قابلة للضغط (تعمل على اللمس) */
+  function syncTargets() {
+    clearTargets();
+    if (!state || state.phase !== "move" || state.busy) return;
     const player = cur();
-    const top =
-      '<div class="cg-top">' +
-      '<div class="cg-brand"><span class="cg-emblem">🎲</span><div><strong>لودو</strong>' +
-      "<small>أخرج قطعك بـ٦، أسر خصومك، وأوصل الأربع إلى البيت أولًا</small></div></div>" +
-      '<div class="cg-pills">' +
-      '<span class="cg-pill">دور <b>' + esc(player ? player.name : "—") + "</b></span>" +
-      '<span class="cg-pill">النرد <b>' + (state.dice ? ar(state.dice) : "—") + "</b></span>" +
-      '<span class="cg-pill">الرميات <b>' + ar(state.rolls) + "</b></span>" +
-      (isOnline() ? '<span class="cg-pill is-net">🌐 ' + (apiRef.net.isHost ? "المضيف" : "لاعب") + "</span>" : "") +
-      "</div></div>";
+    if (!humanCanAct(player)) return;
+    const layer = q(".ld-tokens");
+    if (!layer) return;
+    legalMoves(player).forEach((move) => {
+      const cell = cellOf(player.slot, move.target);
+      const marker = document.createElement("button");
+      marker.type = "button";
+      marker.className = "ld-target" + (move.target >= FINISH ? " is-home" : "") + (move.exit ? " is-exit" : "");
+      marker.setAttribute("data-ld-for", move.token.id);
+      marker.setAttribute("aria-label", "انقل القطعة إلى هنا");
+      marker.style.left = (((cell[1] + 0.5) / 15) * 100).toFixed(2) + "%";
+      marker.style.top = (((cell[0] + 0.5) / 15) * 100).toFixed(2) + "%";
+      marker.style.setProperty("--pc", player.color.css);
+      layer.appendChild(marker);
+    });
+  }
 
-    const board =
-      '<section class="ld-board-wrap">' +
-      '<div class="ld-board-head"><span class="cg-kicker">لوحة لودو</span>' +
-      '<span class="cg-count">الخانات الآمنة ★ · القطع في القاعدة تحتاج ٦</span></div>' +
-      boardHTML() +
-      '<p class="ld-rule-line">★ خانات آمنة لا يمكن الأسر عليها. ٦ تمنح دورًا إضافيًا، والأسر والوصول للبيت يمنحان دورًا إضافيًا أيضًا. يجب أن تكون الخطوة الأخيرة للبيت مضبوطة تمامًا.</p>' +
-      "</section>";
-
-    const side =
-      '<aside class="cg-side">' +
-      '<div class="cg-panel"><div class="cg-side-head"><span class="cg-kicker">اللاعبون</span></div>' +
-      '<div class="ld-players">' + playersHTML() + "</div></div>" +
-      actionHTML() +
-      '<div class="ld-notice">' + esc(state.notice) + "</div>" +
-      '<div class="cg-panel ld-legend"><span class="cg-kicker">تذكير سريع</span>' +
-      '<p>٦ لإخراج قطعة · الأسر يعيد الخصم للقاعدة · لا أسر على ★ · الفوز بأربع قطع في البيت.</p></div>' +
-      "</aside>";
-
-    rootRef.innerHTML =
-      '<div class="cg-game ld-game' + (state.over ? " is-over" : "") + '">' + top +
-      '<div class="cg-grid">' + board + side + "</div></div>";
+  function hotTarget(tokenId, on) {
+    if (!rootRef) return;
+    rootRef.querySelectorAll(".ld-target").forEach((node) => {
+      node.classList.toggle("is-hot", on && node.getAttribute("data-ld-for") === tokenId);
+    });
   }
 
   let seenRolls = -1;
@@ -611,8 +746,8 @@
   }
 
   function shakeBoard() {
-    const board = rootRef && rootRef.querySelector(".ld-board");
-    if (!board || !board.animate) return;
+    const board = q(".ld-board");
+    if (!board || !board.animate || document.documentElement.classList.contains("lite")) return;
     board.animate(
       [
         { transform: "translate(0,0)" },
@@ -625,62 +760,39 @@
     );
   }
 
-  function clearTarget() {
-    if (!rootRef) return;
-    rootRef.querySelectorAll(".ld-target").forEach((node) => node.remove());
-  }
-
-  function showTarget(tokenId) {
-    clearTarget();
-    if (!state || state.phase !== "move" || !rootRef) return;
+  /* تحديث تزايدي: لا نعيد بناء اللوحة أبدًا */
+  function update() {
+    if (!rootRef || !state) return;
+    if (!q(".ld-board")) build();
     const player = cur();
-    if (!humanCanAct(player)) return;
-    const move = legalMoves(player).find((item) => item.token.id === tokenId);
-    const layer = rootRef.querySelector(".ld-tokens");
-    if (!move || !layer) return;
-    const cell = cellOf(player.index, move.target);
-    const marker = document.createElement("span");
-    marker.className = "ld-target" + (move.target >= FINISH ? " is-home" : "");
-    marker.style.left = (((cell[1] + 0.5) / 15) * 100).toFixed(2) + "%";
-    marker.style.top = (((cell[0] + 0.5) / 15) * 100).toFixed(2) + "%";
-    marker.style.setProperty("--pc", player.color.css);
-    layer.appendChild(marker);
-  }
 
-  function onPointerOver(event) {
-    const node = event.target.closest ? event.target.closest("[data-ld-token]") : null;
-    if (node && node.classList.contains("is-movable")) showTarget(node.getAttribute("data-ld-token"));
-  }
+    setText(q("[data-ld-turn]"), player ? player.name : "—");
+    setText(q("[data-ld-dice]"), state.dice ? ar(state.dice) : "—");
+    setText(q("[data-ld-rolls]"), ar(state.rolls));
+    const net = q("[data-ld-net]");
+    if (net) {
+      if (isOnline()) { net.hidden = false; setText(net, "🌐 " + (apiRef.net.isHost ? "المضيف" : "لاعب")); }
+      else net.hidden = true;
+    }
+    const game = q(".ld-game");
+    if (game) game.classList.toggle("is-over", !!state.over);
 
-  function onPointerOut(event) {
-    const node = event.target.closest ? event.target.closest("[data-ld-token]") : null;
-    if (node) clearTarget();
-  }
-
-  function renderMotion() {
-    if (!rootRef) return;
-    const before = new Map();
-    rootRef.querySelectorAll("[data-ld-token]").forEach((el) => {
-      before.set(el.getAttribute("data-ld-token"), el.getBoundingClientRect());
+    const used = new Set(state.players.map((item) => item.slot));
+    const activeSlot = player && !state.over ? player.slot : -1;
+    rootRef.querySelectorAll("[data-ld-base]").forEach((node) => {
+      const slot = Number(node.getAttribute("data-ld-base"));
+      node.classList.toggle("is-empty", !used.has(slot));
+      node.classList.toggle("is-turn", slot === activeSlot);
     });
-    render();
-    animateDie();
-    if (!before.size || !rootRef.firstElementChild) return;
-    rootRef.querySelectorAll("[data-ld-token]").forEach((el) => {
-      const old = before.get(el.getAttribute("data-ld-token"));
-      if (!old || !el.animate) return;
-      const now = el.getBoundingClientRect();
-      const dx = old.left - now.left;
-      const dy = old.top - now.top;
-      if (Math.abs(dx) < 1 && Math.abs(dy) < 1) return;
-      el.animate(
-        [
-          { transform: "translate(-50%,-50%) translate(" + dx.toFixed(1) + "px," + dy.toFixed(1) + "px)" },
-          { transform: "translate(-50%,-50%)" },
-        ],
-        { duration: 170, easing: "cubic-bezier(.2,.8,.3,1)" }
-      );
-    });
+
+    setHTML(q("[data-ld-players]"), playersHTML());
+    const changedActions = setHTML(q("[data-ld-actions]"), actionHTML());
+    setText(q("[data-ld-notice]"), state.notice);
+    setText(q("[data-ld-rule]"), ruleLine());
+
+    syncTokens();
+    syncTargets();
+    if (changedActions) animateDie();
   }
 
   /* ------------------------------ الأحداث ------------------------------ */
@@ -693,17 +805,41 @@
       if (humanCanAct(player) && state.phase === "roll") rollDie();
       return;
     }
-    const node = event.target.closest ? event.target.closest("[data-ld-token]") : null;
+    const target = event.target.closest ? event.target.closest("[data-ld-for]") : null;
+    const node = target || (event.target.closest ? event.target.closest("[data-ld-token]") : null);
     if (!node) return;
     const player = cur();
     if (!humanCanAct(player) || state.phase !== "move") return;
-    const id = node.getAttribute("data-ld-token");
+    const id = node.getAttribute(target ? "data-ld-for" : "data-ld-token");
     const move = legalMoves(player).find((item) => item.token.id === id);
     if (!move) {
       if (FX) FX.sound("error");
       return;
     }
     performMove(move.token);
+  }
+
+  function onPointerOver(event) {
+    const node = event.target.closest ? event.target.closest("[data-ld-token]") : null;
+    if (node) hotTarget(node.getAttribute("data-ld-token"), true);
+  }
+
+  function onPointerOut(event) {
+    const node = event.target.closest ? event.target.closest("[data-ld-token]") : null;
+    if (node) hotTarget(node.getAttribute("data-ld-token"), false);
+  }
+
+  function onKey(event) {
+    if (!state || state.over || !rootRef) return;
+    if (event.code !== "Space" && event.key !== "Enter") return;
+    const tag = event.target && event.target.tagName;
+    if (tag === "BUTTON" || tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || tag === "A") return;
+    if (document.querySelector("dialog[open]")) return;
+    const player = cur();
+    if (humanCanAct(player) && state.phase === "roll") {
+      event.preventDefault();
+      rollDie();
+    }
   }
 
   /* ------------------------------ التسجيل ------------------------------ */
@@ -723,6 +859,24 @@
     maxPlayers: 4,
     defaultPlayers: 4,
 
+    options: {
+      hint: "قوانين إضافية يمكن تخصيصها قبل بدء المباراة.",
+      defaults: Object.assign({}, OPT_DEFAULTS),
+      fields: [
+        { key: "tripleSix", label: "ثلاث ستات متتالية تُلغي الدور", type: "toggle", hint: "إن رميت ٦ ثلاث مرات متتالية يضيع دورك (القاعدة التقليدية)." },
+        { key: "captureBonus", label: "دور إضافي بعد الأسر", type: "toggle", hint: "الأسر يمنحك رمية إضافية." },
+        { key: "exitOne", label: "الإخراج بـ١ أو ٦", type: "toggle", hint: "يمكن إخراج القطعة من القاعدة بـ١ أيضًا (لعبة أسرع)." },
+      ],
+      summary(options) {
+        const o = Object.assign({}, OPT_DEFAULTS, options || {});
+        const parts = [];
+        if (o.tripleSix) parts.push("ثلاث ستات تُلغي الدور");
+        if (o.captureBonus) parts.push("دور إضافي بعد الأسر");
+        if (o.exitOne) parts.push("الإخراج بـ١ أو ٦");
+        return parts.join("، ") || "قواعد مبسّطة";
+      },
+    },
+
     rules: {
       goal: "كن أول من يوصل القطع الأربع من قاعدته إلى البيت في مركز اللوحة. تحرّك القطع حول المسار بحسب رمي النرد، ويمكنك أسر قطع الخصوم وإعادتها إلى قاعدتها.",
       facts: [["القطع", "٤ لكل لاعب"], ["النرد", "١–٦"], ["المسار", "٥٢ خانة"], ["الفوز", "٤ قطع في البيت"]],
@@ -732,15 +886,15 @@
         "نرد واحد من ستة أوجه.",
       ],
       setup: [
-        "يختار كل لاعب لونًا، وتوضع قطعه الأربع في قاعدته.",
+        "يختار كل لاعب لونًا، وتوضع قطعه الأربع في قاعدته. في لعبة لاعبين يجلس كل واحد في الزاوية المقابلة للآخر.",
         "يبدأ اللاعب الأول، ثم ينتقل الدور بالترتيب.",
-        "تخرج القطعة من القاعدة إلى خانة البداية عند رمي ٦ فقط.",
+        "تخرج القطعة من القاعدة إلى خانة البداية عند رمي ٦ فقط (أو ١ أيضًا إن فعّلت الخيار).",
       ],
       steps: [
-        "<strong>الرمي:</strong> ارمِ النرد، ثم حرّك قطعة واحدة مساوية للرقم الظاهر.",
+        "<strong>الرمي:</strong> ارمِ النرد، ثم حرّك قطعة واحدة مساوية للرقم الظاهر. الدوائر المضيئة تُظهر وجهة كل قطعة متاحة.",
         "<strong>الخروج:</strong> إذا رميت ٦ يمكنك إخراج قطعة من القاعدة إلى خانة البداية بدل تحريك قطعة على المسار.",
-        "<strong>الدور الإضافي:</strong> رمي ٦ يمنحك رميًا إضافيًا. الأسر أو إيصال قطعة إلى البيت يمنحك دورًا إضافيًا أيضًا.",
-        "<strong>الأسر:</strong> إذا هبطت على خانة فيها قطعة خصم واحدة، تعود قطعة الخصم إلى قاعدته. لا يمكن الأسر على الخانات الآمنة ★.",
+        "<strong>الدور الإضافي:</strong> رمي ٦ يمنحك رميًا إضافيًا. الأسر أو إيصال قطعة إلى البيت يمنحك دورًا إضافيًا أيضًا. وإن رميت ٦ ثلاث مرات متتالية يضيع الدور.",
+        "<strong>الأسر:</strong> إذا هبطت على خانة فيها قطعة خصم، تعود قطعة الخصم إلى قاعدته. لا يمكن الأسر على الخانات الآمنة ★.",
         "<strong>البيت:</strong> بعد دورة كاملة، تدخل القطعة مسار بيتك الملوّن. يجب أن تكون الخطوة الأخيرة مضبوطة تمامًا؛ الرقم الزائد لا يُحرّك القطعة.",
         "<strong>التكديس:</strong> يمكن لقطعتين من اللاعب نفسه الوقوف على الخانة نفسها.",
       ],
@@ -748,7 +902,7 @@
       notes: [
         "الخانات الآمنة هي خانات البداية الأربع وأربع خانات إضافية موزّعة على المسار.",
         "لا يمكن الأسر على خانة آمنة، لكن يمكن الوقوف عليها بأمان.",
-        "في النسخة الرقمية تُنفَّذ الحركة خطوة بخطوة لرؤية المسار بوضوح.",
+        "اختصار: مسطرة المسافة أو Enter لرمي النرد.",
         "القطع في القاعدة لا تُعرض على المسار؛ تُعرض داخل مربع اللاعب.",
       ],
     },
@@ -760,15 +914,16 @@
       clearTimeout(autoTimer);
       state = newState();
       seenRolls = -1;
+      tokenEls.clear();
       apiRef.log("بدأت لعبة لودو مع " + ar(state.players.length) + " لاعبين. يحتاج كل لاعب رمي ٦ لإخراج أول قطعة.", "accent");
-      renderMotion();
+      update();
       settle();
 
       if (new URLSearchParams(location.search).has("bgdebug")) {
         window.__bgDebug = {
           get state() { return state; },
           get players() { return state.players; },
-          render: renderMotion,
+          render: update,
           rollDie,
           performMove,
           legalMoves,
@@ -779,18 +934,18 @@
             state.current = U.clamp(Number(index) || 0, 0, state.players.length - 1);
             state.phase = "roll";
             state.dice = null;
-            renderMotion();
+            update();
           },
           forceRoll(value) {
             if (!state) return;
             state.dice = U.clamp(Number(value) || 1, 1, 6);
             state.phase = "move";
-            renderMotion();
+            update();
           },
           place(playerIndex, tokenIndex, pos) {
             if (!state || !state.players[playerIndex]) return;
             state.players[playerIndex].tokens[tokenIndex].pos = pos;
-            renderMotion();
+            update();
           },
         };
       }
@@ -800,6 +955,9 @@
       rootRef.addEventListener("pointerout", onPointerOut);
       rootRef.addEventListener("focusin", onPointerOver);
       rootRef.addEventListener("focusout", onPointerOut);
+      keyHandler = onKey;
+      document.addEventListener("keydown", keyHandler);
+
       return {
         netSnapshot() { return state ? BG.netCodec.encode(state) : null; },
         netLoad(data) {
@@ -808,11 +966,16 @@
           clearTimeout(moveTimer);
           clearTimeout(autoTimer);
           state = BG.netCodec.decode(data);
-          state.players.forEach((player) => {
+          /* توافق مع حفظ قديم بلا slot/opts */
+          const slots = slotsFor(state.players.length);
+          state.players.forEach((player, i) => {
             player.tokens = Array.isArray(player.tokens) ? player.tokens : [];
+            if (typeof player.slot !== "number") player.slot = slots[i];
+            player.color = COLORS[player.slot];
           });
+          state.opts = Object.assign({}, OPT_DEFAULTS, state.opts || {});
           state.busy = false;
-          renderMotion();
+          update();
         },
         netSeat() { return state ? state.current : -1; },
         netOver() { return !!(state && state.over); },
@@ -820,7 +983,7 @@
           if (!state) return;
           state.busy = false;
           if (state.phase === "wait") state.phase = state.dice ? "move" : "roll";
-          renderMotion();
+          update();
           if (!state.over) settle();
         },
         destroy() {
@@ -828,13 +991,16 @@
           clearTimeout(autoTimer);
           moveTimer = null;
           autoTimer = null;
-          if (rootRef) rootRef.removeEventListener("click", onClick);
+          if (keyHandler) document.removeEventListener("keydown", keyHandler);
+          keyHandler = null;
           if (rootRef) {
+            rootRef.removeEventListener("click", onClick);
             rootRef.removeEventListener("pointerover", onPointerOver);
             rootRef.removeEventListener("pointerout", onPointerOut);
             rootRef.removeEventListener("focusin", onPointerOver);
             rootRef.removeEventListener("focusout", onPointerOut);
           }
+          tokenEls.clear();
           seenRolls = -1;
           rootRef = null;
           apiRef = null;

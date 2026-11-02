@@ -1,0 +1,137 @@
+/* ==========================================================================
+   ألعاب الطاولة — طبقة الأداء
+   تُحمَّل آخرًا. تُخفّف الرسم والحركة دون تغيير هوية التصميم.
+   الوضع الخفيف (html.lite) يُفعَّل تلقائيًا على الأجهزة الضعيفة واللمسية،
+   ويمكن التحكم به من «الإعدادات ← وضع الأداء».
+   ========================================================================== */
+
+/* ------------------------------ دائمًا (كل الأجهزة) ------------------------------ */
+
+/* الخلفية الثابتة بتدرجات متعددة تُعيد الرسم عند كل تمرير — نثبّتها على الصفحة */
+body,
+body.library-mode {
+  background-attachment: scroll;
+}
+
+/* حركة لا نهائية بفلتر blur على عنصر ضخم = إعادة رسم مستمرة */
+.hero-aura {
+  animation: none;
+  filter: none;
+  will-change: auto;
+}
+.hero-seal { will-change: auto; }
+body.library-mode .game-scene { will-change: auto; }
+body.library-mode .game-art-glow { filter: none; }
+
+/* البطاقات خارج الشاشة لا تُرسم ولا تُقاس حتى تقترب */
+body.library-mode .game-card {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 420px;
+  contain: layout style;
+}
+
+/* ظلال المشهد الكبير: تكلفتها عالية وفائدتها ضئيلة */
+body.library-mode .hero-scene { filter: none; }
+
+/* خلفية حاجب النوافذ: blur على كامل الشاشة مكلف جدًا */
+dialog.bg-dialog::backdrop {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  background: rgba(3, 8, 11, 0.78);
+}
+
+/* أزرار تكرار بلا ضرورة */
+.net-overlay,
+.net-lobby,
+.net-watch-card,
+.bg-topbar,
+.bg-to-top,
+.game-num,
+.game-players,
+.game-en-badge,
+.hero-btn.ghost {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+/* ------------------------------ الوضع الخفيف ------------------------------ */
+
+html.lite *,
+html.lite *::before,
+html.lite *::after {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+
+/* لا حركات لا نهائية على الأجهزة الضعيفة */
+html.lite .ld-token.is-movable,
+html.lite .ld-token.is-movable::after,
+html.lite .ld-target,
+html.lite .ld-base.is-turn,
+html.lite .ld-roll.is-live .ld-die,
+html.lite .net-watch-eye,
+html.lite .net-hud-dot {
+  animation: none !important;
+}
+html.lite .ld-token.is-movable::after {
+  opacity: 0.85;
+}
+html.lite .ld-base.is-turn {
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.5),
+    0 0 0 3px color-mix(in srgb, var(--pc) 60%, #fff);
+}
+
+/* دخول البطاقات بتتالٍ = 20 حركة في وقت واحد */
+html.lite body.library-mode .game-card {
+  animation: none;
+  transition: border-color 0.2s ease;
+}
+html.lite body.library-mode .game-card:hover,
+html.lite body.library-mode .game-card:active {
+  transform: none;
+}
+html.lite body.library-mode .game-card:hover .game-scene {
+  transform: none;
+}
+
+/* ظلال أخف وأبسط */
+html.lite body.library-mode .game-card,
+html.lite body.library-mode .library-hero,
+html.lite body.library-mode .hero-frame,
+html.lite body.library-mode .resume-card {
+  box-shadow: 0 10px 22px -16px rgba(0, 0, 0, 0.8);
+}
+html.lite .hero-seal {
+  box-shadow: 0 10px 18px -10px rgba(0, 0, 0, 0.7);
+}
+html.lite .hero-visual .hero-scene * {
+  animation: none !important;
+}
+
+/* لا فلاتر على نصوص كبيرة */
+html.lite .hero-gold {
+  filter: none;
+}
+html.lite body.library-mode .hero-copy h1 {
+  text-shadow: none;
+}
+
+/* لا انتقالات على كل شيء داخل اللعبة */
+html.lite .game-mount *,
+html.lite .game-stage * {
+  scroll-behavior: auto;
+}
+html.lite {
+  scroll-behavior: auto;
+}
+
+/* الكونفتي والعناصر الطائرة خفيفة بما يكفي من الجافاسكربت */
+
+/* ------------------------------ تقليل الحركة ------------------------------ */
+
+@media (prefers-reduced-motion: reduce) {
+  body.library-mode .game-card {
+    content-visibility: auto;
+  }
+}

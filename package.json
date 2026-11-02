@@ -1,4 +1,8 @@
 {
+  "scripts": {
+    "start": "node board-games/server.js",
+    "build": "node board-games/tools/build.js"
+  },
   "dependencies": {
     "ws": "^8.22.0"
   }

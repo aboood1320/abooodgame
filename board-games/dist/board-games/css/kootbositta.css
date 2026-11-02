@@ -270,12 +270,80 @@
 
 .ko-card {
   --cw: 64px;
+  --wq-paper: #fbf4e2;
+  --wq-gold: #b8863b;
+  border-color: rgba(150, 104, 38, 0.52);
 }
 .ko-card.is-small { --cw: 50px; }
+.ko-card.is-red { --wq-ink: #9c2f2b; }
+.ko-card.is-black { --wq-ink: #2c241c; }
+
+/* ورق كوت عاجي بحواف عنابية وذهبية */
+.ko-card .wq-card-face {
+  background:
+    radial-gradient(120% 90% at 50% 0%, rgba(255, 255, 255, 0.96), transparent 56%),
+    repeating-linear-gradient(45deg, rgba(120, 80, 30, 0.035) 0 1px, transparent 1px 7px),
+    linear-gradient(155deg, #fffaf0, #f7edd8 68%, #ecdcbc);
+}
+.ko-card .wq-card-face::before {
+  inset: calc(var(--cw) * 0.05);
+  border: 1px solid rgba(166, 116, 42, 0.28);
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.28);
+}
+.ko-card .wq-corner b {
+  font-family: Georgia, "Times New Roman", serif;
+  color: var(--wq-ink);
+}
+.ko-card .wq-corner i { color: var(--wq-ink); }
+.ko-card .wq-court {
+  background:
+    radial-gradient(80% 70% at 50% 18%, rgba(255, 255, 255, 0.9), transparent 70%),
+    linear-gradient(160deg, rgba(184, 134, 59, 0.18), rgba(156, 47, 43, 0.06) 60%, rgba(255, 255, 255, 0.2));
+}
+.ko-card .wq-court-frame::before,
+.ko-card .wq-court-frame::after {
+  border-color: rgba(184, 134, 59, 0.8);
+}
 .ko-card.is-trump {
+  border-color: rgba(225, 180, 92, 0.95);
   box-shadow:
     0 0 0 2px rgba(225, 180, 92, 0.72),
+    0 0 18px -4px rgba(225, 180, 92, 0.4),
     0 12px 22px -14px rgba(0, 0, 0, 0.92);
+}
+.ko-card.is-trump .wq-card-face::before {
+  border-color: rgba(190, 138, 52, 0.72);
+  box-shadow:
+    inset 0 0 0 2px rgba(225, 180, 92, 0.22),
+    0 0 0 1px rgba(225, 180, 92, 0.35);
+}
+
+/* ظهر كوت بو ستة: عنابي ملكي بزخرفة ذهبية وحرف «ك» */
+.ko-card.is-back {
+  background: #3f1114;
+  border-color: rgba(225, 180, 92, 0.82);
+}
+.ko-card.is-back .wq-card-back {
+  background:
+    radial-gradient(circle at 50% 50%, rgba(255, 214, 140, 0.16), transparent 58%),
+    repeating-linear-gradient(45deg, transparent 0 5px, rgba(255, 255, 255, 0.05) 5px 6px),
+    repeating-linear-gradient(-45deg, transparent 0 5px, rgba(0, 0, 0, 0.22) 5px 6px),
+    linear-gradient(150deg, #6b1f22, #431114 62%, #2a090b);
+}
+.ko-card.is-back .wq-back-frame {
+  border-color: rgba(241, 205, 137, 0.72);
+  box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.22);
+}
+.ko-card.is-back .wq-back-medallion {
+  border-color: rgba(241, 205, 137, 0.82);
+  background: radial-gradient(circle, rgba(241, 205, 137, 0.2), rgba(0, 0, 0, 0.16));
+  color: #f1cd89;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: calc(var(--cw) * 0.24);
+  font-weight: 900;
+  box-shadow:
+    0 0 0 3px rgba(241, 205, 137, 0.12),
+    0 0 0 5px rgba(0, 0, 0, 0.12);
 }
 .ko-card.is-playable {
   cursor: pointer;

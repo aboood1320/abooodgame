@@ -658,6 +658,13 @@ dialog.bg-rules-dialog { width: min(760px, calc(100vw - 28px)); }
 .secret-hint { margin: 0; padding: 16px 14px; color: var(--dim); font-size: 0.72rem; text-align: center; line-height: 1.65; }
 .secret-panel:not(.revealed) { border-style: dashed; }
 .secret-panel.revealed { border-color: rgba(76, 201, 164, 0.3); }
+.secret-panel.is-static {
+  border-style: solid;
+  border-color: rgba(76, 201, 164, 0.22);
+  background: linear-gradient(160deg, rgba(76, 201, 164, 0.06), rgba(0, 0, 0, 0.18));
+}
+.secret-panel.is-static .secret-head { border-bottom-color: rgba(76, 201, 164, 0.16); }
+.secret-toggle[hidden] { display: none; }
 .secret-body { padding: 12px; }
 .secret-body:empty { display: none; }
 

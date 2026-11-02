@@ -1,0 +1,341 @@
+/* ==========================================================================
+   ألعاب الطاولة — طبقة التحسينات
+   رسومات لودو (بيادق، نرد، وجهات، أدوار) + الأونلاين (اتصال، ردود فعل)
+   + تحسينات عامة للموقع. تُحمَّل بعد باقي الملفات.
+   ========================================================================== */
+
+/* ------------------------------ عام ------------------------------ */
+
+html { scroll-behavior: smooth; }
+
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--accent, #e1b45c);
+  outline-offset: 2px;
+}
+
+.bg-btn:active:not(:disabled) { transform: translateY(1px) scale(0.985); }
+
+/* شريط علوي ثابت أثناء التمرير في المكتبة */
+body.library-mode .bg-topbar {
+  position: sticky;
+  top: max(8px, env(safe-area-inset-top));
+  z-index: 40;
+}
+body.library-mode .bg-topbar.is-stuck {
+  box-shadow: 0 22px 44px -26px rgba(0, 0, 0, 0.95), var(--shadow-soft, none);
+  background:
+    linear-gradient(120deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.025)),
+    rgba(12, 9, 6, 0.74);
+}
+
+/* شريط تمرير أنيق */
+@supports (scrollbar-width: thin) {
+  * { scrollbar-width: thin; scrollbar-color: rgba(225, 180, 92, 0.38) transparent; }
+}
+
+/* زر العودة للأعلى */
+.bg-to-top {
+  position: fixed;
+  inset-inline-start: clamp(12px, 2vw, 24px);
+  bottom: max(16px, env(safe-area-inset-bottom));
+  z-index: 80;
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 1px solid rgba(240, 206, 144, 0.34);
+  background: rgba(16, 11, 7, 0.88);
+  color: #f0ce90;
+  font-size: 1.1rem;
+  cursor: pointer;
+  box-shadow: 0 16px 30px -16px #000;
+  backdrop-filter: blur(8px);
+  opacity: 0;
+  transform: translateY(14px) scale(0.9);
+  pointer-events: none;
+  transition: opacity 0.22s ease, transform 0.22s ease, background 0.2s ease;
+}
+.bg-to-top.show {
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+}
+.bg-to-top:hover { background: rgba(40, 28, 14, 0.96); }
+
+/* ------------------------------ لودو: القطع كبيادق ------------------------------ */
+
+.ld-token {
+  overflow: visible;
+  background: none;
+  border: 0;
+  box-shadow: none;
+}
+.ld-token::before { display: none; }
+.ld-token:hover,
+.ld-token.is-mine,
+.ld-token.is-movable:hover { box-shadow: none; }
+.ld-token:hover { z-index: 6; }
+.ld-token-ring { display: none; }
+
+.ld-pawn {
+  position: absolute;
+  left: 50%;
+  bottom: -16%;
+  width: 190%;
+  max-width: none;
+  height: auto;
+  overflow: visible;
+  transform: translateX(-50%);
+  pointer-events: none;
+  transition: transform 0.16s ease, filter 0.16s ease;
+  filter: drop-shadow(0 2px 1.5px rgba(0, 0, 0, 0.42));
+}
+.ld-token:hover .ld-pawn,
+.ld-token.is-movable .ld-pawn {
+  transform: translateX(-50%) translateY(-2px);
+  filter: drop-shadow(0 5px 3px rgba(0, 0, 0, 0.5)) brightness(1.07);
+}
+.ld-pawn .pw-shadow { fill: rgba(0, 0, 0, 0.3); }
+.ld-pawn .pw-foot {
+  fill: color-mix(in srgb, var(--pc) 72%, #000);
+  stroke: rgba(30, 18, 6, 0.5);
+  stroke-width: 0.6;
+}
+.ld-pawn .pw-body {
+  fill: color-mix(in srgb, var(--pc) 90%, #000);
+  stroke: rgba(30, 18, 6, 0.5);
+  stroke-width: 0.6;
+}
+.ld-pawn .pw-collar {
+  fill: color-mix(in srgb, var(--pc) 58%, #fff);
+  stroke: rgba(30, 18, 6, 0.4);
+  stroke-width: 0.5;
+}
+.ld-pawn .pw-head {
+  fill: var(--pc);
+  stroke: rgba(30, 18, 6, 0.55);
+  stroke-width: 0.7;
+}
+.ld-pawn .pw-shine { fill: rgba(255, 255, 255, 0.62); }
+
+.ld-token.is-mine .pw-head,
+.ld-token.is-mine .pw-collar {
+  stroke: #ffe2b0;
+  stroke-width: 1.1;
+}
+.ld-token.is-home .ld-pawn { width: 140%; max-width: none; }
+.ld-token.is-base { --ld-t: clamp(22px, 5.4cqw, 36px); }
+.ld-token.is-base .ld-pawn { bottom: -4%; width: 130%; max-width: none; }
+
+/* آخر قطعة تحرّكت */
+.ld-token.is-last::before {
+  display: block;
+  content: "";
+  position: absolute;
+  inset: -4px;
+  width: auto;
+  height: auto;
+  border-radius: 50%;
+  border: 2px dashed rgba(255, 226, 176, 0.85);
+  background: none;
+  transform: none;
+  pointer-events: none;
+}
+
+/* الحلقة المضيئة للقطع القابلة للتحريك */
+.ld-token.is-movable::after {
+  inset: -6px;
+  border-width: 2px;
+  border-color: color-mix(in srgb, var(--pc) 60%, #fff);
+}
+
+/* معاينة الوجهة عند المرور على قطعة قابلة للتحريك */
+.ld-target {
+  position: absolute;
+  z-index: 5;
+  width: calc(100cqw / 15 * 0.86);
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  border: 2px dashed var(--pc);
+  background: color-mix(in srgb, var(--pc) 30%, transparent);
+  box-shadow: 0 0 16px color-mix(in srgb, var(--pc) 70%, transparent);
+  pointer-events: none;
+  animation: ldTargetPulse 0.9s ease-in-out infinite;
+}
+.ld-target.is-home {
+  border-style: solid;
+  border-color: #ffe2b0;
+  background: radial-gradient(circle, rgba(255, 226, 176, 0.55), transparent 72%);
+}
+@keyframes ldTargetPulse {
+  50% { transform: translate(-50%, -50%) scale(1.14); opacity: 0.72; }
+}
+
+/* قاعدة اللاعب صاحب الدور */
+.ld-base.is-turn {
+  animation: ldBaseGlow 1.7s ease-in-out infinite;
+}
+@keyframes ldBaseGlow {
+  50% {
+    box-shadow:
+      inset 0 0 0 1px rgba(255, 255, 255, 0.5),
+      inset 0 -10px 18px rgba(0, 0, 0, 0.2),
+      0 0 0 3px color-mix(in srgb, var(--pc) 60%, #fff),
+      0 0 26px color-mix(in srgb, var(--pc) 70%, transparent);
+  }
+}
+
+/* أسهم مسارات البيت الملوّنة */
+.ld-cell.is-lane::after {
+  content: "›";
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: calc(100cqw / 15 * 0.7);
+  font-weight: 900;
+  line-height: 1;
+  color: rgba(255, 255, 255, 0.82);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+}
+.ld-cell.is-lane.p1::after { rotate: 90deg; }
+.ld-cell.is-lane.p2::after { rotate: 180deg; }
+.ld-cell.is-lane.p3::after { rotate: 270deg; }
+
+/* النرد */
+.ld-pip.is-on { transform: scale(1.12); }
+.ld-roll.is-live .ld-die { animation: ldDieIdle 1.8s ease-in-out infinite; }
+@keyframes ldDieIdle {
+  50% { transform: translateY(-2px) rotate(-3deg); }
+}
+
+/* الإضاءة الدافئة على اللوحة */
+.ld-board {
+  box-shadow:
+    0 0 0 1px rgba(255, 236, 196, 0.22),
+    0 0 0 4px rgba(35, 22, 8, 0.22),
+    0 34px 64px -30px rgba(0, 0, 0, 0.98),
+    0 0 60px -22px rgba(225, 180, 92, 0.32),
+    inset 0 0 48px rgba(120, 96, 56, 0.16);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ld-target,
+  .ld-base.is-turn,
+  .ld-roll.is-live .ld-die { animation: none; }
+  .ld-pawn { transition: none; }
+  html { scroll-behavior: auto; }
+}
+
+/* ------------------------------ الأونلاين ------------------------------ */
+
+.net-hud { flex-wrap: wrap; justify-content: center; }
+
+.net-hud-ping {
+  direction: ltr;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+  font-size: 0.64rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: var(--muted, #9aa7a0);
+  min-width: 56px;
+  text-align: center;
+}
+.net-hud-ping[data-quality="excellent"] { color: #6fe3b0; }
+.net-hud-ping[data-quality="good"] { color: #b6e36f; }
+.net-hud-ping[data-quality="fair"] { color: #f0c35a; }
+.net-hud-ping[data-quality="poor"] { color: #ef8074; }
+
+.net-hud-react {
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px solid rgba(246, 242, 232, 0.16);
+  background: rgba(255, 255, 255, 0.05);
+  font: inherit;
+  font-size: 0.92rem;
+  line-height: 1.2;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+.net-hud-react:hover { background: rgba(255, 255, 255, 0.12); transform: translateY(-1px); }
+
+.net-react-tray {
+  position: absolute;
+  inset-inline-end: 0;
+  bottom: calc(100% + 10px);
+  display: flex;
+  gap: 2px;
+  padding: 6px;
+  border-radius: 18px;
+  border: 1px solid rgba(76, 201, 164, 0.32);
+  background: rgba(7, 15, 20, 0.97);
+  box-shadow: 0 22px 44px -22px #000;
+}
+.net-react-tray[hidden] { display: none; }
+.net-react-tray button {
+  padding: 4px 6px;
+  border: 0;
+  border-radius: 10px;
+  background: none;
+  font-size: 1.3rem;
+  line-height: 1.1;
+  cursor: pointer;
+  transition: transform 0.12s ease, background 0.12s ease;
+}
+.net-react-tray button:hover { transform: scale(1.25); background: rgba(255, 255, 255, 0.09); }
+
+.net-hud.is-reconnecting { border-color: rgba(240, 195, 90, 0.55); }
+.net-hud.is-reconnecting .net-hud-dot {
+  background: #f0c35a;
+  box-shadow: 0 0 10px #f0c35a;
+  animation-duration: 0.6s;
+}
+
+.net-react-pop {
+  position: fixed;
+  bottom: 96px;
+  left: var(--rx, 50%);
+  z-index: 95;
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  pointer-events: none;
+  animation: netReactFloat 2.6s ease-out forwards;
+}
+.net-react-pop span {
+  font-size: 2.5rem;
+  line-height: 1;
+  filter: drop-shadow(0 6px 8px rgba(0, 0, 0, 0.5));
+}
+.net-react-pop small {
+  max-width: 110px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: rgba(7, 15, 20, 0.82);
+  color: #f0ce90;
+  font-size: 0.62rem;
+  font-weight: 700;
+}
+@keyframes netReactFloat {
+  0% { opacity: 0; transform: translateY(24px) scale(0.6); }
+  12% { opacity: 1; transform: translateY(0) scale(1.15); }
+  80% { opacity: 1; }
+  100% { opacity: 0; transform: translateY(-170px) scale(1); }
+}
+
+@media (max-width: 640px) {
+  .net-hud { gap: 6px; padding: 7px 10px; }
+  .net-react-tray { inset-inline: 0; justify-content: center; flex-wrap: wrap; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .net-react-pop { animation-duration: 0.01s; animation-delay: 1.8s; }
+  .bg-to-top { transition: none; }
+}

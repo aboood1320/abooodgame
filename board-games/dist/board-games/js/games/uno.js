@@ -88,10 +88,6 @@
     return !!defaults[key];
   }
 
-  function autoRevealEnabled() {
-    const opts = (apiRef && apiRef.options) || {};
-    return BG.autoRevealEnabled(opts.autoReveal);
-  }
 
   /** المقعد الذي يجلس عليه هذا الجهاز (أو -1 للمشاهد). */
   function viewerIndex() {
@@ -264,7 +260,7 @@
     state.current = nextIndex(skip ? 2 : 1);
     state.turn += 1;
     state.phase = "play";
-    state.handRevealed = isOnline() && autoRevealEnabled();
+    state.handRevealed = !BG.prefs.hideSecrets || isOnline();
     state.pendingDraw = 0;
     setTurnNotice(effect);
     render();
@@ -290,7 +286,7 @@
       state.turn += 1;
       state.phase = "play";
       state.drawnCard = null;
-      state.handRevealed = isOnline() && autoRevealEnabled();
+      state.handRevealed = !BG.prefs.hideSecrets || isOnline();
       setTurnNotice("");
       render();
       if (FX) FX.sound("card");
@@ -352,7 +348,7 @@
     state.turn += 1;
     state.phase = "play";
     state.drawnCard = null;
-    state.handRevealed = isOnline() && autoRevealEnabled();
+    state.handRevealed = !BG.prefs.hideSecrets || isOnline();
     state.pendingDraw = 0;
     setTurnNotice("");
     render();
@@ -798,27 +794,16 @@
 
     options: {
       hint: "خيارات قوانين إضافية. يمكن تخصيصها قبل بدء المباراة.",
-      defaults: { autoReveal: null, drawUntilPlayable: false, stackDraw: false },
+      defaults: { drawUntilPlayable: false, stackDraw: false },
       fields: [
-        {
-          key: "autoReveal",
-          label: "المعلومات السرية (لعب جماعي)",
-          type: "seg",
-          choices: [
-            { value: null, label: "حسب الإعدادات" },
-            { value: true, label: "إظهار تلقائي" },
-            { value: false, label: "إخفاء تلقائي" },
-          ],
-          hint: "«حسب الإعدادات» يتبع خيار المعلومات السرية في نافذة الإعدادات الرئيسية. الإظهار التلقائي يفتح يدك عند دورك مع زر للإخفاء.",
-        },
         { key: "drawUntilPlayable", label: "سحب حتى الحصول على بطاقة قابلة للعب", type: "toggle", hint: "سحب بطاقات حتى الحصول على بطاقة قابلة للعب." },
         { key: "stackDraw", label: "تكديس +2/+4", type: "toggle", hint: "السماح بتكديس +2 على +2 و+4 على +4." },
       ],
       summary(options) {
-        const parts = [BG.autoRevealLabel(options.autoReveal)];
+        const parts = [];
         if (options.drawUntilPlayable) parts.push("سحب متكرر");
         if (options.stackDraw) parts.push("تكديس +2/+4");
-        return parts.join(", ");
+        return parts.join(", ") || "القواعد القياسية";
       },
     },
     rules: {
@@ -885,7 +870,7 @@
         color: "red",
         phase: "play",
         drawnCard: null,
-        handRevealed: isOnline() && autoRevealEnabled(),
+        handRevealed: !BG.prefs.hideSecrets || isOnline(),
         pendingDraw: 0,
         lastCard: null,
         notice: "",
@@ -946,7 +931,7 @@
           if (!data) return;
           BG.closeDialogs();
           state = BG.netCodec.decode(data);
-          state.handRevealed = isOnline() && autoRevealEnabled();
+          state.handRevealed = !BG.prefs.hideSecrets || isOnline();
           state.pendingDraw = 0;
           state.players.forEach((player) => {
             player.hand = Array.isArray(player.hand) ? player.hand : [];
@@ -963,7 +948,7 @@
         },
         netResume() {
           if (!state) return;
-          state.handRevealed = isOnline() && autoRevealEnabled();
+          state.handRevealed = !BG.prefs.hideSecrets || isOnline();
           state.pendingDraw = 0;
           render();
         },

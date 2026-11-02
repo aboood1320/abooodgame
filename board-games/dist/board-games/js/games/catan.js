@@ -172,27 +172,6 @@
     maxPlayers: 4,
     defaultPlayers: 3,
 
-    options: {
-      hint: "\u062e\u064a\u0627\u0631\u0627\u062a \u0642\u0648\u0627\u0646\u064a\u0646 \u0625\u0636\u0627\u0641\u064a\u0629.",
-      defaults: { autoReveal: null },
-      fields: [
-        {
-          key: "autoReveal",
-          label: "المعلومات السرية (أونلاين)",
-          type: "seg",
-          choices: [
-            { value: null, label: "حسب الإعدادات" },
-            { value: true, label: "إظهار تلقائي" },
-            { value: false, label: "إخفاء تلقائي" },
-          ],
-          hint: "«حسب الإعدادات» يتبع خيار المعلومات السرية في نافذة الإعدادات الرئيسية. الإظهار التلقائي يفتح لوحتك مع زر للإخفاء.",
-        },
-      ],
-      summary(options) {
-        return BG.autoRevealLabel(options.autoReveal);
-      },
-    },
-
     rules: {
       goal: "أن تكون أول لاعب يصل إلى 10 نقاط انتصار. النقاط تأتي من المستوطنات (1)، المدن (2)، بطاقات نقطة الانتصار، وأكبر جيش وأطول طريق (2 لكل منهما).",
       facts: [["النقاط للفوز", "10 نقاط"], ["النرد", "نردان لكل دور"], ["الموارد", "5 أنواع"], ["قاطع الطريق", "يُفعّل عند 7"]],
@@ -358,10 +337,6 @@
 
   function cur() { return state.players[state.current]; }
 
-  function autoRevealEnabled() {
-    const opts = (apiRef && apiRef.options) || {};
-    return BG.autoRevealEnabled(opts.autoReveal);
-  }
   function isOnline() {
     return !!(apiRef && apiRef.net && apiRef.net.enabled);
   }
@@ -1633,7 +1608,7 @@
         owner: p.name,
         hint: "مواردك وبطاقات تطورك ونقاطك السرّية مخفية. تأكد أن الجهاز أمامك ثم اضغط «إظهار».",
         render: () => resourcesPanelHTML(p),
-        open: isOnline() && autoRevealEnabled(),
+        open: isOnline(),
         autoKey: "catan:" + p.index + ":" + (state.turnCounter || 0),
         onToggle: (visible) => { state.revealActive = visible; },
       });

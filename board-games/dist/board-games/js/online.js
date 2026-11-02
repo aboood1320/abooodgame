@@ -54,7 +54,36 @@
     pendingInvite: "",
     inviteTried: false,
     optionsByGame: Object.create(null),
+    away: Object.create(null),
+    lastJoin: null,
+    chipKey: "",
+    wake: null,
   };
+
+  /* منع انطفاء الشاشة أثناء اللعب الجماعي: انطفاء الجوال هو أكثر أسباب انقطاع الاتصال */
+  async function acquireWake() {
+    try {
+      if (!navigator.wakeLock || state.wake || document.visibilityState !== "visible") return;
+      state.wake = await navigator.wakeLock.request("screen");
+      state.wake.addEventListener("release", () => { state.wake = null; });
+    } catch (err) { state.wake = null; }
+  }
+
+  function releaseWake() {
+    try { if (state.wake) state.wake.release(); } catch (err) { /* ignore */ }
+    state.wake = null;
+  }
+
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible" && state.inGame) acquireWake();
+  });
+
+  function clearAway() {
+    Object.keys(state.away).forEach((key) => {
+      clearTimeout(state.away[key].timer);
+      delete state.away[key];
+    });
+  }
 
   function netActive() {
     return !!(BG.net && BG.net.role);
@@ -366,7 +395,7 @@
         "</section>" +
         "</div>" +
         status +
-        '<p class="net-hint">💡 للعب على أجهزة مختلفة: شغّل <code>node server.js</code> وافتح عنوان الشبكة الظاهر في الطرفية على كل جهاز.</p>'
+        '<p class="net-hint">💡 للعب على أجهزة مختلفة على نفس الشبكة: على جهاز المضيف شغّل الملف <code>start-lan.bat</code> (أو <code>node board-games/server.js</code>) ثم افتح على كل جهاز العنوان الذي يظهر في نافذته. اللعب يمرّ عبر المضيف نفسه فلا حاجة لإنترنت.</p>'
       );
     }
 
@@ -392,8 +421,25 @@
       '<div class="net-quick-copy"><strong>⚡ مطابقة سريعة</strong><span>ابحث عن غرفة مفتوحة الآن، أو افتح واحدة ليجدك لاعب آخر تلقائيًا.</span></div>' +
       '<button type="button" class="bg-btn big net-quick-btn" data-net-quick>ابحث عن خصم</button>' +
       "</section>" +
+      turnBoxHTML() +
       status +
       '<p class="net-hint">🔒 تُنشأ الغرف عبر خدمة إشارات عالمية، ثم تنتقل بيانات اللعب مباشرة بين الأجهزة. لا تُخزَّن حالة اللعبة على أي خادم.</p>'
+    );
+  }
+
+  function turnBoxHTML() {
+    const t = (BG.net.getTurn && BG.net.getTurn()) || {};
+    const urls = Array.isArray(t.urls) ? t.urls.join(" ") : (t.urls || "");
+    return (
+      '<details class="net-advanced"><summary>⚙️ إعدادات الاتصال المتقدمة (خادم TURN)</summary>' +
+      '<p class="net-note">إذا فشل الاتصال بين لاعبين على شبكات مختلفة (بيانات الجوال أو شبكات الشركات) أضف خادم TURN. يُحفظ على جهازك فقط ويجب ضبطه على جميع اللاعبين.</p>' +
+      '<label class="net-field"><span>العنوان (turn:… أو turns:…)</span><input data-turn-urls type="text" dir="ltr" value="' + esc(urls) + '" placeholder="turn:example.com:3478" /></label>' +
+      '<div class="net-controls-grid">' +
+      '<label class="net-field"><span>اسم المستخدم</span><input data-turn-user type="text" dir="ltr" value="' + esc(t.username || "") + '" /></label>' +
+      '<label class="net-field"><span>كلمة المرور</span><input data-turn-pass type="password" dir="ltr" value="' + esc(t.credential || "") + '" /></label>' +
+      "</div>" +
+      '<div class="net-join-row"><button type="button" class="bg-btn small primary" data-turn-save>حفظ</button><button type="button" class="bg-btn small" data-turn-clear>مسح</button></div>' +
+      "</details>"
     );
   }
 
@@ -437,6 +483,42 @@
       });
     });
 
+    const turnSave = body.querySelector("[data-turn-save]");
+    const turnClear = body.querySelector("[data-turn-clear]");
+    if (turnSave) {
+      turnSave.addEventListener("click", () => {
+        const urls = (body.querySelector("[data-turn-urls]").value || "").trim();
+        if (!urls) { BG.net.setTurn(null); BG.toast("تم مسح إعداد TURN."); return; }
+        const saved = BG.net.setTurn({
+          urls,
+          username: body.querySelector("[data-turn-user]").value.trim(),
+          credential: body.querySelector("[data-turn-pass]").value,
+        });
+        BG.toast(saved ? "حُفظ خادم TURN على هذا الجهاز." : "عنوان TURN غير صالح (يبدأ بـ turn: أو turns:).", saved ? "good" : "warn");
+      });
+    }
+    if (turnClear) {
+      turnClear.addEventListener("click", () => {
+        BG.net.setTurn(null);
+        ["[data-turn-urls]", "[data-turn-user]", "[data-turn-pass]"].forEach((sel) => { body.querySelector(sel).value = ""; });
+        BG.toast("تم مسح إعداد TURN.");
+      });
+    }
+
+    /* الوضع المحلي: تحقّق من وجود خادم اللعب قبل أن يضغط اللاعب «إنشاء» ويفشل */
+    if (BG.net.mode === "lan" && status) {
+      BG.net.lanInfo().then((info) => {
+        if (!document.body.contains(status) || state.inRoom) return;
+        if (!info) {
+          status.className = "net-status is-error";
+          status.textContent = "لا يوجد خادم لعب محلي هنا. شغّل start-lan.bat على جهاز المضيف وافتح الموقع من العنوان الذي يظهر فيه، أو استخدم «لعب عالمي» إن كنتم على شبكات مختلفة.";
+        } else if (/^(localhost|127\.)/.test(location.hostname) && info.urls && info.urls.length) {
+          status.className = "net-status";
+          status.textContent = "لينضم الآخرون افتحوا على أجهزتهم: " + info.urls[0];
+        }
+      });
+    }
+
     create.addEventListener("click", async () => {
       if (state.busy) return;
       state.busy = true;
@@ -471,6 +553,7 @@
       try {
         await BG.net.joinRoom(code, state.name);
         state.inRoom = true;
+        state.lastJoin = { code, name: state.name };
         state.pendingInvite = "";
         renderLobby();
       } catch (err) {
@@ -490,6 +573,7 @@
         try {
           const msg = await BG.net.quickMatch(state.name);
           state.inRoom = true;
+          if (msg && !msg.host) state.lastJoin = { code: msg.code, name: state.name };
           state.lobbyGame = state.lobbyGame || (BG.games[0] && BG.games[0].id) || "";
           state.seatCount = clampSeatCount(currentGameDef(), state.seatCount);
           renderLobby();
@@ -549,10 +633,12 @@
       '<span class="net-kicker">' + (cloud ? "🌍 غرفة عالمية" : "📶 غرفة محلية") + "</span>" +
       '<div class="net-code-box"><span>رمز الغرفة</span><strong data-net-code-label>' + esc(code) + "</strong>" +
       '<button type="button" class="bg-btn small" data-net-copy>نسخ الرمز</button>' +
-      '<button type="button" class="bg-btn small primary" data-net-invite>نسخ رابط الدعوة</button></div>' +
+      '<button type="button" class="bg-btn small primary" data-net-invite>نسخ رابط الدعوة</button>' +
+      '<button type="button" class="bg-btn small" data-net-share>📤 مشاركة</button></div>' +
       "<p>" + (cloud
         ? "شارك رابط الدعوة مع أي شخص في العالم، أو أعطه الرمز لينضم من صفحة «لعب جماعي». اللاعبون المتصلون يظهرون أدناه."
         : "شارك الرمز مع أصدقائك على الشبكة نفسها. اللاعبون المتصلون يظهرون أدناه.") + "</p>" +
+      (!cloud && host ? '<p class="net-lan-urls" data-net-lan-urls></p>' : "") +
       "</div>" +
       '<div class="net-people">' +
       playersListHTML(peers, openPeers, seats) +
@@ -633,6 +719,14 @@
     const countSel = body.querySelector("[data-net-count]");
     const levelSel = body.querySelector("[data-net-level]");
 
+    const lanBox = body.querySelector("[data-net-lan-urls]");
+    if (lanBox) {
+      BG.net.lanInfo().then((info) => {
+        if (!info || !info.urls || !info.urls.length || !document.body.contains(lanBox)) return;
+        lanBox.innerHTML = "على أجهزة الآخرين افتح: " + info.urls.map((u) => "<code>" + esc(u) + "</code>").join(" أو ") + " ثم اكتبوا الرمز.";
+      });
+    }
+
     if (copy) {
       copy.addEventListener("click", async () => {
         const code = (BG.net && BG.net.roomCode) || "";
@@ -647,13 +741,31 @@
 
     if (invite) {
       invite.addEventListener("click", async () => {
-        const link = BG.net.inviteLink();
+        const link = await BG.net.inviteLinkFor();
         try {
           await navigator.clipboard.writeText(link);
           BG.toast("نُسخ رابط الدعوة. أرسله لمن تريد.", "good");
         } catch (err) {
           window.prompt("رابط الدعوة:", link);
         }
+      });
+    }
+
+    const share = body.querySelector("[data-net-share]");
+    if (share) {
+      share.addEventListener("click", async () => {
+        const code = (BG.net && BG.net.roomCode) || "";
+        const link = await BG.net.inviteLinkFor(code);
+        const text = "انضم إلى غرفتي في ألعاب الطاولة — رمز الغرفة: " + code;
+        if (navigator.share) {
+          try {
+            await navigator.share({ title: "ألعاب الطاولة", text, url: link });
+            return;
+          } catch (err) {
+            if (err && err.name === "AbortError") return;
+          }
+        }
+        window.open("https://wa.me/?text=" + encodeURIComponent(text + "\n" + link), "_blank", "noopener");
       });
     }
 
@@ -746,7 +858,7 @@
     state.hostReady = true;
     state.starting = false;
     if (state.hostTimer) clearInterval(state.hostTimer);
-    state.hostTimer = setInterval(hostTick, 220);
+    state.hostTimer = setInterval(hostTick, 260);
     hostTick();
     updateHud();
   }
@@ -768,6 +880,13 @@
       if (seat && seat.peerId === from) {
         const snap = BG.app && BG.app.netSnapshot();
         if (snap) sendSync(state.lastSeat, snap, true);
+      } else {
+        /* لاعب عاد/انضم أثناء اللعب: نعرض له اللوحة الحيّة فورًا دون انتظار أول تغيير */
+        const snap = BG.app && BG.app.netSnapshot();
+        if (snap) {
+          BG.net.sendTo(from, turnMessage(state.lastSeat, BG.app.netOver()));
+          BG.net.sendTo(from, { t: "spectate", state: snap, activeSeat: state.lastSeat, over: !!BG.app.netOver() });
+        }
       }
     }
   }
@@ -807,7 +926,8 @@
     if (!targets.length) return;
     state.spectateAt = Date.now();
     const payload = { t: "spectate", state: pending.snapshot, activeSeat: pending.activeSeat, over: !!pending.over };
-    targets.forEach((peerId) => BG.net.sendTo(peerId, payload));
+    const text = JSON.stringify(payload);
+    targets.forEach((peerId) => BG.net.sendTo(peerId, text));
   }
 
   /**
@@ -823,14 +943,18 @@
     else state.spectateTimer = setTimeout(flushSpectate, wait);
   }
 
-  function broadcastTurn(activeSeat, over) {
-    BG.net.broadcast({
+  function turnMessage(activeSeat, over) {
+    return {
       t: "turn",
       activeSeat,
       over: !!over,
       activeName: seatName(activeSeat),
       seats: state.seats.map((seat) => ({ name: seat.name, type: seat.type, peerId: seat.peerId || null })),
-    });
+    };
+  }
+
+  function broadcastTurn(activeSeat, over) {
+    BG.net.broadcast(turnMessage(activeSeat, over));
   }
 
   function hostTick() {
@@ -865,7 +989,7 @@
 
   function startGuestTick() {
     if (state.guestTimer) clearInterval(state.guestTimer);
-    state.guestTimer = setInterval(guestTick, 140);
+    state.guestTimer = setInterval(guestTick, 200);
     guestTick();
   }
 
@@ -984,6 +1108,7 @@
   function showWaiting(visible, activeSeat, customText) {
     const panel = ensureWaiting();
     if (!panel) return;
+    state.chipKey = "";
     panel.classList.remove("is-watch");
     panel.hidden = !visible;
     if (!visible) {
@@ -1057,6 +1182,14 @@
     else if (isCpuSeat(seat)) line = name + " (كمبيوتر) يفكّر…";
     else line = "دور " + name + " · اللوحة تتحدّث مباشرة";
 
+    /* لا نعيد بناء الشريط مع كل تحديث لللوحة (4 مرات/ثانية) إن لم يتغيّر نصه */
+    const chipKey = line + "|" + (over ? 1 : 0);
+    if (state.chipKey === chipKey && !panel.hidden && panel.classList.contains("is-watch")) {
+      if (BG.app && (!state.isHost || state.hostReady)) BG.app.setMountVisible(true);
+      return;
+    }
+    state.chipKey = chipKey;
+
     panel.hidden = false;
     panel.classList.add("is-watch");
     panel.innerHTML =
@@ -1093,7 +1226,26 @@
       '<span class="net-hud-code">' + esc((BG.net && BG.net.roomCode) || "----") + "</span>" +
       '<span class="net-hud-sep">·</span>' +
       '<span class="net-hud-role"></span>' +
+      '<span class="net-hud-ping" data-quality="unknown" title="زمن الاستجابة">— ms</span>' +
+      '<button type="button" class="net-hud-react" aria-label="ردود فعل سريعة" aria-expanded="false">😀</button>' +
+      '<div class="net-react-tray" role="menu" hidden>' +
+      REACTIONS.map((emoji) => '<button type="button" role="menuitem" data-react="' + emoji + '">' + emoji + "</button>").join("") +
+      "</div>" +
       '<button type="button" class="net-hud-leave" aria-label="مغادرة الغرفة">خروج</button>';
+    const reactBtn = hud.querySelector(".net-hud-react");
+    const tray = hud.querySelector(".net-react-tray");
+    reactBtn.addEventListener("click", () => {
+      const open = tray.hidden;
+      tray.hidden = !open;
+      reactBtn.setAttribute("aria-expanded", open ? "true" : "false");
+    });
+    tray.addEventListener("click", (event) => {
+      const target = event.target.closest ? event.target.closest("[data-react]") : null;
+      if (!target) return;
+      sendReaction(target.getAttribute("data-react"));
+      tray.hidden = true;
+      reactBtn.setAttribute("aria-expanded", "false");
+    });
     hud.querySelector(".net-hud-leave").addEventListener("click", () => {
       shutdown();
       if (BG.app) BG.app.goLibrary();
@@ -1101,6 +1253,40 @@
     view.appendChild(hud);
     state.hud = hud;
     updateHud();
+    updateHudPing();
+  }
+
+  const REACTIONS = ["👍", "😂", "😮", "😡", "👏", "🔥", "🤝", "😭"];
+  let reactAt = 0;
+
+  function updateHudPing() {
+    if (!state.hud || !BG.net) return;
+    const el = state.hud.querySelector(".net-hud-ping");
+    if (!el) return;
+    const ms = BG.net.latency;
+    el.dataset.quality = BG.net.latencyQuality(ms);
+    el.textContent = Number.isFinite(ms) ? ms + " ms" : "— ms";
+  }
+
+  function showReaction(emoji, name) {
+    const host = document.getElementById("gameView") || document.body;
+    const pop = BG.el("div", { class: "net-react-pop", "aria-hidden": "true" });
+    pop.style.setProperty("--rx", (12 + Math.random() * 70).toFixed(1) + "%");
+    pop.innerHTML = "<span>" + esc(emoji) + "</span><small>" + esc(name || "") + "</small>";
+    host.appendChild(pop);
+    setTimeout(() => { if (pop.parentNode) pop.parentNode.removeChild(pop); }, 2800);
+  }
+
+  function sendReaction(emoji) {
+    if (REACTIONS.indexOf(emoji) < 0) return;
+    const now = Date.now();
+    if (now - reactAt < 1200) return;
+    reactAt = now;
+    const name = localName();
+    showReaction(emoji, name);
+    if (!BG.net) return;
+    if (state.isHost) BG.net.broadcast({ t: "react", e: emoji, n: name });
+    else BG.net.send({ t: "react", e: emoji, n: name });
   }
 
   function updateHud() {
@@ -1116,6 +1302,7 @@
   function removeHud() {
     if (state.hud && state.hud.parentNode) state.hud.parentNode.removeChild(state.hud);
     state.hud = null;
+    document.querySelectorAll(".net-react-pop").forEach((node) => node.remove());
   }
 
   /* ============================== الرسائل ============================== */
@@ -1136,6 +1323,13 @@
     }
     if (data.t === "ready") {
       onReady(from);
+      return;
+    }
+    if (data.t === "react") {
+      if (REACTIONS.indexOf(data.e) < 0) return;
+      const who = String(BG.net.peerName(from) || data.n || "لاعب").slice(0, 18);
+      BG.net.broadcast({ t: "react", e: data.e, n: who }, from);
+      showReaction(data.e, who);
       return;
     }
     if (data.t === "state") {
@@ -1210,6 +1404,10 @@
     }
     if (data.t === "log") {
       BG.app.appendLog(data.message, data.kind);
+      return;
+    }
+    if (data.t === "react") {
+      if (REACTIONS.indexOf(data.e) >= 0) showReaction(data.e, String(data.n || "").slice(0, 18));
       return;
     }
     if (data.t === "turn") {
@@ -1470,6 +1668,8 @@
     hideOverlay();
     buildHud();
     ensureWaiting();
+    clearAway();
+    acquireWake();
     showWaiting(true, null, state.isHost ? "جارٍ تجهيز الطاولة…" : "المضيف يجهّز الطاولة…");
     if (BG.app) BG.app.setMountVisible(false);
   }
@@ -1482,6 +1682,8 @@
 
   function returnToLobbyLocal() {
     clearInterval(state.hostTimer);
+    clearAway();
+    releaseWake();
     clearInterval(state.guestTimer);
     state.hostTimer = null;
     state.guestTimer = null;
@@ -1537,6 +1739,9 @@
 
   function shutdown(silent) {
     clearInterval(state.hostTimer);
+    clearAway();
+    releaseWake();
+    if (!silent) state.lastJoin = null;
     clearInterval(state.guestTimer);
     clearTimeout(state.readyTimer);
     clearTimeout(state.spectateTimer);
@@ -1577,6 +1782,63 @@
 
   /* ============================== الأحداث ============================== */
 
+  /** لاعب بشري انقطع اتصاله: نمنحه مهلة للعودة بدل إنهاء الجلسة للجميع (الجوال يقطع كثيرًا لثوانٍ) */
+  function markAway(seat) {
+    const def = state.seats[seat];
+    if (!def || def.type !== "human" || state.away[seat]) return;
+    const name = def.name || "أحد اللاعبين";
+    BG.toast("انقطع اتصال " + name + " — ننتظر عودته لمدة 40 ثانية.", "warn");
+    state.away[seat] = {
+      name,
+      timer: setTimeout(() => {
+        delete state.away[seat];
+        abortGame("لم يعد " + name + " — عاد الجميع إلى غرفة الانتظار.", true);
+      }, 40000),
+    };
+    if (state.lastSeat === seat) showWaiting(true, seat, name + " انقطع اتصاله — بانتظار عودته…");
+  }
+
+  /** انضمام أثناء اللعب: إما عودة لاعب منقطع (نفس الاسم) أو مشاهد جديد. */
+  function lateJoin(peer) {
+    if (!state.inGame || !state.isHost || !state.hostReady || !state.game || !peer || !peer.id) return;
+    const wanted = String(peer.name || "").trim().toLowerCase();
+    const back = Object.keys(state.away).map(Number).find((i) =>
+      String((state.seats[i] || {}).name || "").trim().toLowerCase() === wanted);
+    if (back !== undefined) {
+      clearTimeout(state.away[back].timer);
+      delete state.away[back];
+      state.seats[back] = Object.assign({}, state.seats[back], { peerId: peer.id });
+      state.synced[peer.id] = false;
+      BG.toast((state.seats[back].name || "اللاعب") + " عاد إلى الطاولة.", "good");
+      if (state.lastSeat !== state.localSeat) { state.chipKey = ""; showWatchChip(state.lastSeat); }
+    }
+    BG.net.sendTo(peer.id, {
+      t: "start",
+      payload: {
+        gameId: state.game.id,
+        seats: state.seats,
+        level: state.level,
+        options: (state.config && state.config.options) || null,
+        roomCode: BG.net.roomCode,
+      },
+    });
+  }
+
+  async function tryRejoin(info) {
+    try {
+      state.name = info.name || state.name;
+      await BG.net.joinRoom(info.code, state.name);
+      state.inRoom = true;
+      state.lastJoin = info;
+      showOverlay();
+      BG.toast("عدت إلى الغرفة — بانتظار المضيف.", "good");
+      return true;
+    } catch (err) {
+      BG.toast((err && err.message) || "تعذّرت إعادة الاتصال.", "warn");
+      return false;
+    }
+  }
+
   function bindNetworkEvents() {
     if (!BG.net) return;
     BG.net.on("room", () => {
@@ -1598,13 +1860,15 @@
         if (!state.inGame) renderLobby();
       }
     });
-    BG.net.on("peer-joined", () => {
+    BG.net.on("peer-joined", (peer) => {
       if (state.inRoom && BG.net.isHost) {
         BG.net.ensureHostConnections();
-        if (!state.inGame) {
-          renderLobby();
-          broadcastConfig();
+        if (state.inGame) {
+          lateJoin(peer);
+          return;
         }
+        renderLobby();
+        broadcastConfig();
       }
     });
     BG.net.on("peer-open", () => {
@@ -1617,16 +1881,28 @@
       if (state.inGame) {
         const seat = state.seats.findIndex((item) => item.peerId === id);
         if (seat >= 0) {
-          if (state.isHost) abortGame("انقطع اتصال " + (state.seats[seat].name || "أحد اللاعبين") + " — عاد الجميع إلى غرفة الانتظار.", true);
+          if (state.isHost) markAway(seat);
           else if (state.localSeat === seat) abortGame("انقطع اتصالك بالجلسة.", false);
         }
       }
     });
     BG.net.on("room-closed", (info) => {
-      const reason = (info && info.reason) || "أُغلقت الغرفة.";
+      const reason = (info && info.reason) || "أغلقت الغرفة.";
+      const rejoin = state.lastJoin && !BG.net.isHost && /انقطع/.test(reason) ? state.lastJoin : null;
       state.inRoom = false;
       state.inGame = false;
       shutdown(true);
+      if (rejoin) {
+        BG.openDialog({
+          title: "انقطع الاتصال",
+          body: "<p>" + esc(reason) + " يمكنك محاولة العودة إلى الغرفة نفسها — إن كانت المباراة مستمرة فستعود إلى مقعدك.</p>",
+          actions: [{ label: "المكتبة", value: "library" }, { label: "إعادة الاتصال", value: "rejoin", primary: true }],
+        }).promise.then(async (value) => {
+          if (value === "rejoin" && await tryRejoin(rejoin)) return;
+          if (BG.app) BG.app.goLibrary();
+        });
+        return;
+      }
       BG.alert("انتهت الغرفة", reason).then(() => {
         if (BG.app) BG.app.goLibrary();
       });
@@ -1653,6 +1929,12 @@
       }
     });
     BG.net.on("message", onNetMessage);
+    BG.net.on("latency", updateHudPing);
+    BG.net.on("status", (info) => {
+      const reconnecting = !!info && info.status === "reconnecting";
+      if (state.hud) state.hud.classList.toggle("is-reconnecting", reconnecting);
+      if (reconnecting && state.inRoom) BG.toast("الاتصال ضعيف… تجري إعادة الاتصال.", "warn");
+    });
   }
 
   /* ============================== الإقلاع ============================== */

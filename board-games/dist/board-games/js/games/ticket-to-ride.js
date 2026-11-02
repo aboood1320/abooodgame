@@ -160,27 +160,6 @@
     maxPlayers: 5,
     defaultPlayers: 3,
 
-    options: {
-      hint: "\u062e\u064a\u0627\u0631\u0627\u062a \u0642\u0648\u0627\u0646\u064a\u0646 \u0625\u0636\u0627\u0641\u064a\u0629.",
-      defaults: { autoReveal: null },
-      fields: [
-        {
-          key: "autoReveal",
-          label: "المعلومات السرية (أونلاين)",
-          type: "seg",
-          choices: [
-            { value: null, label: "حسب الإعدادات" },
-            { value: true, label: "إظهار تلقائي" },
-            { value: false, label: "إخفاء تلقائي" },
-          ],
-          hint: "«حسب الإعدادات» يتبع خيار المعلومات السرية في نافذة الإعدادات الرئيسية. الإظهار التلقائي يفتح تذاكرك مع زر للإخفاء.",
-        },
-      ],
-      summary(options) {
-        return BG.autoRevealLabel(options.autoReveal);
-      },
-    },
-
     rules: {
       goal: "اجمع أكبر عدد من النقاط ببناء خطوط القطار بين المدن وإكمال تذاكر الوجهة. تُضاف نقاط التذاكر في نهاية اللعبة، وتُخصم قيمة التذكرة غير المكتملة.",
       facts: [["نهاية اللعبة", "عند وصول لاعب إلى قطارين أو أقل"], ["البطاقات", "8 ألوان + قاطرات"], ["أطول مسار", "+10 نقاط"], ["القطارات لكل لاعب", "45"]],
@@ -336,10 +315,6 @@
 
   function cur() { return state.players[state.current]; }
 
-  function autoRevealEnabled() {
-    const opts = (apiRef && apiRef.options) || {};
-    return BG.autoRevealEnabled(opts.autoReveal);
-  }
   function isOnline() {
     return !!(apiRef && apiRef.net && apiRef.net.enabled);
   }
@@ -1377,7 +1352,7 @@
       hint: p
         ? "بطاقات قطاراتك وتذاكر وجهتك سرّية. تأكد أن الجهاز أمامك ثم اضغط «إظهار»."
         : "أنت تشاهد فقط — لا تُعرض بطاقات اللاعبين السرّية.",
-      open: isOnline() && autoRevealEnabled(),
+      open: isOnline(),
       autoKey: "ttr:" + (p ? p.index : "watch") + ":" + (state.turnCounter || 0),
       render: secretHTML,
       onToggle: (visible) => {

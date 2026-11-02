@@ -44,6 +44,18 @@ const MIME = {
 
 /* ----------------------------- أدوات عامة ----------------------------- */
 
+function lanAddresses() {
+  const found = [];
+  const nets = os.networkInterfaces();
+  Object.keys(nets).forEach((name) => {
+    (nets[name] || []).forEach((net) => {
+      if (net.family === "IPv4" && !net.internal) found.push(net.address);
+    });
+  });
+  const rank = (ip) => (/^192\.168\./.test(ip) ? 0 : /^10\./.test(ip) ? 1 : /^172\.(1[6-9]|2\d|3[01])\./.test(ip) ? 2 : 3);
+  return found.sort((a, b) => rank(a) - rank(b));
+}
+
 function log(...args) {
   console.log("[" + new Date().toLocaleTimeString("ar-EG", { hour12: false }) + "]", ...args);
 }
@@ -96,6 +108,22 @@ const server = http.createServer((req, res) => {
   if (urlPath === "/health") {
     res.writeHead(200, { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" });
     res.end(JSON.stringify({ ok: true, rooms: rooms.size, uptime: Math.round(process.uptime()) }));
+    return;
+  }
+
+  if (urlPath === "/lan-info") {
+    /* عناوين الجهاز على الشبكة المحلية — تُستخدم لبناء رابط دعوة يعمل على أجهزة الآخرين (لا localhost) */
+    const addresses = lanAddresses();
+    res.writeHead(200, {
+      "Content-Type": "application/json; charset=utf-8",
+      "Cache-Control": "no-store",
+    });
+    res.end(JSON.stringify({
+      ok: true,
+      port: PORT,
+      addresses,
+      urls: addresses.map((ip) => "http://" + ip + ":" + PORT + "/board-games/"),
+    }));
     return;
   }
 
@@ -206,8 +234,6 @@ function removePeer(peer, reason) {
   roomBroadcast(room, { t: "peer-left", id: peer.id });
   roomBroadcast(room, { t: "peers", peers: peersList(room) });
 
-  const host = room.peers.get(room.hostId);
-  if (host) sendJson(host.socket, { t: "peer-left", id: peer.id });
   log("غادر " + peer.name + " الغرفة " + room.code);
   if (!room.peers.size) rooms.delete(room.code);
 }
@@ -284,6 +310,14 @@ function handleSignalMessage(peer, msg) {
     return;
   }
 
+  if (msg.t === "relay") {
+    /* تمرير بيانات اللعب عبر الخادم نفسه: أمتن من WebRTC على الشبكات المحلية (بلا mDNS ولا UDP) */
+    const target = room.peers.get(String(msg.to || ""));
+    if (!target) return;
+    sendJson(target.socket, { t: "relay", from: peer.id, data: msg.data });
+    return;
+  }
+
   if (msg.t === "signal") {
     const target = room.peers.get(String(msg.to || ""));
     if (!target) return;
@@ -338,6 +372,8 @@ function handleUpgrade(req, socket, head) {
     "Connection: Upgrade\r\n" +
     "Sec-WebSocket-Accept: " + accept + "\r\n\r\n"
   );
+
+  try { socket.setNoDelay(true); socket.setKeepAlive(true, 20000); } catch (err) { /* ignore */ }
 
   const peer = {
     id: crypto.randomBytes(6).toString("hex"),

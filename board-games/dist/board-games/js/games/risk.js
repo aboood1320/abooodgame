@@ -20,7 +20,6 @@
     reinforce: "classic",
     setup: "random",
     setupArmies: "quick",
-    autoReveal: null,
   };
 
   /* ------------------------------ بيانات الخرائط ------------------------------ */
@@ -365,24 +364,13 @@
           ],
           hint: "الأصلي يوزّع 40 كتيبة للاعبين اثنين، وتنقص 5 لكل لاعب إضافي حتى 20. زر «توزيع تلقائي» يسرّع الإعداد.",
         },
-        {
-          key: "autoReveal",
-          label: "المعلومات السرية (أونلاين)",
-          type: "seg",
-          choices: [
-            { value: null, label: "حسب الإعدادات" },
-            { value: true, label: "إظهار تلقائي" },
-            { value: false, label: "إخفاء تلقائي" },
-          ],
-          hint: "«حسب الإعدادات» يتبع خيار المعلومات السرية في نافذة الإعدادات الرئيسية. الإظهار التلقائي يفتح بطاقاتك مع زر للإخفاء.",
-        },
       ],
       summary(options) {
         const o = Object.assign({}, RULE_DEFAULTS, options || {});
         const map = MAPS[o.map] || MAPS.classic;
         const win = o.victory === "domination" ? "سيطرة 60%" : "إقصاء الجميع";
         const cards = o.cards === "off" ? "بلا بطاقات" : o.cards === "simple" ? "بطاقات مبسطة" : "بطاقات كلاسيكية";
-        return map.name + " · " + win + " · " + cards + " · " + BG.autoRevealLabel(o.autoReveal);
+        return map.name + " · " + win + " · " + cards;
       },
     },
 
@@ -422,7 +410,7 @@
         "الخريطة الكلاسيكية تستخدم أسماء وحدود ريسك الأصلية، بما فيها طريق البرازيل–شمال أفريقيا وخط ألاسكا–كامتشاتكا.",
         "التحصين يعرض شريط أعداد واضحًا، فلا حاجة لكتابة الرقم في نافذة منبثقة.",
         "زر التكبير والتصغير يساعد على قراءة الخريطة الكلاسيكية على الهاتف.",
-        "بطاقات القيادة تُعرض داخل لوحة سرّية؛ الإظهار التلقائي يتبع خيارات المعلومات السرية.",
+        "بطاقات القيادة تُعرض داخل لوحة سرّية؛ يمكن تفعيل زر الإخفاء من الإعدادات الرئيسية.",
         "الكمبيوتر يدير أدواره تلقائيًا حسب مستوى الصعوبة المحدد لكل لاعب.",
       ],
     },
@@ -576,19 +564,12 @@
 
   function rule(key) {
     const value = state && state.rules ? state.rules[key] : undefined;
-    if (value === undefined) return RULE_DEFAULTS[key];
-    // autoReveal uses null as "follow the global settings" — keep it.
-    if (value === null && key !== "autoReveal") return RULE_DEFAULTS[key];
+    if (value === undefined || value === null) return RULE_DEFAULTS[key];
     return value;
   }
 
   function cur() {
     return state ? state.players[state.current] : null;
-  }
-
-  function autoRevealEnabled() {
-    const opts = (apiRef && apiRef.options) || {};
-    return BG.autoRevealEnabled(opts.autoReveal);
   }
 
   function isOnline() {
@@ -1948,7 +1929,7 @@
       hint: viewer
         ? "بطاقاتك مخفية عن بقية اللاعبين. أظهرها في دورك فقط، ثم أخفها قبل تمرير الجهاز."
         : "أنت تشاهد فقط — بطاقات اللاعبين سرّية ولا تُعرض على هذا الجهاز.",
-      open: autoRevealEnabled() && seat >= 0 && seat === activeSeat(),
+      open: seat >= 0 && seat === activeSeat(),
       autoKey: "risk:" + seat + ":" + (state.turn || 1),
       onToggle() { /* handled by secret panel */ },
       render() {

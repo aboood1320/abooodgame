@@ -17,6 +17,7 @@
   let socket = null;
   let socketPromise = null;
   let pingTimer = null;
+  let appPingTimer = null;
   let status = "idle";
   let role = ""; // host | guest
   let roomCode = "";
@@ -29,6 +30,8 @@
   const guestConns = new Map();
   // جهة الضيف: اتصال واحد بالمضيف
   let hostConn = null;
+  // زمن الاستجابة المقاس عبر قناة البيانات (مللي ثانية) لكل لاعب.
+  const latencies = new Map();
 
   let pendingRoom = null;
   let pendingSeed = 0;
@@ -135,6 +138,88 @@
     pending.reject(new Error(message || "تعذّر إنشاء الغرفة."));
   }
 
+  /* ============================== نبض الاتصال ============================== */
+
+  function latencyQuality(ms) {
+    if (!Number.isFinite(ms)) return "unknown";
+    if (ms <= 120) return "excellent";
+    if (ms <= 260) return "good";
+    if (ms <= 500) return "fair";
+    return "poor";
+  }
+
+  function recordLatency(peerId, ms) {
+    if (!peerId || !Number.isFinite(ms) || ms < 0) return;
+    const value = Math.max(0, Math.round(ms));
+    const prev = latencies.get(peerId);
+    // تنعيم بسيط حتى لا ترتجف الشارة بين قياس وآخر.
+    const smooth = prev ? Math.round(prev.ms * 0.62 + value * 0.38) : value;
+    latencies.set(peerId, { ms: smooth, at: Date.now() });
+    emit("latency", { id: peerId, ms: smooth, quality: latencyQuality(smooth) });
+  }
+
+  function connSend(conn, payload) {
+    if (!conn) return false;
+    try {
+      if (conn.dc && typeof conn.dc.send === "function") {
+        conn.dc.send(JSON.stringify(payload));
+        return true;
+      }
+      if (typeof conn.send === "function") {
+        conn.send(JSON.stringify(payload));
+        return true;
+      }
+    } catch (err) { /* ignore */ }
+    return false;
+  }
+
+  /** يعالج نبض التطبيق ولا يمرّره إلى منطق اللعبة. */
+  function handlePingMessage(conn, data) {
+    if (!conn || !data) return false;
+    if (data.t === "__ping") {
+      connSend(conn, { t: "__pong", ts: data.ts });
+      return true;
+    }
+    if (data.t === "__pong") {
+      const peerId = conn.peerId || conn.peer || "";
+      recordLatency(peerId, Date.now() - Number(data.ts));
+      return true;
+    }
+    return false;
+  }
+
+  function appPingTick() {
+    const payload = { t: "__ping", ts: Date.now() };
+    if (role === "host") {
+      guestConns.forEach((conn) => {
+        if (channelOpen(conn)) connSend(conn, payload);
+      });
+    } else if (role === "guest" && channelOpen(hostConn)) {
+      connSend(hostConn, payload);
+    }
+    const now = Date.now();
+    latencies.forEach((value, id) => {
+      if (now - value.at > 20000) latencies.delete(id);
+    });
+  }
+
+  function startAppPing() {
+    if (appPingTimer) return;
+    appPingTimer = setInterval(appPingTick, 6000);
+    setTimeout(appPingTick, 700);
+  }
+
+  function stopAppPing() {
+    if (appPingTimer) clearInterval(appPingTimer);
+    appPingTimer = null;
+  }
+
+  function resetLatencies() {
+    if (!latencies.size) return;
+    latencies.clear();
+    emit("latency", { id: "", ms: null, quality: "unknown" });
+  }
+
   function closeConn(conn) {
     if (!conn) return;
     try { if (conn.dc && conn.dc.close) conn.dc.close(); } catch (err) { /* ignore */ }
@@ -210,7 +295,7 @@
         if (!settles) {
           settles = true;
           socketPromise = null;
-          setStatus("error", "تعذّر الاتصال بخادم الإشارات المحلي. تأكد من فتح الموقع عبر http://localhost:8790/board-games/ وتشغيل server.js");
+          setStatus("error", "لا يوجد خادم لعب محلي يعمل. شغّل الملف start-lan.bat (أو node board-games/server.js) على جهاز المضيف ثم افتح الرابط الذي يظهر في نافذته.");
           reject(new Error("signal-error"));
         }
       });
@@ -233,6 +318,8 @@
   }
 
   function resetTransport(preserveRoomInfo) {
+    stopAppPing();
+    resetLatencies();
     guestConns.forEach((conn) => closeConn(conn));
     guestConns.clear();
     if (hostConn) closeConn(hostConn);
@@ -280,6 +367,8 @@
       hostId = msg.hostId;
       peers = msg.peers || [];
       roomStarted = true;
+      if (!msg.host) hostConn = { pc: null, dc: makeRelayChannel(msg.hostId), peerId: msg.hostId, relay: true };
+      startAppPing();
       setStatus("room", msg);
       emit("room", msg);
       emit("peers", peers);
@@ -302,6 +391,15 @@
         guestConns.delete(msg.id);
       }
       emit("peer-left", msg.id);
+      return;
+    }
+    if (msg.t === "relay") {
+      let data;
+      try { data = JSON.parse(msg.data); } catch (err) { return; }
+      if (!data || typeof data !== "object") return;
+      const conn = role === "host" ? guestConns.get(msg.from) : hostConn;
+      if (conn && handlePingMessage(conn, data)) return;
+      emit("message", { from: msg.from, data });
       return;
     }
     if (msg.t === "signal") {
@@ -369,6 +467,7 @@
     conn.dc = channel;
     channel.binaryType = "arraybuffer";
     channel.onopen = () => {
+      startAppPing();
       setStatus("connected");
       emit("peer-open", { id: peerId });
     };
@@ -377,29 +476,31 @@
       let data;
       try { data = JSON.parse(event.data); } catch (err) { return; }
       if (!data || typeof data !== "object") return;
+      if (handlePingMessage(conn, data)) return;
       emit("message", { from: peerId, data });
+    };
+  }
+
+  /* قناة تمرير عبر خادم الإشارات: نفس واجهة DataChannel لكن بلا WebRTC.
+     على الشبكة المحلية هذا أمتن: لا تعتمد على mDNS ولا UDP ولا جدار الحماية. */
+  function makeRelayChannel(peerId) {
+    return {
+      open: true,
+      readyState: "open",
+      relay: true,
+      send(text) { rawSend({ t: "relay", to: peerId, data: String(text) }); },
+      close() { /* لا شيء لإغلاقه */ },
     };
   }
 
   function ensureGuest(peerId) {
     if (role !== "host" || !peerId || guestConns.has(peerId)) return guestConns.get(peerId) || null;
-    const pc = makePeerConnection(peerId);
-    const conn = { pc, dc: null, peerId, polite: false };
+    const conn = { pc: null, dc: makeRelayChannel(peerId), peerId, relay: true };
     guestConns.set(peerId, conn);
-    const channel = pc.createDataChannel("bg", { ordered: true });
-    bindChannel(conn, channel, peerId);
-
-    emit("peer-state", { id: peerId, state: "connecting" });
-    (async () => {
-      try {
-        const offer = await pc.createOffer();
-        await pc.setLocalDescription(offer);
-        rawSend({ t: "signal", to: peerId, data: { sdp: pc.localDescription } });
-      } catch (err) {
-        console.warn("offer", err);
-        emit("error", "تعذّر بدء اتصال WebRTC مع لاعب.");
-      }
-    })();
+    emit("peer-state", { id: peerId, state: "connected" });
+    emit("peer-open", { id: peerId });
+    startAppPing();
+    setStatus("connected");
     return conn;
   }
 
@@ -607,6 +708,8 @@
   }
 
   function cloudTeardown() {
+    stopAppPing();
+    resetLatencies();
     if (cloudReconnectTimer) clearTimeout(cloudReconnectTimer);
     cloudReconnectTimer = null;
     if (cloudPeer) {
@@ -654,6 +757,7 @@
     let data;
     try { data = typeof raw === "string" ? JSON.parse(raw) : raw; } catch (err) { return; }
     if (!data || typeof data !== "object") return;
+    if (handlePingMessage(guestConns.get(peerId), data)) return;
     if (data.t === "__hello") {
       const peer = peers.find((item) => item.id === peerId);
       if (peer && data.name) {
@@ -701,6 +805,7 @@
     emit("peer-open", { id: peerId });
     emit("peers", cloudPeers());
     broadcastCloudPeers();
+    startAppPing();
     setStatus("connected");
   }
 
@@ -740,7 +845,7 @@
       setStatus("reconnecting");
       scheduleCloudReconnect();
     });
-    cloudPeer.on("error", (err) => handleCloudPeerError(err));
+    startAppPing();
     setStatus("room");
     const msg = { t: "room", host: true, code: roomCode, selfId, hostId, peers: cloudPeers() };
     emit("room", msg);
@@ -768,7 +873,7 @@
         finish(reject, wrapped);
       };
       const timer = setTimeout(() => {
-        finish(reject, new Error("انتهت مهلة الاتصال بالمضيف. تأكد من الرمز وأن المضيف متصل."));
+        finish(reject, new Error("انتهت مهلة الاتصال بالمضيف. تأكد من الرمز وأن المضيف متصل، وإن استمرت المشكلة فقد تحتاج الشبكة إلى خادم TURN (الإعدادات المتقدمة في نافذة اللعب الجماعي)."));
       }, timeoutMs || 14000);
       conn.on("open", () => finish(resolve));
       conn.on("error", (err) => {
@@ -815,6 +920,7 @@
       let data;
       try { data = typeof raw === "string" ? JSON.parse(raw) : raw; } catch (err) { return; }
       if (!data || typeof data !== "object") return;
+      if (handlePingMessage(hostConn, data)) return;
       if (data.t === "__room") {
         if (Array.isArray(data.peers)) {
           peers = data.peers;
@@ -855,9 +961,9 @@
       setStatus("reconnecting");
       scheduleCloudReconnect();
     });
-    cloudPeer.on("error", (err) => handleCloudPeerError(err));
 
     try { conn.send(JSON.stringify({ t: "__hello", name: (name || "لاعب").slice(0, 24) })); } catch (err) { /* ignore */ }
+    startAppPing();
     setStatus("connected");
     const msg = { t: "room", host: false, code: roomCode, selfId, hostId, peers: cloudPeers() };
     emit("room", msg);
@@ -931,7 +1037,7 @@
     const conn = guestConns.get(peerId);
     if (!channelOpen(conn)) return false;
     try {
-      conn.dc.send(JSON.stringify(payload));
+      conn.dc.send(typeof payload === "string" ? payload : JSON.stringify(payload));
       return true;
     } catch (err) {
       return false;
@@ -941,11 +1047,13 @@
   function broadcast(payload, exceptId) {
     if (role !== "host") return 0;
     let count = 0;
+    /* تسلسل الحالة مرة واحدة لكل المستلمين (كان يُعاد لكل ضيف) */
+    const text = typeof payload === "string" ? payload : JSON.stringify(payload);
     guestConns.forEach((conn, id) => {
       if (exceptId && id === exceptId) return;
       if (!channelOpen(conn)) return;
       try {
-        conn.dc.send(JSON.stringify(payload));
+        conn.dc.send(text);
         count += 1;
       } catch (err) { /* ignore */ }
     });
@@ -1016,7 +1124,41 @@
     return readTurn();
   }
 
+  let lanInfoCache = null;
+
+  /** معلومات خادم اللعب المحلي (عناوين الشبكة). null إن لم يكن الخادم موجودًا (استضافة ثابتة). */
+  async function lanInfo() {
+    if (lanInfoCache) return lanInfoCache;
+    if (!/^https?:$/.test(location.protocol)) return null;
+    try {
+      const res = await fetch("/lan-info", { cache: "no-store" });
+      if (!res.ok) return null;
+      const data = await res.json();
+      if (data && data.ok) lanInfoCache = data;
+    } catch (err) { /* لا خادم */ }
+    return lanInfoCache;
+  }
+
+  /** رابط دعوة يعمل فعلًا على أجهزة الآخرين (عنوان الشبكة بدل localhost). */
+  async function inviteLinkFor(code) {
+    const upper = String(code || roomCode || "").toUpperCase();
+    if (mode === "lan" && /^(localhost|127\.|\[?::1\]?$)/.test(location.hostname)) {
+      const info = await lanInfo();
+      if (info && info.urls && info.urls.length) {
+        try {
+          const url = new URL(info.urls[0]);
+          url.searchParams.set("join", upper);
+          url.searchParams.set("mode", "lan");
+          return url.toString();
+        } catch (err) { /* نكمل بالرابط العادي */ }
+      }
+    }
+    return BG.net.inviteLink(upper);
+  }
+
   BG.net = {
+    lanInfo,
+    inviteLinkFor,
     on,
     off,
     connect,
@@ -1060,6 +1202,18 @@
     socketOpen() {
       return !!(socket && socket.readyState === WebSocket.OPEN);
     },
+    latencyOf(peerId) {
+      const item = latencies.get(peerId);
+      return item ? item.ms : null;
+    },
+    get latency() {
+      let worst = null;
+      latencies.forEach((item) => {
+        if (worst == null || item.ms > worst) worst = item.ms;
+      });
+      return worst;
+    },
+    latencyQuality,
   };
 
   // عند إغلاق الصفحة نغادر الغرفة بلطف.

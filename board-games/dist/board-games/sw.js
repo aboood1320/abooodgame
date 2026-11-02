@@ -6,7 +6,7 @@
 "use strict";
 
 const VERSION = "1.2.1";
-const CACHE = "bg-shell-v" + VERSION;
+const CACHE = "bg-shell-v" + VERSION + "-r4";
 const OFFLINE_URL = "index.html";
 
 const CORE = [
@@ -23,6 +23,7 @@ const CORE = [
   "css/net.css",
   "css/pandemic.css",
   "css/polish.css",
+  "css/upgrade.css",
   "css/library.css",
   "css/risk.css",
   "css/scrabble.css",
@@ -34,6 +35,9 @@ const CORE = [
   "css/splendor.css",
   "css/kootbositta.css",
   "css/chess.css",
+  "css/net2.css",
+  "css/ludo.css",
+  "css/perf.css",
   "js/core.js",
   "js/fx.js",
   "js/library-art.js",
@@ -44,6 +48,7 @@ const CORE = [
   "js/net.js",
   "js/app.js",
   "js/online.js",
+  "js/site-extras.js",
   "js/pwa.js",
   "js/data/arabic-words.js",
   "js/games/monopoly.js",
@@ -199,7 +204,13 @@ const VENDOR = [
   "vendor/kenney/dice/dieWhite_border6.png"
 ];
 
-const PRECACHE = CORE.concat(VENDOR);
+/* التخزين المسبق للهيكل فقط. الأصوات والبطاقات (~110 ملفًا) تُخزَّن عند أول استخدام فقط
+   بدل تنزيلها كلها في أول زيارة (كان يثقل الهاتف والشبكة). */
+const PRECACHE = CORE;
+
+/* روابط أُعيد التحقق منها مع الشبكة خلال عمر عامل الخدمة هذا */
+const revalidated = new Set();
+const MEDIA_RE = /\.(ogg|mp3|wav|png|jpe?g|webp|svg|woff2?)$/i;
 
 function cacheKey(request) {
   try {
@@ -251,7 +262,10 @@ self.addEventListener("fetch", (event) => {
   if (request.mode === "navigate") {
     event.respondWith((async () => {
       try {
-        const response = await fetch(request);
+        const response = await Promise.race([
+          fetch(request),
+          new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), 4500)),
+        ]);
         if (response && response.ok) {
           const cache = await caches.open(CACHE);
           cache.put(cacheKey(request), response.clone());
@@ -274,18 +288,30 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
+  const key = url.origin + url.pathname;
+  const isMedia = MEDIA_RE.test(url.pathname);
+
   event.respondWith((async () => {
     const cache = await caches.open(CACHE);
     const cached = await cache.match(request, { ignoreSearch: true });
+    /* الوسائط ثابتة: من المخزن مباشرة بلا أي طلب شبكة */
+    if (cached && isMedia) return cached;
+    /* الكود: نتحقق من الشبكة مرة واحدة فقط لكل ملف في الجلسة */
+    if (cached && revalidated.has(key)) return cached;
     const network = fetch(request)
       .then((response) => {
-        if (response && response.ok && response.type === "basic") {
-          cache.put(cacheKey(request), response.clone());
+        /* 206 (طلبات Range للصوت) لا يمكن تخزينها */
+        if (response && response.status === 200 && response.type === "basic") {
+          revalidated.add(key);
+          cache.put(cacheKey(request), response.clone()).catch(() => {});
         }
         return response;
       })
       .catch(() => null);
-    if (cached) return cached;
+    if (cached) {
+      event.waitUntil(network);
+      return cached;
+    }
     const fresh = await network;
     return fresh || new Response("", { status: 504, statusText: "Offline" });
   })());

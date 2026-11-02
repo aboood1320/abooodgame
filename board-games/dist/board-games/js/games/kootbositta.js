@@ -11,8 +11,6 @@
   const FX = BG.fx;
   const AI = BG.ai;
 
-  const CARD_BASE = new URL("vendor/kenney/cards/", document.baseURI).href;
-
   const SUITS = {
     spades: { key: "spades", sym: "♠", name: "بستوني", file: "spades", color: "#20303c" },
     hearts: { key: "hearts", sym: "♥", name: "قلوب", file: "hearts", color: "#b83b34" },
@@ -49,17 +47,65 @@
     const suit = suitOf(card);
     return rankLabel(card.rank) + (suit ? suit.sym : "");
   }
-  function cardFile(card) {
-    if (isJoker(card)) return card.color === "black" ? "card_joker_black.png" : "card_joker_red.png";
-    const suit = SUITS[card.suit];
-    const rank =
-      card.rank === 14 ? "A" :
-      card.rank === 13 ? "K" :
-      card.rank === 12 ? "Q" :
-      card.rank === 11 ? "J" :
-      String(card.rank).padStart(2, "0");
-    return "card_" + suit.file + "_" + rank + ".png";
+  const PIP_LAYOUT = {
+    2: [[1, 2], [5, 2]],
+    3: [[1, 2], [3, 2], [5, 2]],
+    4: [[1, 1], [1, 3], [5, 1], [5, 3]],
+    5: [[1, 1], [1, 3], [3, 2], [5, 1], [5, 3]],
+    6: [[1, 1], [1, 3], [3, 1], [3, 3], [5, 1], [5, 3]],
+    7: [[1, 1], [1, 3], [2, 2], [3, 1], [3, 3], [5, 1], [5, 3]],
+    8: [[1, 1], [1, 3], [2, 2], [3, 1], [3, 3], [4, 2], [5, 1], [5, 3]],
+    9: [[1, 1], [1, 3], [2, 1], [2, 3], [3, 2], [4, 1], [4, 3], [5, 1], [5, 3]],
+    10: [[1, 1], [1, 3], [2, 1], [2, 3], [3, 1], [3, 3], [4, 1], [4, 3], [5, 1], [5, 3]],
+  };
+
+  function cardFaceHTML(card) {
+    if (!card) return "";
+    if (isJoker(card)) {
+      const red = card.color !== "black";
+      return (
+        '<span class="wq-corner wq-corner-tl"><b>J</b><i>★</i></span>' +
+        '<span class="wq-corner wq-corner-br"><b>J</b><i>★</i></span>' +
+        '<span class="wq-art wq-joker ' + (red ? "is-red" : "is-black") + '">' +
+        '<span class="wq-joker-star">✦</span><span class="wq-joker-word">JOKER</span>' +
+        '<span class="wq-joker-star is-small">✦</span></span>'
+      );
+    }
+    const suit = suitOf(card);
+    if (!suit) return "";
+    const rank = rankLabel(card.rank);
+    const corner =
+      '<span class="wq-corner wq-corner-tl"><b>' + rank + '</b><i>' + suit.sym + "</i></span>" +
+      '<span class="wq-corner wq-corner-br"><b>' + rank + '</b><i>' + suit.sym + "</i></span>";
+    let art;
+    if (card.rank === 14) {
+      art = '<span class="wq-ace"><span class="wq-ace-ring"></span><span class="wq-suit-big">' + suit.sym + "</span></span>";
+    } else if (card.rank >= 11) {
+      const court = card.rank === 13 ? "♚" : card.rank === 12 ? "♛" : "♞";
+      art =
+        '<span class="wq-court"><span class="wq-court-frame"></span>' +
+        '<span class="wq-court-letter">' + rank + "</span>" +
+        '<span class="wq-court-emblem" aria-hidden="true">' + court + "</span>" +
+        '<span class="wq-court-suit" aria-hidden="true">' + suit.sym + "</span></span>";
+    } else {
+      const layout = PIP_LAYOUT[card.rank] || [];
+      art =
+        '<span class="wq-pips">' +
+        layout.map((pos) => '<i style="grid-area:' + pos[0] + "/" + pos[1] + '">' + suit.sym + "</i>").join("") +
+        "</span>";
+    }
+    return corner + '<span class="wq-art">' + art + "</span>";
   }
+
+  function cardBackHTML() {
+    return (
+      '<span class="wq-card-back">' +
+      '<span class="wq-back-frame"></span>' +
+      '<span class="wq-back-medallion"><span>ك</span></span>' +
+      "</span>"
+    );
+  }
+
   function bidName(value) {
     if (value === 5) return "باب";
     if (value === 9) return "باون";
@@ -78,10 +124,6 @@
 
   function isOnline() {
     return !!(apiRef && apiRef.net && apiRef.net.enabled);
-  }
-  function autoRevealEnabled() {
-    const opts = (apiRef && apiRef.options) || {};
-    return BG.autoRevealEnabled(opts.autoReveal);
   }
   function activeSeat() {
     if (!state) return -1;
@@ -120,7 +162,8 @@
   }
   function handOpen() {
     if (!state) return false;
-    if (!autoRevealEnabled()) return !!state.handRevealed;
+    if (!BG.prefs.hideSecrets) return true;
+    if (state.handRevealed) return true;
     const index = viewerIndex();
     return index >= 0 && index === activeSeat();
   }
@@ -832,29 +875,32 @@
     const options = opts || {};
     const classes = ["wq-card", "ko-card"];
     if (options.back) classes.push("is-back");
+    else if (card) {
+      const red = isJoker(card) ? card.color !== "black" : suitOf(card) && suitOf(card).color === "#b83b34";
+      classes.push(red ? "is-red" : "is-black");
+    }
     if (options.small) classes.push("is-small");
     if (options.playable) classes.push("is-playable");
     if (options.dim) classes.push("is-dim");
     if (!options.back && state && card && card.kind === "card" && card.suit === state.trump) {
       classes.push("is-trump");
     }
-    const art = options.back ? CARD_BASE + "card_back.png" : CARD_BASE + cardFile(card);
     const label = options.back ? "ورقة مقلوبة" : cardLabel(card);
-    const style = ' style="--wq-art:url(\'' + art + "')\"";
     const badge = options.badge
       ? '<span class="wq-card-badge">' + esc(options.badge) + "</span>"
       : "";
+    const face = options.back ? cardBackHTML() : cardFaceHTML(card);
     if (options.interactive && card) {
       return (
         '<button type="button" class="' + classes.join(" ") + '" data-ko-card="' + esc(card.id) +
-        '" aria-label="' + esc(label) + '"' + style + ">" +
-        '<span class="wq-card-face" aria-hidden="true"></span>' + badge +
+        '" aria-label="' + esc(label) + '">' +
+        '<span class="wq-card-face" aria-hidden="true">' + face + "</span>" + badge +
         "</button>"
       );
     }
     return (
-      '<span class="' + classes.join(" ") + '" role="img" aria-label="' + esc(label) + '"' + style + ">" +
-      '<span class="wq-card-face" aria-hidden="true"></span>' + badge +
+      '<span class="' + classes.join(" ") + '" role="img" aria-label="' + esc(label) + '">' +
+      '<span class="wq-card-face" aria-hidden="true">' + face + "</span>" + badge +
       "</span>"
     );
   }
@@ -1244,19 +1290,8 @@
 
     options: {
       hint: "خيارات المباراة. تُطبَّق على اللعب المحلي والجماعي معًا.",
-      defaults: { autoReveal: null, matchTarget: 101, jokerRules: "strict", firstRoundBaoun: true },
+      defaults: { matchTarget: 101, jokerRules: "strict", firstRoundBaoun: true },
       fields: [
-        {
-          key: "autoReveal",
-          label: "المعلومات السرية (لعب جماعي)",
-          type: "seg",
-          choices: [
-            { value: null, label: "حسب الإعدادات" },
-            { value: true, label: "إظهار تلقائي" },
-            { value: false, label: "إخفاء تلقائي" },
-          ],
-          hint: "«حسب الإعدادات» يتبع خيار المعلومات السرية في الإعدادات الرئيسية. الإظهار التلقائي يفتح أوراقك عند دورك مع زر للإخفاء.",
-        },
         {
           key: "matchTarget",
           label: "هدف المباراة",
@@ -1286,7 +1321,6 @@
       ],
       summary(options) {
         return (
-          BG.autoRevealLabel(options.autoReveal) + " · " +
           ar(Number(options.matchTarget) === 51 ? 51 : 101) + " نقطة · جوكر " +
           (options.jokerRules === "flexible" ? "مرن" : "صارم") +
           (options.firstRoundBaoun !== false ? " · باون أول جولة حاسم" : "")
@@ -1323,7 +1357,7 @@
         "الترتيب العام: الجيكر الأحمر ← الميكر الأسود ← آص الحكم ← باقي أوراق الحكم ← أوراق الأنواع الأخرى.",
         "داخل كل نوع من الأضعف إلى الأقوى: A، K، Q، J، ١٠، ٩… ٢ (أي ٢ أقوى ورقة في نوعها، وآص الحكم استثناء مرفوع).",
         "في نسخة الستة فريقان من ثلاثة لاعبين؛ في نسخة الأربعة فريقان من لاعبين.",
-        "خيارات اللعبة: هدف ١٠١/٥١، قواعد جوكر صارمة أو مرنة، باون الجولة الأولى حاسم أو غير حاسم، وإظهار/إخفاء المعلومات السرية.",
+        "خيارات اللعبة: هدف ١٠١/٥١، قواعد جوكر صارمة أو مرنة، وباون الجولة الأولى حاسم أو غير حاسم.",
         "في نسخة الأربعة تُحذف الأوراق ٢–٥ وورقتا ٦ الحمراوان، ثم يُضاف الجيكران لتكوين ٣٦ ورقة.",
       ],
     },

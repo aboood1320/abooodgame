@@ -42,34 +42,38 @@
   const PREM_LABEL = { tw: "كلمة<br>×٣", dw: "كلمة<br>×٢", tl: "حرف<br>×٣", dl: "حرف<br>×٢" };
   const PREM_TITLE = { tw: "كلمة ×٣", dw: "كلمة ×٢", tl: "حرف ×٣", dl: "حرف ×٢" };
 
-  const DICT = new Set((BG.arabicWords || []).map(normalize));
-  "بيت شمس قمر كتاب قلم باب ماء نار حب علم معلم مدينة شارع سيارة طعام خبز لبن تفاح برتقال سماء ارض بحر جبل شجرة زهرة طائر سمك اسد قط كلب صديق اخ ام اب ابن بنت رجل امراة يوم ليل صباح مساء سنة شهر اسبوع ساعة وقت عمل لعب درس قرا كتب ذهب جاء اكل شرب نام قام قال كان راي سمع فتح غلق بدا انتهي".split(/\s+/).forEach((w) => DICT.add(normalize(w)));
+  const DICT = new Set();
+  let dictReady = false;
+  const BASE_WORDS = "بيت شمس قمر كتاب قلم باب ماء نار حب علم معلم مدينة شارع سيارة طعام خبز لبن تفاح برتقال سماء ارض بحر جبل شجرة زهرة طائر سمك اسد قط كلب صديق اخ ام اب ابن بنت رجل امراة يوم ليل صباح مساء سنة شهر اسبوع ساعة وقت عمل لعب درس قرا كتب ذهب جاء اكل شرب نام قام قال كان راي سمع فتح غلق بدا انتهي";
 
   /* فهرس الكلمات حسب الطول والحرف/الموضع لتسريع بحث الكمبيوتر */
-  const WORDS_BY_LEN = (() => {
-    const out = Array.from({ length: SIZE + 1 }, () => []);
+  const WORDS_BY_LEN = Array.from({ length: SIZE + 1 }, () => []);
+  const POS_INDEX = Array.from({ length: SIZE + 1 }, () => []);
+
+  /* القاموس والفهارس تُبنى عند أول فتح للعبة فقط — لا عند تحميل الصفحة (كانت تكلّف مئات الملّي ثانية على الجوال) */
+  function ensureDictionary() {
+    if (dictReady) return DICT;
+    dictReady = true;
+    const raw = BG.arabicWords || [];
+    for (let i = 0; i < raw.length; i++) DICT.add(normalize(raw[i]));
+    BASE_WORDS.split(/\s+/).forEach((w) => DICT.add(normalize(w)));
     DICT.forEach((word) => {
       const letters = Array.from(word);
-      if (letters.length >= 2 && letters.length <= SIZE) out[letters.length].push(letters);
+      if (letters.length >= 2 && letters.length <= SIZE) WORDS_BY_LEN[letters.length].push(letters);
     });
-    return out;
-  })();
-
-  const POS_INDEX = (() => {
-    const out = Array.from({ length: SIZE + 1 }, () => []);
     WORDS_BY_LEN.forEach((words, len) => {
-      out[len] = Array.from({ length: len }, () => new Map());
+      POS_INDEX[len] = Array.from({ length: len }, () => new Map());
       words.forEach((letters) => {
         letters.forEach((letter, pos) => {
-          const map = out[len][pos];
+          const map = POS_INDEX[len][pos];
           let list = map.get(letter);
           if (!list) { list = []; map.set(letter, list); }
           list.push(letters);
         });
       });
     });
-    return out;
-  })();
+    return DICT;
+  }
 
   let rootRef = null;
   let apiRef = null;
@@ -172,10 +176,6 @@
     return state.players[state.current];
   }
 
-  function autoRevealEnabled() {
-    const opts = (apiRef && apiRef.options) || {};
-    return BG.autoRevealEnabled(opts.autoReveal);
-  }
   function isOnline() {
     return !!(apiRef && apiRef.net && apiRef.net.enabled);
   }
@@ -1092,7 +1092,7 @@
       '<div class="scrab-legend-row"><i class="dw">٢ك</i><span>كلمة ×٢</span></div>' +
       '<div class="scrab-legend-row"><i class="tl">٣ح</i><span>حرف ×٣</span></div>' +
       '<div class="scrab-legend-row"><i class="dl">٢ح</i><span>حرف ×٢</span></div>' +
-      '<p>القاموس المحلي يوحّد الهمزات والألف المقصورة والتاء المربوطة عند التحقق، ويقبل أكثر من ' + (DICT.size / 1000).toFixed(1) + " ألف كلمة.</p>" +
+      '<p>القاموس المحلي يوحّد الهمزات والألف المقصورة والتاء المربوطة عند التحقق، ويقبل أكثر من ' + (ensureDictionary().size / 1000).toFixed(1) + " ألف كلمة.</p>" +
       "</div>"
     );
   }
@@ -1139,7 +1139,7 @@
         title: "🎒 أحجار " + player.name,
         owner: player.name,
         hint: "أحجارك مخفية عن بقية اللاعبين. اضغط «إظهار» لرؤية رفّك وبدء الدور.",
-        open: (isOnline() && autoRevealEnabled()) || (state.rackRevealed && state.current === player.index),
+        open: isOnline() || (state.rackRevealed && state.current === player.index),
         autoKey: "scrabble:" + player.index + ":" + state.turn,
         onToggle(visible) {
           state.rackRevealed = visible;
@@ -1188,27 +1188,6 @@
     maxPlayers: 4,
     defaultPlayers: 2,
 
-    options: {
-      hint: "\u062e\u064a\u0627\u0631\u0627\u062a \u0642\u0648\u0627\u0646\u064a\u0646 \u0625\u0636\u0627\u0641\u064a\u0629.",
-      defaults: { autoReveal: null },
-      fields: [
-        {
-          key: "autoReveal",
-          label: "المعلومات السرية (أونلاين)",
-          type: "seg",
-          choices: [
-            { value: null, label: "حسب الإعدادات" },
-            { value: true, label: "إظهار تلقائي" },
-            { value: false, label: "إخفاء تلقائي" },
-          ],
-          hint: "«حسب الإعدادات» يتبع خيار المعلومات السرية في نافذة الإعدادات الرئيسية. الإظهار التلقائي يفتح رفّك مع زر للإخفاء.",
-        },
-      ],
-      summary(options) {
-        return BG.autoRevealLabel(options.autoReveal);
-      },
-    },
-
     rules: {
       goal: "اجمع أعلى مجموع نقاط بصناعة كلمات عربية متقاطعة على اللوحة. كل حجر يحمل قيمة، وبعض المربعات تضاعف قيمة الحرف أو الكلمة. تنتهي اللعبة عندما يفرغ الكيس وينهي أحد اللاعبين أحجاره، أو بعد ستة أدوار متتالية دون نقاط.",
       facts: [["اللوحة", "١٥×١٥ مربعًا"], ["الأحجار", "١٠٠ حجر عربي"], ["الرفّ", "٧ أحجار لكل لاعب"], ["القاموس", "أكثر من ٢٥ ألف كلمة محلية"]],
@@ -1243,6 +1222,7 @@
     },
 
     create(root, api) {
+      ensureDictionary();
       rootRef = root;
       apiRef = api;
       aiRunner = AI.runner();
@@ -1285,7 +1265,7 @@
           selectRack, placeAt, recall, shuffleRack, analyze, scoreWords,
           draw, drawTiles: draw, buildBag, tileAt, committedAt,
           cpuCandidates, cpuTakeTurn, cpuValidateCandidate, syncCpu,
-          get dictionary() { return DICT; },
+          get dictionary() { return ensureDictionary(); },
           get premium() { return PREMIUM; },
           tileValues: VALUES,
           normalize,

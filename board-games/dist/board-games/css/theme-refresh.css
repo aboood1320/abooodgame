@@ -801,6 +801,11 @@ dialog.bg-rules-dialog { width: min(790px, calc(100vw - 30px)); }
 .secret-panel:not(.revealed) { border-color: rgba(246, 242, 232, 0.18); }
 .secret-panel:not(.revealed) .secret-head { background: rgba(255, 255, 255, 0.025); }
 .secret-panel.revealed { border-color: rgba(88, 211, 168, 0.34); box-shadow: 0 0 0 1px rgba(88, 211, 168, 0.08); }
+.secret-panel.is-static {
+  border-color: rgba(88, 211, 168, 0.24);
+  box-shadow: 0 0 0 1px rgba(88, 211, 168, 0.05);
+}
+.secret-panel.is-static .secret-head { background: rgba(88, 211, 168, 0.035); }
 .secret-head { padding: 11px 13px; }
 .secret-title { font-size: 0.78rem; font-weight: 800; }
 .secret-hint { padding: 18px 15px; }

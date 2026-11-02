@@ -112,11 +112,6 @@
     return !!(apiRef && apiRef.net && apiRef.net.enabled);
   }
 
-  function autoRevealEnabled() {
-    const opts = (apiRef && apiRef.options) || {};
-    return BG.autoRevealEnabled(opts.autoReveal);
-  }
-
   function viewerIndex() {
     if (isOnline()) {
       return Number.isInteger(apiRef.net.seat) && apiRef.net.seat >= 0 ? apiRef.net.seat : -1;
@@ -342,7 +337,7 @@
     state.drawnId = drawn.id;
     state.turnSeq = (state.turnSeq || 0) + 1;
     state.phase = "play";
-    state.handRevealed = isOnline() && autoRevealEnabled() && viewerIndex() === player.index;
+    state.handRevealed = !BG.prefs.hideSecrets || (isOnline() && viewerIndex() === player.index);
     state.notice = "دور " + player.name + " — اختر بطاقة من يدك.";
     if (apiRef) apiRef.setStatus("دور " + AI.statusName(player), "live");
     render();
@@ -1243,19 +1238,8 @@
 
     options: {
       hint: "خيارات المباراة. تُطبَّق على اللعب المحلي والجماعي معًا.",
-      defaults: { autoReveal: null, tokenGoal: null },
+      defaults: { tokenGoal: null },
       fields: [
-        {
-          key: "autoReveal",
-          label: "المعلومات السرية (لعب جماعي)",
-          type: "seg",
-          choices: [
-            { value: null, label: "حسب الإعدادات" },
-            { value: true, label: "إظهار تلقائي" },
-            { value: false, label: "إخفاء تلقائي" },
-          ],
-          hint: "«حسب الإعدادات» يتبع خيار المعلومات السرية في نافذة الإعدادات الرئيسية. الإظهار التلقائي يفتح بطاقاتك عند دورك مع زر للإخفاء.",
-        },
         {
           key: "tokenGoal",
           label: "هدف رموز المحبة",
@@ -1273,7 +1257,7 @@
         const goal = [4, 5, 7].indexOf(Number(options.tokenGoal)) !== -1
           ? Number(options.tokenGoal) + " رموز"
           : "حسب اللاعبين";
-        return BG.autoRevealLabel(options.autoReveal) + " · " + goal;
+        return goal;
       },
     },
 
@@ -1383,7 +1367,7 @@
           if (!state) return;
           state.pending = null;
           state.handRevealed =
-            isOnline() && autoRevealEnabled() && state.phase === "play" && viewerIndex() === state.current;
+            !BG.prefs.hideSecrets || (isOnline() && state.phase === "play" && viewerIndex() === state.current);
           render();
           if (!state.over && state.phase === "play") maybeAI();
         },

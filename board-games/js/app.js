@@ -179,9 +179,40 @@
 
   /* ------------------------------ المكتبة ------------------------------ */
 
+  let libraryBuilt = false;
+  let sceneObserver = null;
+
+  /* مشاهد البطاقات (SVG ثقيلة) تُدرَج عند اقتراب البطاقة من الشاشة فقط */
+  function fillScene(node) {
+    if (!node || !node.__scene) return;
+    node.innerHTML = node.__scene;
+    node.__scene = null;
+  }
+
+  function observeScene(node) {
+    if (!("IntersectionObserver" in window)) { fillScene(node); return; }
+    if (!sceneObserver) {
+      sceneObserver = new IntersectionObserver((entries) => {
+        entries.forEach((entry) => {
+          if (!entry.isIntersecting) return;
+          fillScene(entry.target);
+          sceneObserver.unobserve(entry.target);
+        });
+      }, { rootMargin: "500px 0px" });
+    }
+    sceneObserver.observe(node);
+  }
+
   function renderLibrary() {
-    BG.clear(els.libraryGrid);
     document.body.classList.add("library-mode");
+    if (libraryBuilt && els.libraryGrid.querySelector(".game-card")) {
+      /* المكتبة مبنيّة مسبقًا: نحدّث بطاقة «متابعة» فقط بدل إعادة بناء عشرين بطاقة */
+      const old = els.libraryGrid.querySelector(".resume-card");
+      if (old) old.remove();
+      renderResumeCard();
+      return;
+    }
+    BG.clear(els.libraryGrid);
     const count = BG.games.length;
     const countLabel = count === 1 ? "لعبة واحدة" : count + " ألعاب";
     const countEl = document.getElementById("libraryCount");
@@ -204,7 +235,7 @@
       const art = BG.el("span", { class: "game-art" });
       art.innerHTML =
         '<span class="game-art-glow" aria-hidden="true"></span>' +
-        '<span class="game-scene" aria-hidden="true">' + scene + "</span>" +
+        '<span class="game-scene" aria-hidden="true"></span>' +
         '<span class="game-art-shade" aria-hidden="true"></span>' +
         '<span class="game-num" aria-hidden="true">' + String(index + 1).padStart(2, "0") + "</span>" +
         '<span class="game-en-badge">' + U.escape(game.en || "") + "</span>" +
@@ -224,9 +255,12 @@
 
       card.appendChild(art);
       card.appendChild(body);
+      const sceneNode = art.querySelector(".game-scene");
+      if (sceneNode && scene) { sceneNode.__scene = scene; observeScene(sceneNode); }
       card.addEventListener("click", () => openGame(game));
       els.libraryGrid.appendChild(card);
     });
+    libraryBuilt = true;
 
   }
 
@@ -262,7 +296,7 @@
       "<span>" + U.escape((save.seats || []).map((seat) => seat.name).filter(Boolean).join(" · ") || "متابعة من حيث توقفت") + "</span></span>" +
       '<span class="resume-meta"><b>' + U.escape(when) + "</b><em>متابعة ←</em></span>";
     card.addEventListener("click", () => resumeSaved(save));
-    els.libraryGrid.appendChild(card);
+    els.libraryGrid.insertBefore(card, els.libraryGrid.firstChild);
   }
 
   function saveProgress() {
@@ -289,7 +323,7 @@
 
   function startSaveTimer() {
     stopSaveTimer();
-    saveTimer = setInterval(saveProgress, 3000);
+    saveTimer = setInterval(() => { if (!document.hidden) saveProgress(); }, 8000);
   }
 
   function stopSaveTimer() {
