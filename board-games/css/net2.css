@@ -49,3 +49,73 @@
   background: rgba(255, 255, 255, 0.1);
 }
 .net-status.is-error { color: #ff9c8f; }
+
+/* جودة الاتصال في اللوبي وقائمة اللاعبين */
+.net-conn-line {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 8px 0 0;
+  font-size: 0.78rem;
+  color: var(--muted, rgba(255, 255, 255, 0.62));
+}
+
+.net-conn-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #7d8a93;
+  box-shadow: 0 0 0 3px rgba(125, 138, 147, 0.16);
+}
+
+.net-conn-line strong {
+  font-weight: 700;
+  color: #c9d4da;
+}
+
+.net-conn-line strong[data-quality="excellent"] { color: #6fe3b0; }
+.net-conn-line strong[data-quality="good"] { color: #b6e36f; }
+.net-conn-line strong[data-quality="fair"] { color: #f0c35a; }
+.net-conn-line strong[data-quality="poor"] { color: #ef8074; }
+
+.net-player-ping {
+  margin-inline-start: auto;
+  padding: 2px 7px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  font-size: 0.66rem;
+  font-variant-numeric: tabular-nums;
+  color: #9aa8b0;
+  direction: ltr;
+}
+
+.net-player-ping[data-quality="excellent"] { color: #6fe3b0; border-color: rgba(111, 227, 176, 0.35); }
+.net-player-ping[data-quality="good"] { color: #b6e36f; border-color: rgba(182, 227, 111, 0.35); }
+.net-player-ping[data-quality="fair"] { color: #f0c35a; border-color: rgba(240, 195, 90, 0.35); }
+.net-player-ping[data-quality="poor"] { color: #ef8074; border-color: rgba(239, 128, 116, 0.4); }
+
+/* دور اللاعب المحلي */
+.net-hud.is-my-turn {
+  border-color: rgba(76, 201, 164, 0.8);
+  box-shadow: 0 0 0 1px rgba(76, 201, 164, 0.28), 0 18px 44px -20px rgba(0, 0, 0, 0.95), 0 0 28px rgba(76, 201, 164, 0.22);
+}
+
+.net-hud.is-my-turn .net-hud-dot {
+  background: #ffe08a;
+  box-shadow: 0 0 12px #ffe08a;
+}
+
+.net-hud.is-my-turn .net-hud-role {
+  color: #c8ffe9;
+  font-weight: 700;
+}
+
+@media (max-width: 420px) {
+  .net-player-ping { font-size: 0.6rem; }
+  .net-conn-line { flex-wrap: wrap; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .net-hud.is-my-turn { box-shadow: 0 0 0 1px rgba(76, 201, 164, 0.5); }
+}

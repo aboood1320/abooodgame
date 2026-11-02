@@ -36,9 +36,11 @@
   const DEFAULT_OPTIONS = {
     startMoney: 1500,
     jailFine: 50,
-    auction: false,
+    auction: true,
     freeParking: false,
   };
+  const BANK_HOUSES = 32;
+  const BANK_HOTELS = 12;
   const GO_SALARY = 200;
 
   const SPACES = [
@@ -175,9 +177,9 @@
         },
         {
           key: "auction",
-          label: "مزاد عند رفض الشراء",
+          label: "مزاد عند رفض الشراء (القاعدة الرسمية)",
           type: "toggle",
-          hint: "عند تفعيله يُطرح العقار في مزاد سريع بين اللاعبين إذا قررت عدم شرائه بالسعر الكامل.",
+          hint: "إذا رفضت شراء العقار بالسعر الكامل يُطرح في مزاد بين جميع اللاعبين. فعّله دائمًا للعب بالقواعد الرسمية.",
         },
         {
           key: "freeParking",
@@ -190,7 +192,7 @@
         return (
           U.money(Number(options.startMoney) || 1500) + " · غرامة " +
           U.money(Number(options.jailFine) === 100 ? 100 : 50) +
-          (options.auction ? " · مزاد" : "") +
+          (options.auction !== false ? " · مزاد" : "") +
           (options.freeParking ? " · موقف مجاني" : "")
         );
       },
@@ -225,9 +227,10 @@
       ],
       winning: "يفوز آخر لاعب لم يُفلس. إذا انسحب لاعب أو أفلس، تُصفّى أصوله. في نهاية اللعبة يمكن الترتيب بصافي الثروة: المال + قيمة العقارات + قيمة المنازل.",
       notes: [
-        "خيارات اللعبة: رأس مال 1000/1500/2500 دولار، غرامة سجن 50/100 دولار، مزاد عند رفض الشراء، وجائزة موقف مجاني.",
-        "هذه النسخة لا تعتمد المزاد عند رفض شراء شارع افتراضيًا؛ عند تفعيل خيار المزاد يُطرح العقار على اللاعبين بمزايدة سريعة.",
-        "لا توجد قيود على عدد المنازل والفنادق المتاحة في البنك في النسخة الرقمية.",
+        "خيارات اللعبة: رأس مال 1000/1500/2500 دولار، غرامة سجن 50/100 دولار، مزاد عند رفض الشراء (مفعّل افتراضيًا)، وجائزة موقف مجاني.",
+        "عند رفض الشراء بالسعر الكامل يُطرح العقار في مزاد بين جميع اللاعبين النشطين، كما في القواعد الرسمية. يمكن تعطيل المزاد لخيار منزلي.",
+        "البنك يبدأ بـ32 منزلًا و12 فندقًا. لا يمكن البناء إذا نفدت القطع، وتعود المنازل والفنادق إلى البنك عند البيع أو الإفلاس.",
+        "عند ترقية أربعة منازل إلى فندق تعود المنازل الأربعة إلى البنك. وعند بيع فندق يجب توفر أربعة منازل في البنك لاستبداله بها.",
         "تُنفّذ صفقات التبادل بين اللاعبين على نفس الجهاز بموافقة الطرف الآخر، ويقرر الكمبيوتر قبول العرض أو رفضه تلقائيًا.",
       ],
     },
@@ -265,6 +268,7 @@
         players,
         props: {},
         config,
+        bank: { houses: BANK_HOUSES, hotels: BANK_HOTELS },
         pot: 0,
         current: 0,
         phase: "roll",
@@ -307,6 +311,7 @@
           state.props = state.props || {};
           state.config = Object.assign({}, DEFAULT_OPTIONS, state.config || {});
           state.pot = Number(state.pot) || 0;
+          rebuildBankStock();
           state.players.forEach((player) => {
             player.bankrupt = !!player.bankrupt;
           });
@@ -387,6 +392,40 @@
       .sort((a, b) => a.idx - b.idx);
   }
 
+  /** يعيد حساب مخزون البنك من القطع المبنية على الرقعة (للتحميل والحفظ). */
+  function rebuildBankStock() {
+    let houses = 0;
+    let hotels = 0;
+    Object.keys(state.props || {}).forEach((key) => {
+      const rec = state.props[key];
+      if (!rec || !rec.houses) return;
+      if (rec.houses >= 5) hotels += 1;
+      else houses += rec.houses;
+    });
+    state.bank = {
+      houses: Math.max(0, BANK_HOUSES - houses),
+      hotels: Math.max(0, BANK_HOTELS - hotels),
+    };
+  }
+
+  /** يبيع مستوى بناء واحدًا ويعيد القطعة إلى البنك. يعيد false إذا نفدت القطع. */
+  function sellBuilding(rec) {
+    if (!rec || !state.bank) return false;
+    if (rec.houses === 5) {
+      if (state.bank.houses < 4) return false;
+      state.bank.houses -= 4;
+      state.bank.hotels += 1;
+      rec.houses = 4;
+      return true;
+    }
+    if (rec.houses > 0) {
+      rec.houses -= 1;
+      state.bank.houses += 1;
+      return true;
+    }
+    return false;
+  }
+
   /* ------------------------------ المال والإفلاس ------------------------------ */
 
   function addMoney(p, amount) {
@@ -398,9 +437,9 @@
     // بيع المنازل أولًا
     for (const item of ownedList(p)) {
       while (item.rec.houses > 0 && p.money < needed) {
-        item.rec.houses--;
+        if (!sellBuilding(item.rec)) break;
         p.money += Math.floor(item.space.house / 2);
-        apiRef.log("باعت <strong>" + U.escape(p.name) + "</strong> منزلًا في " + U.escape(item.space.name) + " لتغطية الدين.", "warn");
+        apiRef.log("باعت <strong>" + U.escape(p.name) + "</strong> بناءً في " + U.escape(item.space.name) + " لتغطية الدين.", "warn");
       }
       if (p.money >= needed) return true;
     }
@@ -441,6 +480,10 @@
     p.money = 0;
     apiRef.log("<strong>" + U.escape(p.name) + "</strong> أعلن الإفلاس!", "warn");
     for (const item of ownedList(p)) {
+      if (state.bank) {
+        if (item.rec.houses >= 5) state.bank.hotels += 1;
+        else state.bank.houses += item.rec.houses || 0;
+      }
       item.rec.houses = 0;
       if (creditor && !creditor.bankrupt && creditor.index !== p.index) {
         item.rec.owner = creditor.index;
@@ -1062,8 +1105,25 @@
       BG.toast("لا تملك مالًا كافيًا لبناء منزل.", "warn");
       return;
     }
+    const upgrading = rec.houses === 4;
+    if (!state.bank) rebuildBankStock();
+    if (upgrading && state.bank.hotels <= 0) {
+      BG.toast("لا توجد فنادق متبقية في البنك — انتظر عودة فندق من البيع أو الإفلاس.", "warn");
+      return;
+    }
+    if (!upgrading && state.bank.houses <= 0) {
+      BG.toast("لا توجد منازل متبقية في البنك — انتظر عودة منزل من البيع أو الإفلاس.", "warn");
+      return;
+    }
     p.money -= space.house;
-    rec.houses++;
+    if (upgrading) {
+      state.bank.hotels -= 1;
+      state.bank.houses += 4;
+      rec.houses = 5;
+    } else {
+      state.bank.houses -= 1;
+      rec.houses += 1;
+    }
     apiRef.log("بنى <strong>" + U.escape(p.name) + "</strong> " + (rec.houses === 5 ? "فندقًا" : "منزلًا") + " في " + U.escape(space.name) + ".", "good");
     render();
     if (FX) {
@@ -1088,7 +1148,11 @@
         return;
       }
     }
-    rec.houses--;
+    if (!state.bank) rebuildBankStock();
+    if (!sellBuilding(rec)) {
+      BG.toast("لا توجد أربعة منازل في البنك لاستبدال الفندق بها. بِع منازل أخرى أولًا أو انتظر عودتها.", "warn");
+      return;
+    }
     p.money += Math.floor(space.house / 2);
     apiRef.log("باع <strong>" + U.escape(p.name) + "</strong> بناءً في " + U.escape(space.name) + " مقابل " + U.money(Math.floor(space.house / 2)) + ".");
     if (FX) FX.sound("coin");
@@ -1652,10 +1716,13 @@
   function propertyManagerHTML() {
     const p = cur();
     const list = ownedList(p);
+    const bank = state.bank || { houses: 0, hotels: 0 };
+    const stock = '<p class="muted-note mbank-stock">🏦 مخزون البنك: 🏠 ' + bank.houses + " منزلًا · 🏨 " + bank.hotels + " فندقًا</p>";
     if (!list.length) {
-      return '<p class="muted-note">لا تملك عقارات بعد. اشترِ أول عقار لتظهر أدوات الإدارة.</p>';
+      return stock + '<p class="muted-note">لا تملك عقارات بعد. اشترِ أول عقار لتظهر أدوات الإدارة.</p>';
     }
     return (
+      stock +
       '<div class="mprop-list">' +
       list
         .map(({ idx, rec, space }) => {

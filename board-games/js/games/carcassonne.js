@@ -26,30 +26,30 @@
    *   term:   نهاية الطريق (مدينة / دير / مفرق) للطرق ذات الحافة الواحدة.
    */
   const TILE_TYPES = {
-    A: { count: 2, edges: "FFRF", cities: [], roads: [{ sides: [2], term: "monastery" }], monastery: true, shield: 0, name: "دير وطريق" },
-    B: { count: 4, edges: "FFFF", cities: [], roads: [], monastery: true, shield: 0, name: "دير" },
-    C: { count: 1, edges: "CCCC", cities: [[0, 1, 2, 3]], roads: [], monastery: false, shield: 1, name: "مدينة كاملة" },
-    D: { count: 4, edges: "CRFR", cities: [[0]], roads: [{ sides: [1, 3] }], monastery: false, shield: 0, name: "مدينة وطريق مستقيم" },
-    E: { count: 5, edges: "CFFF", cities: [[0]], roads: [], monastery: false, shield: 0, name: "مدينة" },
-    F: { count: 2, edges: "FCFC", cities: [[1, 3]], roads: [], monastery: false, shield: 1, name: "مدينة عابرة بدرع" },
-    G: { count: 1, edges: "FCFC", cities: [[1, 3]], roads: [], monastery: false, shield: 0, name: "مدينة عابرة" },
-    H: { count: 3, edges: "CFCF", cities: [[0], [2]], roads: [], monastery: false, shield: 0, name: "مدينتان متقابلتان" },
-    I: { count: 2, edges: "CFFC", cities: [[0], [3]], roads: [], monastery: false, shield: 0, name: "مدينتان متجاورتان" },
-    J: { count: 3, edges: "CRRF", cities: [[0]], roads: [{ sides: [1, 2] }], monastery: false, shield: 0, name: "مدينة ومنعطف طريق" },
-    K: { count: 3, edges: "CFRR", cities: [[0]], roads: [{ sides: [2, 3] }], monastery: false, shield: 0, name: "مدينة ومنعطف طريق" },
-    L: { count: 3, edges: "CRRR", cities: [[0]], roads: [{ sides: [1], term: "city" }, { sides: [2], term: "city" }, { sides: [3], term: "city" }], monastery: false, shield: 0, name: "مدينة وثلاثة طرق" },
-    M: { count: 2, edges: "CFFC", cities: [[0, 3]], roads: [], monastery: false, shield: 1, name: "مدينة ركن بدرع" },
-    N: { count: 3, edges: "CFFC", cities: [[0, 3]], roads: [], monastery: false, shield: 0, name: "مدينة ركن" },
-    O: { count: 2, edges: "CRRC", cities: [[0, 3]], roads: [{ sides: [1, 2] }], monastery: false, shield: 1, name: "مدينة ركن وطريق بدرع" },
-    P: { count: 3, edges: "CRRC", cities: [[0, 3]], roads: [{ sides: [1, 2] }], monastery: false, shield: 0, name: "مدينة ركن وطريق" },
-    Q: { count: 1, edges: "CCCF", cities: [[0, 1, 2]], roads: [], monastery: false, shield: 1, name: "مدينة ثلاثية بدرع" },
-    R: { count: 3, edges: "CCCF", cities: [[0, 1, 2]], roads: [], monastery: false, shield: 0, name: "مدينة ثلاثية" },
-    S: { count: 2, edges: "CCRC", cities: [[0, 1, 3]], roads: [{ sides: [2], term: "city" }], monastery: false, shield: 1, name: "مدينة ثلاثية وطريق بدرع" },
-    T: { count: 1, edges: "CCRC", cities: [[0, 1, 3]], roads: [{ sides: [2], term: "city" }], monastery: false, shield: 0, name: "مدينة ثلاثية وطريق" },
-    U: { count: 8, edges: "RFRF", cities: [], roads: [{ sides: [0, 2] }], monastery: false, shield: 0, name: "طريق مستقيم" },
-    V: { count: 9, edges: "FRRF", cities: [], roads: [{ sides: [1, 2] }], monastery: false, shield: 0, name: "منعطف طريق" },
-    W: { count: 4, edges: "RRRF", cities: [], roads: [{ sides: [0], term: "junction" }, { sides: [1], term: "junction" }, { sides: [2], term: "junction" }], monastery: false, shield: 0, name: "مفرق ثلاثي" },
-    X: { count: 1, edges: "RRRR", cities: [], roads: [{ sides: [0], term: "junction" }, { sides: [1], term: "junction" }, { sides: [2], term: "junction" }, { sides: [3], term: "junction" }], monastery: false, shield: 0, name: "تقاطع طرق" },
+    A: { count: 2, edges: "FFRF", cities: [], roads: [{ sides: [2], term: "monastery" }], fields: [{ sides: [0, 1, 3], cities: [], anchor: [40, 34] }, { sides: [2], cities: [], anchor: [50, 82] }], monastery: true, shield: 0, name: "دير وطريق" },
+    B: { count: 4, edges: "FFFF", cities: [], roads: [], fields: [{ sides: [0, 1, 2, 3], cities: [], anchor: [30, 74] }], monastery: true, shield: 0, name: "دير" },
+    C: { count: 1, edges: "CCCC", cities: [[0, 1, 2, 3]], roads: [], fields: [], monastery: false, shield: 1, name: "مدينة كاملة" },
+    D: { count: 4, edges: "CRFR", cities: [[0]], roads: [{ sides: [1, 3] }], fields: [{ sides: [2], cities: [0], anchor: [50, 82] }], monastery: false, shield: 0, name: "مدينة وطريق مستقيم" },
+    E: { count: 5, edges: "CFFF", cities: [[0]], roads: [], fields: [{ sides: [1, 2, 3], cities: [0], anchor: [52, 70] }], monastery: false, shield: 0, name: "مدينة" },
+    F: { count: 2, edges: "FCFC", cities: [[1, 3]], roads: [], fields: [{ sides: [0], cities: [0], anchor: [50, 10] }, { sides: [2], cities: [0], anchor: [50, 90] }], monastery: false, shield: 1, name: "مدينة عابرة بدرع" },
+    G: { count: 1, edges: "FCFC", cities: [[1, 3]], roads: [], fields: [{ sides: [0], cities: [0], anchor: [50, 10] }, { sides: [2], cities: [0], anchor: [50, 90] }], monastery: false, shield: 0, name: "مدينة عابرة" },
+    H: { count: 3, edges: "CFCF", cities: [[0], [2]], roads: [], fields: [{ sides: [1, 3], cities: [0, 1], anchor: [50, 50] }], monastery: false, shield: 0, name: "مدينتان متقابلتان" },
+    I: { count: 2, edges: "CFFC", cities: [[0], [3]], roads: [], fields: [{ sides: [1, 2], cities: [0, 1], anchor: [62, 62] }], monastery: false, shield: 0, name: "مدينتان متجاورتان" },
+    J: { count: 3, edges: "CRRF", cities: [[0]], roads: [{ sides: [1, 2] }], fields: [{ sides: [3], cities: [0], anchor: [28, 58] }], monastery: false, shield: 0, name: "مدينة ومنعطف طريق" },
+    K: { count: 3, edges: "CFRR", cities: [[0]], roads: [{ sides: [2, 3] }], fields: [{ sides: [1], cities: [0], anchor: [72, 42] }], monastery: false, shield: 0, name: "مدينة ومنعطف طريق" },
+    L: { count: 3, edges: "CRRR", cities: [[0]], roads: [{ sides: [1], term: "city" }, { sides: [2], term: "city" }, { sides: [3], term: "city" }], fields: [], monastery: false, shield: 0, name: "مدينة وثلاثة طرق" },
+    M: { count: 2, edges: "CFFC", cities: [[0, 3]], roads: [], fields: [{ sides: [1, 2], cities: [0], anchor: [66, 66] }], monastery: false, shield: 1, name: "مدينة ركن بدرع" },
+    N: { count: 3, edges: "CFFC", cities: [[0, 3]], roads: [], fields: [{ sides: [1, 2], cities: [0], anchor: [66, 66] }], monastery: false, shield: 0, name: "مدينة ركن" },
+    O: { count: 2, edges: "CRRC", cities: [[0, 3]], roads: [{ sides: [1, 2] }], fields: [{ sides: [], cities: [0], anchor: [55, 48] }], monastery: false, shield: 1, name: "مدينة ركن وطريق بدرع" },
+    P: { count: 3, edges: "CRRC", cities: [[0, 3]], roads: [{ sides: [1, 2] }], fields: [{ sides: [], cities: [0], anchor: [55, 48] }], monastery: false, shield: 0, name: "مدينة ركن وطريق" },
+    Q: { count: 1, edges: "CCCF", cities: [[0, 1, 2]], roads: [], fields: [{ sides: [3], cities: [0], anchor: [22, 50] }], monastery: false, shield: 1, name: "مدينة ثلاثية بدرع" },
+    R: { count: 3, edges: "CCCF", cities: [[0, 1, 2]], roads: [], fields: [{ sides: [3], cities: [0], anchor: [22, 50] }], monastery: false, shield: 0, name: "مدينة ثلاثية" },
+    S: { count: 2, edges: "CCRC", cities: [[0, 1, 3]], roads: [{ sides: [2], term: "city" }], fields: [], monastery: false, shield: 1, name: "مدينة ثلاثية وطريق بدرع" },
+    T: { count: 1, edges: "CCRC", cities: [[0, 1, 3]], roads: [{ sides: [2], term: "city" }], fields: [], monastery: false, shield: 0, name: "مدينة ثلاثية وطريق" },
+    U: { count: 8, edges: "RFRF", cities: [], roads: [{ sides: [0, 2] }], fields: [{ sides: [1], cities: [], anchor: [74, 50] }, { sides: [3], cities: [], anchor: [26, 50] }], monastery: false, shield: 0, name: "طريق مستقيم" },
+    V: { count: 9, edges: "FRRF", cities: [], roads: [{ sides: [1, 2] }], fields: [{ sides: [0, 3], cities: [], anchor: [28, 28] }], monastery: false, shield: 0, name: "منعطف طريق" },
+    W: { count: 4, edges: "RRRF", cities: [], roads: [{ sides: [0], term: "junction" }, { sides: [1], term: "junction" }, { sides: [2], term: "junction" }], fields: [{ sides: [3], cities: [], anchor: [24, 50] }], monastery: false, shield: 0, name: "مفرق ثلاثي" },
+    X: { count: 1, edges: "RRRR", cities: [], roads: [{ sides: [0], term: "junction" }, { sides: [1], term: "junction" }, { sides: [2], term: "junction" }, { sides: [3], term: "junction" }], fields: [], monastery: false, shield: 0, name: "تقاطع طرق" },
   };
 
   const CITY_PATHS = {
@@ -107,9 +107,11 @@
     const def = TILE_TYPES[type];
     const cityOfSide = [-1, -1, -1, -1];
     const roadOfSide = [-1, -1, -1, -1];
+    const fieldOfSide = [-1, -1, -1, -1];
     def.cities.forEach((group, index) => group.forEach((s) => { cityOfSide[s] = index; }));
     def.roads.forEach((road, index) => road.sides.forEach((s) => { roadOfSide[s] = index; }));
-    const info = { edges: def.edges.split(""), cityOfSide, roadOfSide };
+    (def.fields || []).forEach((field, index) => field.sides.forEach((s) => { fieldOfSide[s] = index; }));
+    const info = { edges: def.edges.split(""), cityOfSide, roadOfSide, fieldOfSide };
     BASE_CACHE[type] = info;
     return info;
   }
@@ -203,6 +205,10 @@
     const def = TILE_TYPES[type];
     if (meeple.kind === "city") return cityShape(def.cities[meeple.idx] || [0]).anchor;
     if (meeple.kind === "road") return roadAnchor(def, def.roads[meeple.idx] || def.roads[0]);
+    if (meeple.kind === "field") {
+      const field = (def.fields || [])[meeple.idx];
+      return field && field.anchor ? field.anchor : [50, 50];
+    }
     return monasteryAnchor();
   }
 
@@ -398,8 +404,8 @@
     defaultPlayers: 2,
 
     rules: {
-      goal: "اجمع أكبر عدد من النقاط عبر إكمال المدن والطرق والأديرة. تنتهي اللعبة عند نفاد البلاطات، ويفوز صاحب أعلى مجموع نقاط.",
-      facts: [["البلاطات", "72 بلاطة أساسية"], ["رجال اللاعب", "7 رجال"], ["الفارمات", "غير مستخدمة في هذه النسخة"], ["الاحتساب", "فوري عند الإكمال"]],
+      goal: "اجمع أكبر عدد من النقاط عبر إكمال المدن والطرق والأديرة، وازرع المزارعين في الحقول لتحصد نقاط المدن المكتملة في نهاية اللعبة. تنتهي اللعبة عند نفاد البلاطات، ويفوز صاحب أعلى مجموع نقاط.",
+      facts: [["البلاطات", "72 بلاطة أساسية"], ["رجال اللاعب", "7 رجال"], ["الفارمات", "مزارعون في نهاية اللعبة"], ["الاحتساب", "فوري + نهائي للحقول"]],
       components: [
         "72 بلاطة أرضية من اللعبة الأساسية: مدن، طرق، أديرة، وحقول.",
         "7 رجال (ميبِل) لكل لاعب باللون الخاص به.",
@@ -415,16 +421,17 @@
         "<strong>اسحب بلاطة:</strong> في بداية دورك اسحب البلاطة العليا من الكومة. إن تعذّر وضعها في أي اتجاه على الإطلاق، استبعدها واسحب أخرى، وهكذا حتى تجد بلاطة قابلة للوضع أو تنفد الكومة.",
         "<strong>دوّر البلاطة:</strong> يمكنك تدوير البلاطة بأي زاوية (0°، 90°، 180°، 270°) قبل وضعها. استخدم زرّي التدوير في لوحة اللعب.",
         "<strong>ضع البلاطة:</strong> يجب أن تلتصق البلاطة ببلاطة موجودة على الأقل، وأن تتطابق كل حافة مع الحافة المجاورة: مدينة مع مدينة، طريق مع طريق، حقل مع حقل.",
-        "<strong>ضع رجلًا (اختياري):</strong> بعد وضع البلاطة يمكنك وضع رجل واحد على مدينة أو طريق أو دير في البلاطة الجديدة، بشرط ألّا يوجد رجل آخر على تلك المعلم نفسه في المملكة الممتدة. لا يمكنك وضع رجل على معلم مكتمل بالكامل إن كان سيُحتسب فورًا قبل أن تضع الرجل؛ ضعه على البلاطة أولًا ثم يتم الاحتساب.",
+        "<strong>ضع رجلًا (اختياري):</strong> بعد وضع البلاطة يمكنك وضع رجل واحد على مدينة أو طريق أو دير أو حقل في البلاطة الجديدة، بشرط ألّا يوجد رجل آخر على تلك المنطقة الممتدة. لا يمكنك وضع رجل على معلم مكتمل بالكامل إن كان سيُحتسب فورًا قبل أن تضع الرجل؛ ضعه على البلاطة أولًا ثم يتم الاحتساب.",
+        "<strong>المزارع والحقول:</strong> الحقل منطقة خضراء تحيط بالمدن وتفصلها الطرق. ضع الرجل مستلقيًا في الحقل؛ يبقى هناك حتى نهاية اللعبة. في النهاية يحصل صاحب أكبر عدد من المزارعين في الحقل على 3 نقاط عن كل مدينة مكتملة يلامسها ذلك الحقل.",
         "<strong>احتساب المدن:</strong> عندما تُغلق مدينة بالكامل (لا توجد أي حافة مدينة مفتوحة)، يأخذ اللاعب صاحب أكبر عدد من الرجال عليها نقطتين عن كل بلاطة في المدينة، ونقطتين إضافيتين عن كل درع. عند التعادل يحصل كل لاعب متعادل على النقاط كاملة. تعود الرجال إلى أصحابها بعد الاحتساب.",
         "<strong>احتساب الطرق:</strong> عندما يُغلق طريق بالكامل، يأخذ صاحب أكبر عدد من الرجال عليه نقطة واحدة عن كل بلاطة في الطريق. عند التعادل يحصل كل متعادل على النقاط كاملة، وتعود الرجال.",
         "<strong>احتساب الأديرة:</strong> يكتمل الدير عندما تُوضع البلاطات الثمانية المحيطة به. يأخذ صاحب الرجل عليه 9 نقاط، ويعود الرجل.",
         "<strong>رجال غير مستخدمة:</strong> إذا لم يكن لديك رجل متبقٍ أو لم ترغب في وضع رجل، اضغط «تخطي». لا يُشترط وضع رجل كل دور.",
         "<strong>انتقال الدور:</strong> بعد وضع الرجل أو تخطيه يتم الاحتساب، ثم ينتقل الدور للاعب التالي. تُعاد الرجال المكتملة تلقائيًا إلى اللاعبين.",
       ],
-      winning: "تنتهي اللعبة عندما توضع آخر بلاطة أو تنفد الكومة. تُحتسب المعالم غير المكتملة التي عليها رجال: المدينة نقطة عن كل بلاطة ونقطة عن كل درع، الطريق نقطة عن كل بلاطة، والدير نقطة واحدة عن كل بلاطة محيطة به (بما فيها الدير نفسه). يفوز صاحب أعلى مجموع نقاط، وعند التعادل يتقاسم اللاعبون المتعادلون الفوز.",
+      winning: "تنتهي اللعبة عندما توضع آخر بلاطة أو تنفد الكومة. تُحتسب المعالم غير المكتملة التي عليها رجال: المدينة نقطة عن كل بلاطة ونقطة عن كل درع، الطريق نقطة عن كل بلاطة، والدير نقطة واحدة عن كل بلاطة محيطة به (بما فيها الدير نفسه). ثم تُحتسب الحقول: 3 نقاط لكل مدينة مكتملة يلامسها الحقل، لصاحب أكبر عدد من المزارعين فيه. يفوز صاحب أعلى مجموع نقاط، وعند التعادل يتقاسم اللاعبون المتعادلون الفوز.",
       notes: [
-        "النسخة الرقمية لا تحتوي على الفارمات (الحقول) أو المزارعين؛ الاحتساب يقتصر على المدن والطرق والأديرة كما هو موضح.",
+        "الحقول والمزارعون مفعّلون: تُرسم مناطق الحقول بين الطرق والمدن، ويُحتسب المزارع في نهاية اللعبة فقط (3 نقاط لكل مدينة مكتملة يلامسها الحقل).",
         "لا توجد معلومات سرّية في كاركاسون؛ جميع البلاطات والرجال ظاهرة على الطاولة.",
         "إن تعذّر وضع بلاطة في جميع الاتجاهات تُستبعد تلقائيًا وتُسحب بلاطة أخرى، مع تسجيل ذلك في سجل الأحداث.",
         "عند احتساب معلم مكتمل يعود جميع الرجال عليه إلى اللاعبين فورًا، حتى لو لم تكن المدينة أو الطريق ملكًا لمن وضع البلاطة الأخيرة.",
@@ -471,7 +478,7 @@
           render, startTurn, placeTile, placeMeeple, skipMeeple, finishTurn,
           rotateTile, legalCells, canPlace, hasAnyPlacement, firstLegalRotation,
           buildDeck, scoreCompleted, scoreFinal, endGame, awardCluster,
-          cityKey, roadKey, monasteryKey, clusterIndex, meepleSpotsFor, tileSVG,
+          cityKey, roadKey, monasteryKey, fieldKey, clusterIndex, meepleSpotsFor, tileSVG,
           TILE_TYPES,
         };
       }
@@ -539,6 +546,10 @@
     return "mona:" + tile.x + "," + tile.y;
   }
 
+  function fieldKey(tile, idx) {
+    return "field:" + tile.x + "," + tile.y + ":" + idx;
+  }
+
   function cur() {
     return state.players[state.current];
   }
@@ -583,6 +594,11 @@
         uf.add(key);
         nodes.set(key, { key, kind: "road", tile, idx });
       });
+      (def.fields || []).forEach((field, idx) => {
+        const key = fieldKey(tile, idx);
+        uf.add(key);
+        nodes.set(key, { key, kind: "field", tile, idx });
+      });
       if (def.monastery) {
         const key = monasteryKey(tile);
         uf.add(key);
@@ -595,11 +611,14 @@
         const nb = state.tiles[cellKey(tile.x + EDGE_DX[side], tile.y + EDGE_DY[side])];
         if (!nb) continue;
         const kind = edgeAt(tile, side);
-        if (kind === "F") continue;
         const baseSide = (side - tile.rotation + 4) % 4;
         const nbSide = (side + 2) % 4;
         const nbBase = (nbSide - nb.rotation + 4) % 4;
-        if (kind === "C") {
+        if (kind === "F") {
+          const a = baseInfo(tile.type).fieldOfSide[baseSide];
+          const b = baseInfo(nb.type).fieldOfSide[nbBase];
+          if (a >= 0 && b >= 0) uf.union(fieldKey(tile, a), fieldKey(nb, b));
+        } else if (kind === "C") {
           const a = baseInfo(tile.type).cityOfSide[baseSide];
           const b = baseInfo(nb.type).cityOfSide[nbBase];
           if (a >= 0 && b >= 0) uf.union(cityKey(tile, a), cityKey(nb, b));
@@ -624,6 +643,7 @@
           shields: 0,
           meeples: [],
           open: 0,
+          cityKeys: new Set(),
           monasteryTile: null,
         };
         clusters.set(root, cluster);
@@ -646,6 +666,11 @@
         } else if (kind === "road") {
           featureSides(tile, "road", idx).forEach((side) => {
             if (!state.tiles[cellKey(tile.x + EDGE_DX[side], tile.y + EDGE_DY[side])]) cluster.open += 1;
+          });
+        } else if (kind === "field") {
+          const field = (TILE_TYPES[tile.type].fields || [])[idx];
+          (field && field.cities ? field.cities : []).forEach((cityIdx) => {
+            cluster.cityKeys.add(cityKey(tile, cityIdx));
           });
         }
         if (tile.meeple && tile.meeple.kind === kind && (kind === "monastery" || tile.meeple.idx === idx)) {
@@ -746,6 +771,13 @@
       const point = rotPoint(anchor[0], anchor[1], tile.rotation);
       spots.push({ kind: "monastery", idx: 0, x: point[0], y: point[1], label: "دير" });
     }
+
+    (def.fields || []).forEach((field, idx) => {
+      if (!freeCluster(fieldKey(tile, idx))) return;
+      const anchor = field.anchor || [50, 50];
+      const point = rotPoint(anchor[0], anchor[1], tile.rotation);
+      spots.push({ kind: "field", idx, x: point[0], y: point[1], label: "حقل (مزارع)" });
+    });
 
     return spots;
   }
@@ -938,6 +970,7 @@
     const index = clusterIndex();
     let count = 0;
     index.clusters.forEach((cluster) => {
+      if (cluster.kind === "field") return;
       if (!cluster.meeples.length || cluster.open > 0) return;
       let points = 0;
       let label = "";
@@ -964,7 +997,15 @@
       if (!cluster.meeples.length) return;
       let points = 0;
       let label = "";
-      if (cluster.kind === "city") {
+      if (cluster.kind === "field") {
+        const roots = new Set();
+        cluster.cityKeys.forEach((key) => {
+          const city = index.clusters.get(index.rootOf.get(key));
+          if (city && city.kind === "city" && city.open === 0) roots.add(index.rootOf.get(key));
+        });
+        points = roots.size * 3;
+        label = "حقل يلامس " + roots.size + (roots.size === 1 ? " مدينة مكتملة" : " مدن مكتملة");
+      } else if (cluster.kind === "city") {
         if (cluster.open === 0) {
           points = cluster.tileKeys.size * 2 + cluster.shields * 2;
           label = "مدينة مكتملة";
@@ -1014,7 +1055,7 @@
     apiRef.gameOver({
       icon: "🏰",
       title: "انتهت كاركاسون",
-      text: "نفدت البلاطات. حُسبت المدن والطرق والأديرة غير المكتملة التي عليها رجال وفق قواعد نهاية اللعبة.",
+      text: "نفدت البلاطات. حُسبت المدن والطرق والأديرة غير المكتملة التي عليها رجال، ثم الحقول والمزارعون وفق قواعد نهاية اللعبة.",
       winner: winners.map((p) => p.name).join(" و "),
       standings,
     });
@@ -1033,7 +1074,13 @@
   }
 
   function clusterForSpot(index, tile, spot) {
-    const key = spot.kind === "monastery" ? monasteryKey(tile) : spot.kind === "city" ? cityKey(tile, spot.idx) : roadKey(tile, spot.idx);
+    const key = spot.kind === "monastery"
+      ? monasteryKey(tile)
+      : spot.kind === "city"
+        ? cityKey(tile, spot.idx)
+        : spot.kind === "field"
+          ? fieldKey(tile, spot.idx)
+          : roadKey(tile, spot.idx);
     return index.clusters.get(index.rootOf.get(key)) || null;
   }
 
@@ -1042,7 +1089,9 @@
     const mine = cluster.meeples.some((m) => m.owner === p.index);
     const theirs = cluster.meeples.some((m) => m.owner !== p.index);
     let value = 0;
-    if (cluster.kind === "city") {
+    if (cluster.kind === "field") {
+      value = (cluster.cityKeys ? cluster.cityKeys.size : 0) * 2.4;
+    } else if (cluster.kind === "city") {
       value = cluster.open === 0 ? cluster.tileKeys.size * 2 + cluster.shields * 2 : cluster.tileKeys.size * 0.95 + cluster.shields * 0.6;
     } else if (cluster.kind === "road") {
       value = cluster.open === 0 ? cluster.tileKeys.size + 2 : cluster.tileKeys.size * 0.8;
@@ -1072,6 +1121,7 @@
       const touched = new Set();
       def.cities.forEach((group, idx) => touched.add(cityKey(tile, idx)));
       def.roads.forEach((road, idx) => touched.add(roadKey(tile, idx)));
+      (def.fields || []).forEach((field, idx) => touched.add(fieldKey(tile, idx)));
       if (def.monastery) touched.add(monasteryKey(tile));
 
       let score = 0;
@@ -1319,6 +1369,7 @@
       '<div class="carc-legend-row"><span aria-hidden="true">🏰</span><p>المدينة المكتملة: نقطتان لكل بلاطة + نقطتان لكل درع.</p></div>' +
       '<div class="carc-legend-row"><span aria-hidden="true">🛣️</span><p>الطريق المكتمل: نقطة واحدة لكل بلاطة.</p></div>' +
       '<div class="carc-legend-row"><span aria-hidden="true">⛪</span><p>الدير المكتمل: 9 نقاط عند وجود البلاطات الثمانية المحيطة.</p></div>' +
+      '<div class="carc-legend-row"><span aria-hidden="true">🧑‍🌾</span><p>المزارع في الحقل: 3 نقاط لكل مدينة مكتملة يلامسها الحقل عند نهاية اللعبة.</p></div>' +
       "</div>"
     );
   }

@@ -65,6 +65,17 @@
     return state ? state.players[state.current] : null;
   }
 
+  function tavOption(key) {
+    const opts = (apiRef && apiRef.options) || {};
+    const defaults = { useCube: true, matchTo7: true };
+    if (Object.prototype.hasOwnProperty.call(opts, key)) return !!opts[key];
+    return !!defaults[key];
+  }
+
+  function onlineGame() {
+    return !!(apiRef && apiRef.net && apiRef.net.enabled);
+  }
+
   function log(message, kind) {
     if (apiRef) apiRef.log(message, kind);
   }
@@ -647,6 +658,14 @@
     if (!AI.isCpu(seat)) return;
     if (!AI.autoAllowed(apiRef, seat)) return;
 
+    if (state.phase === "roundover") {
+      aiRunner.later(() => {
+        if (!state || state.over || state.phase !== "roundover") return;
+        startNextGame();
+      }, Math.max(900, AI.delay(seat.level, 1.4)));
+      return;
+    }
+
     if (state.phase === "roll") {
       aiRunner.later(() => {
         if (!state || state.over || state.phase !== "roll") return;
@@ -673,16 +692,14 @@
   }
 
   function finishGame(winner) {
-    if (!state || state.over) return;
+    if (!state || state.over || state.phase === "roundover") return;
     clearAutoEnd();
     const loser = 1 - winner;
-    const winnerName = state.players[winner].name;
-    const loserName = state.players[loser].name;
 
-    let points = 1;
+    let base = 1;
     let kind = "فوز عادي";
     if (state.off[loser] === 0) {
-      points = 2;
+      base = 2;
       kind = "غامون";
       const home = SIDES[winner].home;
       let backgammon = (state.bar[loser] || 0) > 0;
@@ -690,50 +707,138 @@
         if (ownCount(state.points, loser, point) > 0) backgammon = true;
       }
       if (backgammon) {
-        points = 3;
+        base = 3;
         kind = "باكغامون";
       }
     }
 
-    state.over = true;
-    state.phase = "over";
+    awardGame(winner, base * (state.cube || 1), kind, base);
+  }
+
+  /** يضيف نقاط اللعبة إلى مجموع المباراة، أو يعلن نهايتها عند بلوغ الهدف. */
+  function awardGame(winner, points, kind, base) {
+    if (!state) return;
+    const loser = 1 - winner;
+    const winnerName = state.players[winner].name;
+    const loserName = state.players[loser].name;
     state.winner = winner;
     state.result = kind;
-    state.selected = null;
+    state.roundPoints = points;
     state.legalResult = points;
+    state.scores[winner] = (state.scores[winner] || 0) + points;
+    state.selected = null;
+    const target = tavOption("matchTo7") ? 7 : 0;
+    const matchOver = target > 0 ? state.scores[winner] >= target : true;
 
     log(
-      "🏆 <strong>" + escape(winnerName) + "</strong> أخرج كل قطعه وفاز — " +
-      escape(kind) + " (" + ar(points) + (points === 1 ? " نقطة" : " نقاط") + ").",
+      "🏆 <strong>" + escape(winnerName) + "</strong> فاز باللعبة — " + escape(kind) +
+      " (" + ar(base || 0) + " × نرد " + ar(state.cube || 1) + " = " + ar(points) + " نقطة). " +
+      "المجموع: " + ar(state.scores[0]) + "–" + ar(state.scores[1]) + ".",
       "good"
     );
-    render();
     if (FX) FX.win();
 
-      if (apiRef) {
-        apiRef.gameOver({
-          icon: "🏆",
-          title: "فاز " + winnerName + "!",
-          text:
-            "أخرج <strong>" + escape(winnerName) + "</strong> كل قطعه الخمس عشرة قبل خصمه. " +
-            "النتيجة: <strong>" + escape(kind) + "</strong> — " +
-            ar(points) + (points === 1 ? " نقطة" : " نقاط") + ".",
-          winner: winnerName,
-          standings: [
-            {
-              name: winnerName + " · الفائز",
-              value: "١٥ خارج · " + ar(points) + (points === 1 ? " نقطة" : " نقاط"),
-            },
-            {
-              name: loserName,
-              value:
-                ar(state.off[loser]) + " خارج · " +
-                ar(state.bar[loser] || 0) + " على الشريط",
-            },
-          ],
-        });
-      }
+    if (!matchOver) {
+      state.over = false;
+      state.phase = "roundover";
+      state.notice = "انتهت اللعبة " + ar(state.gameNumber) + " — فاز " + winnerName +
+        ". اضغط «اللعبة التالية» للاستمرار نحو " + ar(target) + " نقاط.";
+      render();
+      return;
     }
+
+    state.over = true;
+    state.matchOver = true;
+    state.phase = "over";
+    render();
+    if (apiRef) {
+      apiRef.gameOver({
+        icon: "🏆",
+        title: "فاز " + winnerName + " بالمباراة!",
+        text:
+          "وصل <strong>" + escape(winnerName) + "</strong> إلى " + ar(state.scores[winner]) +
+          " نقطة من أصل " + ar(target) + ". النتيجة النهائية: " +
+          "<strong>" + ar(state.scores[0]) + "–" + ar(state.scores[1]) + "</strong>.",
+        winner: winnerName,
+        standings: [
+          { name: winnerName + " · الفائز", value: ar(state.scores[winner]) + " نقطة" },
+          { name: loserName, value: ar(state.scores[loser]) + " نقطة" },
+        ],
+      });
+    }
+  }
+
+  function canDoubleNow() {
+    if (!state || state.over || state.phase !== "roll" || !tavOption("useCube")) return false;
+    if (onlineGame()) return false;
+    if (state.cube >= 64) return false;
+    return state.cubeOwner == null || state.cubeOwner === state.current;
+  }
+
+  /** مضاعفة الرهان قبل الرمي. الخصم البشري يقرر محليًا، والكمبيوتر يقيّم الموقف. */
+  function offerDouble() {
+    if (!canDoubleNow()) return;
+    const doubler = state.current;
+    const opponent = 1 - doubler;
+    const currentCube = state.cube || 1;
+    const accept = () => {
+      if (!state || state.over || state.phase !== "roll") return;
+      state.cube = currentCube * 2;
+      state.cubeOwner = opponent;
+      log("✖️ <strong>" + escape(state.players[doubler].name) + "</strong> ضاعف النرد إلى " +
+        ar(state.cube) + " — قبل <strong>" + escape(state.players[opponent].name) + "</strong>.",
+        "accent");
+      if (FX) FX.sound("point");
+      render();
+    };
+    const decline = () => {
+      if (!state || state.over || state.phase !== "roll") return;
+      awardGame(doubler, currentCube, "رفض المضاعفة", 1);
+    };
+
+    if (state.players[opponent].isCpu) {
+      const cpuBehind = state.off[opponent] - state.off[doubler];
+      const acceptIt = currentCube <= 2 || cpuBehind >= -2;
+      setTimeout(() => { if (acceptIt) accept(); else decline(); }, 700);
+      return;
+    }
+
+    BG.confirm(
+      "مضاعفة الرهان",
+      "يعرض <strong>" + escape(state.players[doubler].name) + "</strong> مضاعفة النرد من " +
+        ar(currentCube) + " إلى " + ar(currentCube * 2) + ". إن قبلت تستمر اللعبة بهذا الرهان، وإن رفضت تنتهي اللعبة وتُمنح " +
+        ar(currentCube) + " نقطة للمضاعِف.",
+      "اقبل المضاعفة",
+      "ارفض واستسلم"
+    ).then((ok) => { if (ok) accept(); else decline(); });
+  }
+
+  function startNextGame() {
+    if (!state || state.over || state.phase !== "roundover") return;
+    const previousWinner = Number.isInteger(state.winner) ? state.winner : 0;
+    state.gameNumber = (state.gameNumber || 1) + 1;
+    state.current = 1 - previousWinner;
+    state.turn = 1;
+    state.phase = "roll";
+    state.points = initialPoints();
+    state.bar = [0, 0];
+    state.off = [0, 0];
+    state.dice = [];
+    state.rolled = [];
+    state.selected = null;
+    state.lastMove = null;
+    state.recent = [];
+    state.winner = null;
+    state.result = null;
+    state.roundPoints = 0;
+    state.cube = 1;
+    state.cubeOwner = null;
+    state.notice = "اللعبة " + ar(state.gameNumber) + " — يبدأ " + state.players[state.current].name + ".";
+    log("🎬 بدأت اللعبة " + ar(state.gameNumber) + " — <strong>" +
+      escape(state.players[state.current].name) + "</strong> يرمي أولًا.", "accent");
+    if (FX) FX.sound("place");
+    render();
+  }
 
   /* ------------------------------ العرض ------------------------------ */
 
@@ -888,7 +993,7 @@
         '<div class="' + classes.join(" ") + '">' +
         '<span class="tav-player-dot" aria-hidden="true"></span>' +
         '<div class="tav-player-copy"><strong>' + escape(player.name) + "</strong>" +
-        "<small>" + SIDES[index].name + " · " + SIDES[index].route + "</small></div>" +
+        "<small>" + SIDES[index].name + " · " + (tavOption("matchTo7") ? ar(state.scores[index] || 0) + " نقطة · " : "") + SIDES[index].route + "</small></div>" +
         (active ? '<span class="tav-player-badge">الدور</span>' : "") +
         '<div class="tav-player-stats">' +
         '<span class="tav-stat"><b>' + ar(off) + "</b> خارج</span>" +
@@ -926,7 +1031,8 @@
   }
 
   function phaseLabel() {
-    if (state.over) return "انتهت";
+    if (state.over) return "انتهت المباراة";
+    if (state.phase === "roundover") return "بين الألعاب";
     if (state.phase === "roll") return "بانتظار الرمي";
     if (state.phase === "ending") return "إنهاء الدور";
     return "مرحلة الحركة";
@@ -937,8 +1043,12 @@
       const name = state.winner != null ? state.players[state.winner].name : "";
       return "انتهت المباراة — فاز " + name + " (" + (state.result || "فوز") + ").";
     }
+    if (state.phase === "roundover") {
+      return "فاز " + state.players[state.winner].name + " باللعبة (+" + ar(state.roundPoints || 0) +
+        " نقطة). المجموع " + ar(state.scores[0]) + "–" + ar(state.scores[1]) + ".";
+    }
     if (state.phase === "roll") {
-      return "دور " + cur().name + " — ارمِ النردين لبدء الدور.";
+      return "دور " + cur().name + " — ارمِ النردين لبدء الدور. النرد الحالي ×" + ar(state.cube || 1) + ".";
     }
     if (state.phase === "ending") {
       return "لا توجد حركات قانونية متبقية — ينتقل الدور بعد لحظات.";
@@ -956,20 +1066,28 @@
     const player = cur();
     const canRoll = !state.over && state.phase === "roll";
     const canEnd = !state.over && state.phase === "ending";
+    const canDouble = canDoubleNow();
+    const canNext = !state.over && state.phase === "roundover";
+    const scoreLine = tavOption("matchTo7")
+      ? "المباراة: " + ar(state.scores[0]) + "–" + ar(state.scores[1]) + " · الهدف ٧"
+      : "لعبة واحدة";
     return (
       '<div class="tav-control p' + state.current + '">' +
       '<div class="tav-control-who">' +
-      '<span class="tav-kicker">' + phaseLabel() + " · الدور " + ar(state.turn) + "</span>" +
-      "<strong>" + escape(state.over ? "انتهت المباراة" : player.name) + "</strong>" +
-      "<small>" + (state.over ? "راجع النتيجة في السجل" : SIDES[state.current].name + " · " + SIDES[state.current].route) + "</small>" +
+      '<span class="tav-kicker">' + phaseLabel() + " · الدور " + ar(state.turn) + " · لعبة " + ar(state.gameNumber || 1) + "</span>" +
+      "<strong>" + escape(state.over ? "انتهت المباراة" : state.phase === "roundover" ? "فاز " + player.name + " باللعبة" : player.name) + "</strong>" +
+      "<small>" + (state.over ? scoreLine : state.phase === "roundover" ? scoreLine + " · " + (state.result || "") : SIDES[state.current].name + " · " + SIDES[state.current].route) + "</small>" +
       "</div>" +
       '<div class="tav-dice-wrap">' +
       '<div class="tav-dice">' + diceHTML() + "</div>" +
-      '<span class="tav-dice-note">' + diceNote() + "</span>" +
+      '<span class="tav-dice-note">' + diceNote() + (tavOption("useCube") && !onlineGame() ? " · النرد ×" + ar(state.cube || 1) : "") + "</span>" +
       "</div>" +
       '<div class="tav-control-actions">' +
-      '<button type="button" class="bg-btn primary" data-act="roll"' + (canRoll ? "" : " disabled") + '><span>🎲 ارمِ النرد</span></button>' +
-      '<button type="button" class="bg-btn" data-act="end"' + (canEnd ? "" : " disabled") + '><span>⏭ أنهِ الدور</span></button>' +
+      (canNext
+        ? '<button type="button" class="bg-btn primary" data-act="next-game"><span>🔄 اللعبة التالية</span></button>'
+        : '<button type="button" class="bg-btn primary" data-act="roll"' + (canRoll ? "" : " disabled") + '><span>🎲 ارمِ النرد</span></button>' +
+          '<button type="button" class="bg-btn" data-act="double"' + (canDouble ? "" : " disabled") + '><span>✖️ ضاعف النرد</span></button>' +
+          '<button type="button" class="bg-btn" data-act="end"' + (canEnd ? "" : " disabled") + '><span>⏭ أنهِ الدور</span></button>') +
       "</div>" +
       "</div>" +
       '<p class="tav-prompt' + (state.phase === "ending" ? " is-warn" : "") + '">' + escape(noticeText()) + "</p>"
@@ -1008,7 +1126,7 @@
       '<div class="tav-board-wrap">' +
       '<div class="board-head">' +
       '<span class="board-head-icon"><svg class="ic" aria-hidden="true"><use href="#g-tavla"/></svg></span>' +
-      '<div class="board-head-copy"><span class="board-head-kicker">لوحة تقليدية · مباراة واحدة</span><strong>طاولة الزهر · باكغامون</strong></div>' +
+      '<div class="board-head-copy"><span class="board-head-kicker">لوحة تقليدية · ' + (tavOption("matchTo7") ? "مباراة إلى ٧ نقاط" : "لعبة واحدة") + '</span><strong>طاولة الزهر · باكغامون</strong></div>' +
       '<span class="board-head-hint">العاجي ٢٤ ← ١ · المرجاني ١ ← ٢٤ · النردان يحكمان كل حركة</span>' +
       "</div>" +
       '<div class="tav-board" role="group" aria-label="لوحة طاولة الزهر">' +
@@ -1051,6 +1169,8 @@
       const act = action.getAttribute("data-act");
       if (act === "roll") rollDice();
       else if (act === "end") endTurn();
+      else if (act === "double") offerDouble();
+      else if (act === "next-game") startNextGame();
       return;
     }
 
@@ -1112,6 +1232,21 @@
     maxPlayers: 2,
     defaultPlayers: 2,
 
+    options: {
+      hint: "قواعد المباراة الرسمية: نرد مضاعفة ومباراة إلى ٧ نقاط.",
+      defaults: { useCube: true, matchTo7: true },
+      fields: [
+        { key: "matchTo7", label: "مباراة إلى ٧ نقاط", type: "toggle", hint: "عدة ألعاب متتالية حتى يبلغ أحد اللاعبين ٧ نقاط." },
+        { key: "useCube", label: "نرد المضاعفة", type: "toggle", hint: "يمكن للاعب مضاعفة الرهان قبل الرمي؛ الخصم يقبل أو ينسحب." },
+      ],
+      summary(options) {
+        const parts = [];
+        if (options.matchTo7 !== false) parts.push("مباراة إلى ٧");
+        if (options.useCube !== false) parts.push("نرد مضاعفة");
+        return parts.join(" · ") || "لعبة واحدة";
+      },
+    },
+
     rules: {
       goal: "أخرج قطعك الخمس عشرة من اللوحة قبل خصمك. تحرّك كل لاعب في اتجاه ثابت حول أربعة أرباع اللوحة، وتحدّد أرقام النرد عدد النقاط التي تتحركها القطع. من يُخرج كل قطعه أولًا يفوز، وتُسجّل النقاط بحسب نوع الفوز: عادي أو غامون أو باكغامون.",
       facts: [
@@ -1124,6 +1259,7 @@
         "لوحة تحمل ٢٤ نقطة مثلثة موزعة على أربعة أرباع، وشريط أفقي في المنتصف، ومنطقة إخراج لكل لاعب.",
         "١٥ قطعة عاجية و١٥ قطعة مرجانية، لكل لاعب لون ثابت.",
         "نردان سداسيان، وتُستخدم الأرقام الظاهرة لتحديد الحركات.",
+        "نرد مضاعفة اختياري (Doubling Cube) يرفع قيمة اللعبة، ومباراة إلى ٧ نقاط.",
         "النسخة الرقمية تدير النرد والإطاحة ودخول الشريط والإخراج تلقائيًا، وتعرض عدّاد القطع في كل منطقة.",
       ],
       setup: [
@@ -1144,10 +1280,11 @@
         "<strong>الإخراج:</strong> عندما تكون كل قطعك في منطقتك الأم (١–٦ للعاجي، ١٩–٢٤ للمرجاني) تبدأ إخراجها. يخرج الرقم المساوي للمسافة القطعة مباشرة. إذا كان الرقم أكبر من المسافة المتبقية، يجوز الإخراج فقط إذا لم تكن هناك قطعة أبعد عن الإخراج في منطقتك.",
         "<strong>إنهاء الدور:</strong> بعد استهلاك النرد أو عند تعذّر أي حركة قانونية ينتقل الدور تلقائيًا. في النسخة الرقمية لا حاجة لزر تأكيد بعد كل حركة.",
       ],
-      winning: "يفوز أول لاعب يُخرج كل قطعه الخمس عشرة. إذا فاز الخصم قبل أن يُخرج أي قطعة تكون النتيجة غامون (نقطتان). وإذا كان الخصم لم يُخرج أي قطعة ولديه قطعة على الشريط أو داخل منطقة الفائز تكون النتيجة باكغامون (ثلاث نقاط). الفوز العادي نقطة واحدة. النسخة الرقمية تلعب مباراة واحدة وتعرض النتيجة النهائية دون مباريات تراكمية.",
+      winning: "يفوز أول لاعب يُخرج كل قطعه الخمس عشرة. إذا فاز الخصم قبل أن يُخرج أي قطعة تكون النتيجة غامون (نقطتان). وإذا كان الخصم لم يُخرج أي قطعة ولديه قطعة على الشريط أو داخل منطقة الفائز تكون النتيجة باكغامون (ثلاث نقاط). الفوز العادي نقطة واحدة. تُضرب النقاط في قيمة نرد المضاعفة، وتُجمع في مباراة إلى ٧ نقاط. عند رفض المضاعفة ينسحب الخصم وتُمنح له قيمة النرد الحالية فقط.",
       notes: [
-        "نسخة رقمية مبسطة لقواعد الباكغامون القياسية للاعبين اثنين على نفس الجهاز.",
-        "لا يوجد نرد مضاعف (Doubling Cube) ولا رهانات؛ النقاط للعرض فقط في نهاية المباراة.",
+        "نسخة رقمية لقواعد الباكغامون القياسية للاعبين اثنين على نفس الجهاز.",
+        "نرد المضاعفة اختياري: يمكن مضاعفة الرهان قبل الرمي إذا كان النرد في المنتصف أو بحوزتك، ويقرر الخصم القبول أو الانسحاب. المضاعفة عن بُعد غير متاحة في اللعب الجماعي حفاظًا على قرار الخصم.",
+        "المباراة الافتراضية إلى ٧ نقاط، ويبدأ الخصم اللعبة التالية بعد كل فوز. يمكن تعطيل ذلك للعب لعبة واحدة.",
         "تُفرض قاعدة أكبر استخدام ممكن للنرد تلقائيًا، وتُعطَّل الحركات التي تهدر حركة قانونية.",
         "الإطاحة ودخول الشريط والإخراج تُدار وفق القواعد نفسها دون استثناءات.",
         "تُضاء النقاط القابلة للتحريك، وتُضاء الوجهات الصالحة بعد اختيار القطعة لتسهيل اللعب المحلي.",
@@ -1184,6 +1321,12 @@
         over: false,
         winner: null,
         result: null,
+        gameNumber: 1,
+        scores: [0, 0],
+        cube: 1,
+        cubeOwner: null,
+        roundPoints: 0,
+        matchOver: false,
       };
 
       apiRef.log(
@@ -1280,6 +1423,10 @@
           state.recent = Array.isArray(state.recent) ? state.recent : [];
           state.bar = Array.isArray(state.bar) ? state.bar : [0, 0];
           state.off = Array.isArray(state.off) ? state.off : [0, 0];
+          state.scores = Array.isArray(state.scores) ? state.scores : [0, 0];
+          state.cube = state.cube || 1;
+          state.gameNumber = state.gameNumber || 1;
+          state.phase = state.phase || "roll";
           legalCache = { key: "", moves: [] };
           render();
         },

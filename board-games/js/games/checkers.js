@@ -59,16 +59,16 @@
     }));
   }
 
-  function newState(options) {
-    const opts = Object.assign({ mustCapture: true }, options || {});
+  function newState() {
     return {
       board: initialBoard(),
       players: makePlayers(),
       current: 0,
       selected: null,
       moves: [],
-      mustCapture: opts.mustCapture !== false,
+      mustCapture: true,
       turn: 1,
+      idlePlies: 0,
       notice: "الدور للأبيض — اختر قطعة لرؤية حركاتها.",
       last: null,
       over: false,
@@ -334,6 +334,7 @@
         );
       }
       state.last = { seat, from: chosen.from, to: chosen.to, captured: capturedCount, promoted };
+      state.idlePlies = capturedCount || promoted ? 0 : (state.idlePlies || 0) + 1;
       if (capturedCount && FX) FX.banner("أكل " + ar(capturedCount) + "!", { icon: "⚔️", tone: "win", duration: 800 });
 
       const enemySeat = 1 - seat;
@@ -348,6 +349,10 @@
       }
       if (!enemyMoves.length) {
         finish(state.players[seat], "لا يملك الخصم أي حركة قانونية.");
+        return;
+      }
+      if ((state.idlePlies || 0) >= 80) {
+        finishDraw();
         return;
       }
       state.moves = enemyMoves;
@@ -365,6 +370,29 @@
 
   function countPieces(board, seat) {
     return board.reduce((sum, piece) => sum + (piece && piece.seat === seat ? 1 : 0), 0);
+  }
+
+  function finishDraw() {
+    if (!state || state.over) return;
+    state.over = true;
+    state.winner = null;
+    state.busy = false;
+    state.standings = state.players.map((player) => ({
+      name: player.name,
+      value: ar(countPieces(state.board, player.index)) + " قطعة متبقية",
+    }));
+    state.notice = "تعادل بعد ٤٠ نقلة لكل لاعب دون أكل أو ترقية.";
+    if (apiRef) {
+      apiRef.gameOver({
+        icon: "🤝",
+        title: "تعادل",
+        text: "مرّت ٤٠ نقلة لكل لاعب دون أكل أو ترقية، فانتهت المباراة بالتعادل وفق قاعدة الـ40 نقلة.",
+        winner: "تعادل",
+        standings: state.standings,
+        tone: "draw",
+      });
+    }
+    renderMotion();
   }
 
   function finish(winner, reason) {
@@ -560,8 +588,6 @@
 
   /* ------------------------------ التسجيل ------------------------------ */
 
-  const OPTIONS = { mustCapture: true };
-
   const game = {
     id: "checkers",
     name: "الداما",
@@ -577,16 +603,7 @@
     maxPlayers: 2,
     defaultPlayers: 2,
 
-    options: {
-      hint: "قاعدة الأسر الإجباري تغيّر أسلوب اللعب بالكامل.",
-      defaults: OPTIONS,
-      fields: [
-        { key: "mustCapture", label: "الأسر إجباري", type: "toggle", hint: "عند توفّر أكل، يجب تنفيذه بدل الحركة العادية." },
-      ],
-      summary(options) {
-        return "داما ٨×٨ · " + (options.mustCapture ? "أسر إجباري" : "أسر اختياري") + " · الفوز بإفناء الخصم أو تعطيله";
-      },
-    },
+    options: null,
 
     rules: {
       goal: "أفنِ قطع الخصم أو اجعله بلا حركة قانونية. القطع تتحرك قطريًا، والأكل يتم بالقفز فوق قطعة خصم إلى الخانة الفارغة خلفها.",
@@ -605,14 +622,15 @@
         "<strong>الحركة العادية:</strong> حرّك قطعة خطوة واحدة قطريًا إلى خانة داكنة فارغة.",
         "<strong>الأكل:</strong> اقفز فوق قطعة خصم مجاورة إلى الخانة الفارغة خلفها، وأزل قطعة الخصم.",
         "<strong>الأسر المتسلسل:</strong> إذا أمكن الأكل مرة أخرى بالقطعة نفسها بعد القفزة، أكمل الأسر في الدور نفسه.",
-        "<strong>الإجبار:</strong> عند تفعيل قاعدة الأسر الإجباري، إذا وُجد أكل متاح يجب تنفيذه ولو كانت هناك حركة عادية.",
+        "<strong>الإجبار:</strong> إذا وُجد أكل متاح يجب تنفيذه ولو كانت هناك حركة عادية، وهو شرط رسمي في الداما.",
         "<strong>الترقية:</strong> القطعة التي تصل إلى الصف الأخير تصبح ملكًا وتتحرك في الاتجاهات الأربعة. الترقية تُنهي الأسر المتسلسل.",
       ],
-      winning: "يفوز اللاعب الذي يأكل جميع قطع الخصم أو يتركه بلا أي حركة قانونية. لا تعادل في القواعد الافتراضية.",
+      winning: "يفوز اللاعب الذي يأكل جميع قطع الخصم أو يتركه بلا أي حركة قانونية. إذا مرّت ٤٠ نقلة لكل لاعب دون أكل أو ترقية تُعلن المباراة تعادلًا (قاعدة الـ40 نقلة).",
       notes: [
-        "القطع العادية لا تملك حركة عكسية، أما الملك فيتحرك للأمام والخلف.",
-        "الأسر المتسلسل إجباري إذا بدأ؛ لا يمكن التوقف في منتصفه.",
-        "الترقية إلى ملك تحدث عند الوصول إلى الصف الأخير.",
+        "القطع العادية لا تملك حركة عكسية، أما الملك فيتحرك للأمام والخلف خطوة واحدة.",
+        "الأسر إجباري دائمًا: إذا وُجد أكل متاح وجب تنفيذه، والأسر المتسلسل يكتمل في الدور نفسه.",
+        "الترقية إلى ملك تحدث عند الوصول إلى الصف الأخير، وتُنهي الأسر المتسلسل في القواعد الأمريكية.",
+        "تُعلن قاعدة الـ40 نقلة (80 نصف نقلة) تعادلًا عند مرور 40 دورًا لكل لاعب دون أكل أو ترقية.",
         "المستوى «صعب» يستخدم بحثًا أعمق لتقييم الأسر والتمركز.",
       ],
     },
@@ -623,7 +641,7 @@
       aiRunner = AI.runner();
       clearTimeout(moveTimer);
       state = newState(api.options || {});
-      apiRef.log("بدأت الداما — الأبيض يتحرك أولًا" + (state.mustCapture ? " والأسر إجباري." : " والأسر اختياري."), "accent");
+      apiRef.log("بدأت الداما — الأبيض يتحرك أولًا والأسر إجباري وفق القواعد الرسمية.", "accent");
       beginTurn();
 
       if (new URLSearchParams(location.search).has("bgdebug")) {

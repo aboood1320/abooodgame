@@ -58,6 +58,9 @@
     lastJoin: null,
     chipKey: "",
     wake: null,
+    lastAlertSeat: -1,
+    titleTimer: null,
+    baseTitle: "",
   };
 
   /* منع انطفاء الشاشة أثناء اللعب الجماعي: انطفاء الجوال هو أكثر أسباب انقطاع الاتصال */
@@ -288,6 +291,33 @@
     document.body.classList.remove("net-locked");
   }
 
+  /** مغادرة الغرفة بعد تأكيد. اللعب الجماعي يقطع الجلسة للآخرين إن كان اللاعب مضيفًا. */
+  function requestLeave(title) {
+    if (!state.inRoom && !state.inGame) {
+      shutdown();
+      if (BG.app) BG.app.goLibrary();
+      return;
+    }
+    const peers = (BG.net && BG.net.peers) || [];
+    const others = Math.max(0, peers.length - 1);
+    let body;
+    if (state.inGame && state.isHost) {
+      body = "أنت المضيف. إن غادرت الآن ستنتهي الجلسة لجميع اللاعبين وتعودون إلى المكتبة.";
+    } else if (state.inGame) {
+      body = "ستغادر الطاولة الآن. تستمر الجلسة عند بقية اللاعبين، ويمكنك العودة بالدعوة نفسها.";
+    } else if (state.isHost && others > 0) {
+      body = "أنت المضيف. إن غادرت ستُغلق الغرفة على اللاعبين المتصلين.";
+    } else {
+      body = "هل تريد مغادرة الغرفة والعودة إلى المكتبة؟";
+    }
+    BG.confirm(title || "مغادرة الغرفة", body, "نعم، غادر", "ابقَ").then((ok) => {
+      if (!ok) return;
+      hideOverlay();
+      shutdown();
+      if (BG.app) BG.app.goLibrary();
+    });
+  }
+
   function openLobby() {
     state.name = state.name || savedName() || "اللاعب";
     if (state.inGame) {
@@ -359,6 +389,7 @@
     }
     body.innerHTML = lobbyRoomHTML();
     bindLobbyRoom(body);
+    updateLobbyPings();
   }
 
   function lobbyFormHTML() {
@@ -638,6 +669,7 @@
       "<p>" + (cloud
         ? "شارك رابط الدعوة مع أي شخص في العالم، أو أعطه الرمز لينضم من صفحة «لعب جماعي». اللاعبون المتصلون يظهرون أدناه."
         : "شارك الرمز مع أصدقائك على الشبكة نفسها. اللاعبون المتصلون يظهرون أدناه.") + "</p>" +
+      '<p class="net-conn-line"><span class="net-conn-dot" aria-hidden="true"></span><span>جودة الاتصال</span><strong data-net-quality data-quality="unknown">تُقاس بعد أول تبادل…</strong></p>' +
       (!cloud && host ? '<p class="net-lan-urls" data-net-lan-urls></p>' : "") +
       "</div>" +
       '<div class="net-people">' +
@@ -681,11 +713,16 @@
       peers.map((peer) => {
         const seatIndex = (seats || []).findIndex((seat) => seat.peerId === peer.id);
         const open = openPeers.has(peer.id) || peer.host;
+        const ms = BG.net && BG.net.latencyOf ? BG.net.latencyOf(peer.id) : null;
+        const quality = BG.net && BG.net.latencyQuality ? BG.net.latencyQuality(ms) : "unknown";
         return (
           '<div class="net-player' + (peer.host ? " is-host" : "") + '">' +
           '<span class="net-avatar" aria-hidden="true">' + (peer.host ? "👑" : "👤") + "</span>" +
           '<span class="net-player-name">' + esc(peer.name) + (peer.id === (BG.net && BG.net.selfId) ? " <small>(أنت)</small>" : "") + "</span>" +
           '<span class="net-player-meta">' + (seatIndex >= 0 ? "مقعد " + (seatIndex + 1) : "مشاهد") + " · " + (open ? "متصل" : "جارٍ الاتصال") + "</span>" +
+          (peer.id !== (BG.net && BG.net.selfId)
+            ? '<span class="net-player-ping" data-ping-peer="' + esc(peer.id) + '" data-quality="' + quality + '">' + (Number.isFinite(ms) ? ms + " ms" : "— ms") + "</span>"
+            : "") +
           "</div>"
         );
       }).join("") +
@@ -770,11 +807,7 @@
     }
 
     if (leave) {
-      leave.addEventListener("click", () => {
-        hideOverlay();
-        shutdown();
-        if (BG.app) BG.app.goLibrary();
-      });
+      leave.addEventListener("click", () => requestLeave("مغادرة الغرفة"));
     }
 
     if (gameSel) {
@@ -969,6 +1002,7 @@
     state.lastHash = hash;
     const seatChanged = seat !== state.lastSeat;
     state.lastSeat = seat;
+    trackTurn(seat, over);
     if (seatChanged || !state.initialized) {
       state.initialized = true;
       broadcastTurn(seat, over);
@@ -1074,8 +1108,10 @@
     state.lastGuestHash = "";
     state.lastGuestSeat = data.activeSeat;
     state.lastGuestOver = false;
+    state.lastSeat = data.activeSeat;
     showWaiting(false);
     startGuestTick();
+    trackTurn(data.activeSeat, false);
     updateHud();
   }
 
@@ -1084,11 +1120,14 @@
     if (state.isHost) return;
     if (data.over) {
       showWaiting(false);
+      trackTurn(-1, true);
       return;
     }
     if (data.activeSeat !== state.localSeat) {
       if (state.activeGuest || state.spectating) deactivateGuest(data.activeSeat);
       else showWaiting(true, data.activeSeat);
+      state.lastSeat = data.activeSeat;
+      trackTurn(data.activeSeat, false);
       updateHud();
     }
   }
@@ -1161,10 +1200,7 @@
       '<div class="net-wait-foot"><span>🔒 معلومات هذا الجهاز تبقى خارج أوقات دوره</span><button type="button" class="bg-btn ghost small" data-net-leave-game>مغادرة</button></div>' +
       "</div>";
     const leave = panel.querySelector("[data-net-leave-game]");
-    if (leave) leave.addEventListener("click", () => {
-      shutdown();
-      if (BG.app) BG.app.goLibrary();
-    });
+    if (leave) leave.addEventListener("click", () => requestLeave("مغادرة الطاولة"));
   }
 
   /** شريط صغير فوق اللوحة أثناء مشاهدة دور لاعب آخر (بدل حجب اللعبة بالكامل). */
@@ -1200,10 +1236,7 @@
       '<button type="button" class="net-watch-leave" data-net-leave-game aria-label="مغادرة الغرفة">خروج</button>' +
       "</div>";
     const leave = panel.querySelector("[data-net-leave-game]");
-    if (leave) leave.addEventListener("click", () => {
-      shutdown();
-      if (BG.app) BG.app.goLibrary();
-    });
+    if (leave) leave.addEventListener("click", () => requestLeave("مغادرة الطاولة"));
     if (!state.isHost) {
       if (BG.app) BG.app.setMountVisible(true);
     } else if (BG.app && state.hostReady) {
@@ -1246,10 +1279,7 @@
       tray.hidden = true;
       reactBtn.setAttribute("aria-expanded", "false");
     });
-    hud.querySelector(".net-hud-leave").addEventListener("click", () => {
-      shutdown();
-      if (BG.app) BG.app.goLibrary();
-    });
+    hud.querySelector(".net-hud-leave").addEventListener("click", () => requestLeave("مغادرة الطاولة"));
     view.appendChild(hud);
     state.hud = hud;
     updateHud();
@@ -1259,13 +1289,73 @@
   const REACTIONS = ["👍", "😂", "😮", "😡", "👏", "🔥", "🤝", "😭"];
   let reactAt = 0;
 
+  function latencyLabel(quality) {
+    return ({ excellent: "ممتاز", good: "جيد", fair: "متوسط", poor: "ضعيف" })[quality] || "غير مقيس";
+  }
+
   function updateHudPing() {
-    if (!state.hud || !BG.net) return;
-    const el = state.hud.querySelector(".net-hud-ping");
-    if (!el) return;
-    const ms = BG.net.latency;
-    el.dataset.quality = BG.net.latencyQuality(ms);
-    el.textContent = Number.isFinite(ms) ? ms + " ms" : "— ms";
+    if (!BG.net) return;
+    if (state.hud) {
+      const el = state.hud.querySelector(".net-hud-ping");
+      if (el) {
+        const ms = BG.net.latency;
+        el.dataset.quality = BG.net.latencyQuality(ms);
+        el.textContent = Number.isFinite(ms) ? ms + " ms" : "— ms";
+      }
+    }
+    updateLobbyPings();
+  }
+
+  function updateLobbyPings() {
+    if (!state.overlay || !BG.net) return;
+    const qualityEl = state.overlay.querySelector("[data-net-quality]");
+    if (qualityEl) {
+      const ms = BG.net.latency;
+      const quality = BG.net.latencyQuality(ms);
+      qualityEl.dataset.quality = quality;
+      qualityEl.textContent = Number.isFinite(ms)
+        ? latencyLabel(quality) + " · " + ms + " ms"
+        : "تُقاس بعد أول تبادل…";
+    }
+    state.overlay.querySelectorAll("[data-ping-peer]").forEach((el) => {
+      const id = el.getAttribute("data-ping-peer");
+      const ms = BG.net.latencyOf ? BG.net.latencyOf(id) : null;
+      const quality = BG.net.latencyQuality(ms);
+      el.dataset.quality = quality;
+      el.textContent = Number.isFinite(ms) ? ms + " ms" : "— ms";
+      el.title = "زمن الاستجابة: " + latencyLabel(quality);
+    });
+  }
+
+  /** تنبيه لطيف عند انتقال الدور إلى اللاعب المحلي. */
+  function alertLocalTurn() {
+    BG.toast("🎯 دورك الآن — نفّذ حركتك ثم انتظر بقية اللاعبين.", "good");
+    BG.fx.sound("turn");
+    try {
+      if (navigator.vibrate) navigator.vibrate([35, 45, 35]);
+    } catch (err) { /* ignore */ }
+    if (!document.hidden) {
+      state.baseTitle = state.baseTitle || document.title;
+      document.title = "🎯 دورك — " + state.baseTitle;
+      clearTimeout(state.titleTimer);
+      state.titleTimer = setTimeout(() => {
+        if (state.baseTitle) document.title = state.baseTitle;
+        state.baseTitle = "";
+      }, 6000);
+    }
+  }
+
+  function trackTurn(seat, over) {
+    if (!state.inGame) return;
+    const myTurn = !over && state.localSeat >= 0 && seat === state.localSeat;
+    if (state.hud) state.hud.classList.toggle("is-my-turn", myTurn);
+    if (!myTurn) {
+      state.lastAlertSeat = over ? -1 : seat;
+      return;
+    }
+    if (state.lastAlertSeat === state.localSeat) return;
+    state.lastAlertSeat = state.localSeat;
+    alertLocalTurn();
   }
 
   function showReaction(emoji, name) {
@@ -1296,7 +1386,9 @@
     const me = state.localSeat >= 0 ? seatName(state.localSeat) : "مشاهد";
     const icon = BG.net && BG.net.mode === "cloud" ? "🌍" : "📶";
     const mode = state.spectating ? "👁 مشاهد" : (state.isHost ? "المضيف" : "لاعب");
-    role.textContent = icon + " " + mode + " · " + me;
+    const myTurn = state.inGame && !state.spectating && state.localSeat >= 0 && state.lastSeat === state.localSeat;
+    role.textContent = icon + " " + mode + " · " + me + (myTurn ? " · دورك" : "");
+    state.hud.classList.toggle("is-my-turn", myTurn);
   }
 
   function removeHud() {
@@ -1649,6 +1741,7 @@
     });
     state.overShown = false;
     state.lastSeat = -1;
+    state.lastAlertSeat = -1;
     state.lastHash = "";
     state.lastGuestHash = "";
     state.lastGuestSeat = -1;
@@ -1682,6 +1775,9 @@
 
   function returnToLobbyLocal() {
     clearInterval(state.hostTimer);
+    clearTimeout(state.titleTimer);
+    if (state.baseTitle) document.title = state.baseTitle;
+    state.baseTitle = "";
     clearAway();
     releaseWake();
     clearInterval(state.guestTimer);
@@ -1739,6 +1835,9 @@
 
   function shutdown(silent) {
     clearInterval(state.hostTimer);
+    clearTimeout(state.titleTimer);
+    if (state.baseTitle) document.title = state.baseTitle;
+    state.baseTitle = "";
     clearAway();
     releaseWake();
     if (!silent) state.lastJoin = null;
@@ -1758,6 +1857,7 @@
     state.spectating = false;
     state.spectateSeat = -1;
     state.overShown = false;
+    state.lastAlertSeat = -1;
     state.game = null;
     state.seats = [];
     state.localSeat = -1;

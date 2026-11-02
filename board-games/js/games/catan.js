@@ -125,7 +125,62 @@
       vertexEdges[e.b].push(e.id);
     });
 
-    return { hexes, vertices: vlist, edges: elist, edgeMap: emap, vertexEdges };
+    /* الموانئ: 5 موانئ متخصصة 2:1 وأربعة موانئ عامة 3:1 على حواف الساحل. */
+    const edgeHexes = new Map();
+    hexes.forEach((h) => {
+      for (let i = 0; i < 6; i++) {
+        const a = h.corners[i];
+        const b = h.corners[(i + 1) % 6];
+        const key = Math.min(a, b) + "-" + Math.max(a, b);
+        const eid = emap.get(key);
+        if (!edgeHexes.has(eid)) edgeHexes.set(eid, new Set());
+        edgeHexes.get(eid).add(h.id);
+      }
+    });
+    const coast = elist
+      .filter((e) => edgeHexes.has(e.id) && edgeHexes.get(e.id).size === 1)
+      .sort((a, b) => {
+        const ma = midpoint(a);
+        const mb = midpoint(b);
+        const aa = Math.atan2(ma.y - 280, ma.x - 390);
+        const ab = Math.atan2(mb.y - 280, mb.x - 390);
+        return aa - ab;
+      });
+    const harborTypes = ["any", "wood", "any", "sheep", "any", "wheat", "any", "brick", "ore"];
+    const harbors = [];
+    const used = new Set();
+    harborTypes.forEach((type, i) => {
+      let idx = Math.round((i * coast.length) / harborTypes.length) % coast.length;
+      while (used.has(idx) && used.size < coast.length) idx = (idx + 1) % coast.length;
+      used.add(idx);
+      const edge = coast[idx];
+      if (!edge) return;
+      const m = midpoint(edge);
+      const dx = m.x - 390;
+      const dy = m.y - 280;
+      const len = Math.hypot(dx, dy) || 1;
+      harbors.push({
+        id: i,
+        edge: edge.id,
+        a: edge.a,
+        b: edge.b,
+        vertices: [edge.a, edge.b],
+        type,
+        ratio: type === "any" ? 3 : 2,
+        x: m.x + (dx / len) * 23,
+        y: m.y + (dy / len) * 23,
+        ex: m.x,
+        ey: m.y,
+      });
+    });
+
+    function midpoint(edge) {
+      const a = vlist[edge.a];
+      const b = vlist[edge.b];
+      return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+    }
+
+    return { hexes, vertices: vlist, edges: elist, edgeMap: emap, vertexEdges, harbors };
   }
 
   function polygonPoints(hex) {
@@ -195,7 +250,7 @@
         "<strong>البناء:</strong> طريق = خشب + طوب. مستوطنة = خشب + طوب + صوف + قمح. مدينة = 3 خام + 2 قمح (ترقية مستوطنة). بطاقة تطور = صوف + قمح + خام.",
         "<strong>شرط البناء:</strong> المستوطنة يجب أن تكون على تقاطع فارغ يبعد تقاطعًا واحدًا على الأقل عن أي مستوطنة أو مدينة، ومتصلة بطريق تملكه. الطريق يجب أن يتصل ببناء أو طريق تملكه، ولا يمكن أن يمر عبر بناء خصم.",
         "<strong>المدن:</strong> ترفع إنتاج الحقول المجاورة من مورد إلى موردين، وتساوي نقطتين بدل نقطة واحدة.",
-        "<strong>التجارة:</strong> يمكنك في أي وقت خلال دورك تبديل 4 بطاقات من مورد واحد مقابل بطاقة واحدة من أي مورد من البنك.",
+        "<strong>التجارة:</strong> يمكنك في أي وقت خلال دورك تبديل 4 بطاقات من مورد واحد مقابل بطاقة واحدة من أي مورد من البنك. إذا ملكت ميناءً عامًا (3:1) تصبح النسبة 3 مقابل 1، وإذا ملكت ميناءً متخصصًا (2:1) تصبح النسبة 2 مقابل 1 لذلك المورد. تملك الميناء بمجرد بناء مستوطنة أو مدينة على أحد تقاطعي الميناء.",
         "<strong>بطاقات التطور:</strong> تُشترى ثم تبقى سرّية. يمكن لعب بطاقة واحدة فقط في الدور (بعد انقضاء دور شرائها)، وهي: الفارس، بناء طريقين، سنة الوفرة، الاحتكار، أو نقطة انتصار.",
         "<strong>الفارس:</strong> يحرّك قاطع الطريق ويسرق موردًا. ثلاثة فرسان تمنحك أكبر جيش (نقطتان) ما دمت متقدمًا على الجميع.",
         "<strong>أطول طريق:</strong> خمسة طرق متصلة على الأقل تمنحك نقطتين، وتنتقل منك إذا تجاوزها لاعب آخر بطريق أطول.",
@@ -203,7 +258,8 @@
       ],
       winning: "أول لاعب يصل إلى 10 نقاط انتصار في بداية دوره أو بعد أي إجراء يفوز فورًا. تُحتسب نقاط المستوطنات والمدن وبطاقات الانتصار وأكبر جيش وأطول طريق.",
       notes: [
-        "لا تعرض النسخة الرقمية الميناءات التجارية الخاصة؛ التجارة البنكية متاحة بنسبة 4:1 فقط.",
+        "الموانئ مفعّلة: خمسة موانئ متخصصة 2:1 وأربعة موانئ عامة 3:1 موزعة على الساحل. يملك اللاعب الميناء إذا بنى مستوطنة أو مدينة على أحد تقاطعي حافتها.",
+        "الرقعة تحتوي على 19 حقلًا: 4 خشب، 4 صوف، 4 قمح، 3 طوب، 3 خام، وصحراء واحدة.",
         "تُخفى موارد اللاعبين وبطاقات تطورهم خلف زر «إظهار» وتُخفى تلقائيًا عند انتقال الدور.",
         "القرص عند الرقم 7 يتم تلقائيًا وبشكل عشوائي حفاظًا على سرّية البطاقات.",
         "لا يمكن لعب بطاقة تطور اشتريتها في نفس الدور، باستثناء كشف بطاقة نقطة الانتصار في نهاية اللعبة.",
@@ -806,22 +862,61 @@
 
   /* ------------------------------ التجارة ------------------------------ */
 
+  /** الموانئ التي يملك اللاعب مستوطنة أو مدينة على أحد طرفيها. */
+  function ownedHarbors(p) {
+    return (geometry.harbors || []).filter((h) => {
+      const va = geometry.vertices[h.a] && geometry.vertices[h.a].building;
+      const vb = geometry.vertices[h.b] && geometry.vertices[h.b].building;
+      return (va && va.owner === p.index) || (vb && vb.owner === p.index);
+    });
+  }
+
+  /** أفضل نسبة تبديل متاحة للمورد: 2:1 للميناء المتخصص، ثم 3:1 للعام، ثم 4:1. */
+  function bestTradeRatio(p, resource) {
+    let ratio = 4;
+    ownedHarbors(p).forEach((h) => {
+      if (h.type === "any" || h.type === resource) ratio = Math.min(ratio, h.ratio);
+    });
+    return ratio;
+  }
+
+  function harborLabel(h) {
+    return h.type === "any" ? "ميناء عام 3:1" : "ميناء " + RES[h.type].name + " 2:1";
+  }
+
   function openTrade() {
     if (state.over || state.phase !== "action") return;
     const p = cur();
     const body = BG.el("div", { class: "trade-form" });
+    const ratioOf = (r) => bestTradeRatio(p, r);
     body.innerHTML =
-      '<p class="trade-note">بنك الجزيرة يبدّل 4 بطاقات من مورد واحد مقابل بطاقة واحدة من أي مورد.</p>' +
+      '<p class="trade-note">اختر المورد الذي تعطيه؛ تحدد موانئك النسبة: 2:1 للميناء المتخصص، 3:1 للميناء العام، و4:1 مع البنك.</p>' +
       '<div class="trade-grid">' +
-      '<label class="trade-field"><span>أعطِ 4 من</span><select name="give">' +
-      RES_LIST.map((r) => '<option value="' + r + '">' + RES[r].icon + " " + RES[r].name + " (لديك " + (p.res[r] || 0) + ")" + "</option>").join("") +
+      '<label class="trade-field"><span>أعطِ</span><select name="give">' +
+      RES_LIST.map((r) => '<option value="' + r + '">' + RES[r].icon + " " + RES[r].name + " (لديك " + (p.res[r] || 0) + " · " + ratioOf(r) + ":1)" + "</option>").join("") +
       "</select></label>" +
       '<label class="trade-field"><span>خذ 1 من</span><select name="take">' +
       RES_LIST.map((r) => '<option value="' + r + '">' + RES[r].icon + " " + RES[r].name + "</option>").join("") +
       "</select></label>" +
-      "</div>";
+      "</div>" +
+      '<p class="trade-note trade-ratio" name="ratioNote"></p>' +
+      (ownedHarbors(p).length
+        ? '<p class="trade-note trade-harbors">⚓ موانئك: ' + ownedHarbors(p).map(harborLabel).join(" · ") + "</p>"
+        : '<p class="trade-note trade-harbors">⚓ لا تملك ميناءً بعد — ابنِ مستوطنة على تقاطع ساحلي بجوار رمز الميناء.</p>');
+    const giveSel = body.querySelector('[name="give"]');
+    const ratioNote = body.querySelector('[name="ratioNote"]');
+    const refreshRatio = () => {
+      const give = giveSel.value;
+      const ratio = ratioOf(give);
+      const harbor = ownedHarbors(p).find((h) => h.type === give) || ownedHarbors(p).find((h) => h.type === "any");
+      ratioNote.innerHTML = "💱 تعطي <strong>" + ratio + " " + RES[give].icon + " " + RES[give].name + "</strong> مقابل بطاقة واحدة" +
+        (harbor ? " — عبر " + harborLabel(harbor) + "." : " — تجارة بنكية 4:1.");
+      ratioNote.classList.toggle("is-good", ratio < 4);
+    };
+    giveSel.addEventListener("change", refreshRatio);
+    refreshRatio();
     BG.openDialog({
-      title: "🏦 التجارة مع البنك",
+      title: "🏦 التجارة مع البنك والموانئ",
       body,
       actions: [
         { label: "إلغاء", value: "cancel" },
@@ -829,14 +924,15 @@
           label: "تبديل",
           primary: true,
           onClick: ({ close }) => {
-            const give = body.querySelector('[name="give"]').value;
+            const give = giveSel.value;
             const take = body.querySelector('[name="take"]').value;
+            const ratio = ratioOf(give);
             if (give === take) { BG.toast("لا فائدة من تبديل المورد بنفسه.", "warn"); return; }
-            if ((p.res[give] || 0) < 4) { BG.toast("تحتاج 4 بطاقات من " + RES[give].name + ".", "warn"); return; }
-            p.res[give] -= 4;
+            if ((p.res[give] || 0) < ratio) { BG.toast("تحتاج " + ratio + " بطاقات من " + RES[give].name + ".", "warn"); return; }
+            p.res[give] -= ratio;
             addRes(p, take, 1);
-            apiRef.log("بادل <strong>" + U.escape(p.name) + "</strong> 4 " + RES[give].name + " مقابل " + RES[take].name + ".", "good");
-            state.notice = "بادلت 4 " + RES[give].name + " مقابل " + RES[take].name + ".";
+            apiRef.log("بادل <strong>" + U.escape(p.name) + "</strong> " + ratio + " " + RES[give].name + " مقابل " + RES[take].name + ".", "good");
+            state.notice = "بادلت " + ratio + " " + RES[give].name + " مقابل " + RES[take].name + ".";
             close();
             render();
             if (FX) {
@@ -1389,6 +1485,32 @@
       parts.push("</g>");
     });
 
+    // الموانئ التجارية على الساحل
+    (geometry.harbors || []).forEach((h) => {
+      const va = geometry.vertices[h.a] && geometry.vertices[h.a].building;
+      const vb = geometry.vertices[h.b] && geometry.vertices[h.b].building;
+      const owner = va ? va.owner : vb ? vb.owner : null;
+      const ring = owner == null ? "#c8a75c" : PCOLORS[owner % 6];
+      const dx = h.x - h.ex;
+      const dy = h.y - h.ey;
+      const len = Math.hypot(dx, dy) || 1;
+      const x1 = h.ex + (dx / len) * 7;
+      const y1 = h.ey + (dy / len) * 7;
+      const x2 = h.x - (dx / len) * 13;
+      const y2 = h.y - (dy / len) * 13;
+      parts.push('<g class="cat-harbor' + (owner != null ? " is-owned" : "") + '">');
+      parts.push('<title>' + harborLabel(h) + (owner != null ? " — " + U.escape(state.players[owner].name) : "") + "</title>");
+      parts.push('<line x1="' + x1.toFixed(1) + '" y1="' + y1.toFixed(1) + '" x2="' + x2.toFixed(1) + '" y2="' + y2.toFixed(1) + '" stroke="#b99a63" stroke-width="2.4" stroke-linecap="round"/>');
+      parts.push('<circle cx="' + h.x.toFixed(1) + '" cy="' + h.y.toFixed(1) + '" r="13" fill="#10262e" stroke="' + ring + '" stroke-width="2.2"/>');
+      parts.push('<text x="' + h.x.toFixed(1) + '" y="' + (h.y + 3.4).toFixed(1) + '" class="cat-harbor-ratio">' + h.ratio + ":1</text>");
+      if (h.type !== "any") {
+        parts.push('<text x="' + h.x.toFixed(1) + '" y="' + (h.y - 17).toFixed(1) + '" class="cat-harbor-icon">' + RES[h.type].icon + "</text>");
+      } else {
+        parts.push('<text x="' + h.x.toFixed(1) + '" y="' + (h.y - 17).toFixed(1) + '" class="cat-harbor-icon">⚓</text>');
+      }
+      parts.push("</g>");
+    });
+
     // الطرق المبنيّة
     geometry.edges.forEach((e) => {
       if (e.owner == null) return;
@@ -1513,6 +1635,11 @@
     return (
       '<div class="cat-res">' + res + "</div>" +
       '<div class="cat-total">مجموع بطاقات الموارد: <strong>' + totalRes(p) + "</strong> · نقاطك الكاملة: <strong>" + totalVP(p) + "</strong>" + (p.vpCards ? " (منها " + p.vpCards + " سرّية)" : "") + "</div>" +
+      '<h4 class="cat-sub">موانئك</h4><p class="cat-hint">' +
+      (ownedHarbors(p).length
+        ? "⚓ " + ownedHarbors(p).map(harborLabel).join(" · ")
+        : "لا تملك ميناءً بعد. ابنِ مستوطنة على تقاطع ساحلي بجوار رمز الميناء لتحصل على نسب تبديل أفضل.") +
+      "</p>" +
       '<h4 class="cat-sub">بطاقات التطور</h4><div class="cat-dev">' + dev + "</div>"
     );
   }
@@ -1561,7 +1688,7 @@
         '<button class="cat-build" data-act="dev" ' + (canPay(p, COSTS.dev) && state.deck.length ? "" : "disabled") + '><span>🃏</span><strong>بطاقة تطور</strong><small>' + COST_LABEL.dev + "</small></button>" +
         "</div>" +
         '<div class="cat-row2">' +
-        (mode ? '<button class="bg-btn" data-act="cancel">✕ إلغاء الوضع</button>' : '<button class="bg-btn" data-act="trade">🏦 تبديل 4:1</button>') +
+        (mode ? '<button class="bg-btn" data-act="cancel">✕ إلغاء الوضع</button>' : '<button class="bg-btn" data-act="trade">⚓ التجارة والموانئ</button>') +
         '<button class="bg-btn primary" data-act="end">إنهاء الدور ←</button>' +
         "</div>" +
         '<p class="cat-hint">' + (mode ? "الوضع مفعّل: اختر الموقع على الخريطة." : state.notice) + "</p>"
