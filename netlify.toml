@@ -1,0 +1,23 @@
+[build]
+  command = "npm run build"
+  # build.js يكتب الناتج في board-games/dist/board-games (وليس dist في جذر المستودع)
+  publish = "board-games/dist/board-games"
+
+[build.environment]
+  NODE_VERSION = "20"
+
+# عامل الخدمة والبيان لا يُخزَّنان طويلًا حتى تصل التحديثات فورًا
+[[headers]]
+  for = "/sw.js"
+  [headers.values]
+    Cache-Control = "no-cache"
+
+[[headers]]
+  for = "/manifest.webmanifest"
+  [headers.values]
+    Cache-Control = "no-cache"
+
+[[headers]]
+  for = "/vendor/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"

@@ -181,24 +181,48 @@ const zipName = "nubala-board-games-" + VERSION + ".zip";
 const zipPath = path.join(DIST_ROOT, zipName);
 if (fs.existsSync(zipPath)) fs.rmSync(zipPath, { force: true });
 
-try {
-  execFileSync("powershell", [
-    "-NoProfile",
-    "-NonInteractive",
-    "-Command",
-    "Compress-Archive -Path '" + DIST + "\\*' -DestinationPath '" + zipPath + "' -CompressionLevel Optimal",
-  ], { stdio: "inherit" });
-} catch (err) {
-  fail("تعذّر ضغط الحزمة عبر PowerShell. ثبّت PowerShell 5+ أو اضغط مجلد dist/board-games يدويًا.");
+/* ضغط متعدد المنصات بلا اعتماد على PowerShell: ويندوز → PowerShell أو tar،
+   لينكس/ماك (Netlify مثلًا) → zip أو tar أو python. فشل الضغط لا يُفشل البناء
+   لأن النشر يستخدم مجلد dist/board-games نفسه. */
+function tryRun(cmd, args, opts) {
+  try {
+    execFileSync(cmd, args, Object.assign({ stdio: "ignore" }, opts || {}));
+    return fs.existsSync(zipPath);
+  } catch (err) {
+    return false;
+  }
 }
 
-if (!fs.existsSync(zipPath)) fail("لم يُنشأ ملف ZIP");
+function makeZip() {
+  const attempts = [];
+  if (process.platform === "win32") {
+    attempts.push(() => tryRun("powershell", [
+      "-NoProfile", "-NonInteractive", "-Command",
+      "Compress-Archive -Path '" + DIST + "\\*' -DestinationPath '" + zipPath + "' -CompressionLevel Optimal",
+    ]));
+  }
+  attempts.push(() => tryRun("zip", ["-r", "-q", zipPath, "."], { cwd: DIST }));
+  attempts.push(() => tryRun("tar", ["-a", "-c", "-f", zipPath, "-C", DIST, "."]));
+  attempts.push(() => tryRun("python3", ["-c",
+    "import shutil,sys;shutil.make_archive(sys.argv[1],'zip',sys.argv[2])",
+    zipPath.replace(/\.zip$/, ""), DIST]));
+  for (const attempt of attempts) {
+    if (attempt()) return true;
+    if (fs.existsSync(zipPath)) fs.rmSync(zipPath, { force: true });
+  }
+  return false;
+}
 
-const zipBytes = fs.statSync(zipPath).size;
+const zipped = makeZip();
+if (!zipped) {
+  console.warn("⚠ تعذّر إنشاء ملف ZIP على هذا الجهاز (لا zip ولا tar ولا PowerShell). المجلد dist/board-games جاهز للنشر كما هو.");
+}
+
+const zipBytes = zipped ? fs.statSync(zipPath).size : 0;
 console.log("");
 console.log("  الملفات: " + copied);
 console.log("  الحجم قبل الضغط: " + kb(bytes));
 console.log("  SHA-256: dist/SHA256SUMS.txt (" + lines.length + " ملفًا)");
-console.log("  الحزمة: dist/" + zipName + " (" + kb(zipBytes) + ")");
+if (zipped) console.log("  الحزمة: dist/" + zipName + " (" + kb(zipBytes) + ")");
 console.log("  جاهزة للنشر: dist/board-games/");
 console.log("تم البناء بنجاح ✓");
