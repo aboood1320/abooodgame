@@ -189,7 +189,9 @@
     const player = cur();
     state.notice =
       (extra ? extra + ". " : "") +
-      "دور " + player.name + " — أظهر يدك ثم العب بطاقة مطابقة أو اسحب بطاقة.";
+      (state.pendingDraw > 0
+        ? "دور " + player.name + " — عليه سحب " + state.pendingDraw + " بطاقات: كدّس +2/+4 مماثلة أو اسحب العقوبة."
+        : "دور " + player.name + " — أظهر يدك ثم العب بطاقة مطابقة أو اسحب بطاقة.");
     if (apiRef) apiRef.setStatus("دور " + AI.statusName(player));
   }
 
@@ -234,6 +236,7 @@
     }
 
     let skip = false;
+    let keepPending = false;
     let effect = "";
 
     if (actual.type === "reverse") {
@@ -273,7 +276,7 @@
       }
       if (unoOption("stackDraw")) {
         state.pendingDraw = (state.pendingDraw || 0) + count;
-        skip = true;
+        keepPending = true;
         effect = state.players[target].name + " " + state.pendingDraw + " بطاقات متراكمة (العقوبة تتزايد)";
       } else {
         const got = drawInto(target, count);
@@ -288,7 +291,7 @@
     state.turn += 1;
     state.phase = "play";
     state.handRevealed = !BG.prefs.hideSecrets || isOnline();
-    state.pendingDraw = 0;
+    if (!keepPending) state.pendingDraw = 0;
     setTurnNotice(effect);
     render();
 
@@ -361,7 +364,6 @@
       setTurnNotice("");
       render();
       if (FX) FX.sound("card");
-      maybeAi();
       return;
     }
     if (!state.handRevealed && !AI.isCpu(cur())) {
@@ -879,7 +881,9 @@
           ? (canAct ? "قرّر الآن: تحدَّ البطاقة أو اقبل سحب أربع بطاقات." : "بانتظار قرار اللاعب المستهدف ببطاقة +4.")
           : !state.handRevealed
             ? "أظهر يدك أولًا من لوحة «أوراقك» لتتمكن من اللعب أو السحب."
-            : state.phase === "drawn"
+            : state.pendingDraw > 0
+              ? "عليك سحب " + state.pendingDraw + " بطاقات. إن ملكت +2 (أو +4) مماثلة كدّسها وأمرر العقوبة للتالي، وإلا اسحب الكل."
+              : state.phase === "drawn"
               ? "بعد السحب يمكنك لعب البطاقة المسحوبة فقط، أو إنهاء الدور."
               : "طابق اللون الحالي أو الرقم أو رمز البطاقة. إن لم تملك بطاقة مناسبة فاسحب واحدة.";
     return (
@@ -890,7 +894,7 @@
           '<button type="button" class="bg-btn" data-act="accept4"><span>🂠 اقبل واسحب ٤</span></button>'
         : canNext
           ? '<button type="button" class="bg-btn primary" data-act="next-round"><span>🔄 الجولة التالية</span></button>'
-          : '<button type="button" class="bg-btn primary" data-act="draw"' + (canDraw ? "" : " disabled") + '><span>🂠 اسحب بطاقة</span></button>' +
+          : '<button type="button" class="bg-btn primary" data-act="draw"' + (canDraw ? "" : " disabled") + '><span>' + (state.pendingDraw > 0 ? "🂠 اسحب " + state.pendingDraw + " بطاقات" : "🂠 اسحب بطاقة") + '</span></button>' +
             '<button type="button" class="bg-btn" data-act="pass"' + (canPass ? "" : " disabled") + '><span>⏭ أنهِ الدور</span></button>') +
       '<p class="uno-hint">' + U.escape(hint) + "</p>" +
       "</div>"

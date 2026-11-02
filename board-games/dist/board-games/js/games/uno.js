@@ -83,7 +83,7 @@
 
   function unoOption(key) {
     const opts = (apiRef && apiRef.options) || {};
-    const defaults = { drawUntilPlayable: false, stackDraw: false };
+    const defaults = { drawUntilPlayable: false, stackDraw: false, challengeWild4: true, matchTo500: true };
     if (Object.prototype.hasOwnProperty.call(opts, key)) return !!opts[key];
     return !!defaults[key];
   }
@@ -113,6 +113,12 @@
     const n = state.players.length;
     const offset = (state.dir * (step || 1)) % n;
     return ((state.current + offset) % n + n) % n;
+  }
+
+  function nextFrom(index, step) {
+    const n = state.players.length;
+    const offset = (state.dir * (step || 1)) % n;
+    return ((index + offset) % n + n) % n;
   }
 
   function matches(card) {
@@ -183,7 +189,9 @@
     const player = cur();
     state.notice =
       (extra ? extra + ". " : "") +
-      "دور " + player.name + " — أظهر يدك ثم العب بطاقة مطابقة أو اسحب بطاقة.";
+      (state.pendingDraw > 0
+        ? "دور " + player.name + " — عليه سحب " + state.pendingDraw + " بطاقات: كدّس +2/+4 مماثلة أو اسحب العقوبة."
+        : "دور " + player.name + " — أظهر يدك ثم العب بطاقة مطابقة أو اسحب بطاقة.");
     if (apiRef) apiRef.setStatus("دور " + AI.statusName(player));
   }
 
@@ -200,6 +208,7 @@
     state.lastCard = actual;
     state.drawnCard = null;
 
+    const previousColor = state.color;
     let color = actual.color;
     if (actual.type === "wild" || actual.type === "wild4") {
       color = COLORS[chosenColor] ? chosenColor : U.pick(COLOR_KEYS);
@@ -227,6 +236,7 @@
     }
 
     let skip = false;
+    let keepPending = false;
     let effect = "";
 
     if (actual.type === "reverse") {
@@ -244,9 +254,29 @@
     } else if (actual.type === "draw2" || actual.type === "wild4") {
       const count = actual.type === "draw2" ? 2 : 4;
       const target = nextIndex(1);
+      if (actual.type === "wild4" && unoOption("challengeWild4") && !unoOption("stackDraw")) {
+        state.challenge = {
+          offender: state.current,
+          target,
+          previousColor,
+        };
+        state.current = target;
+        state.turn += 1;
+        state.phase = "challenge";
+        state.handRevealed = !BG.prefs.hideSecrets || isOnline();
+        state.pendingDraw = 0;
+        state.notice = "لعب " + player.name + " بطاقة +4. على " + state.players[target].name +
+          " أن يتحدى البطاقة أو يقبل سحب أربع بطاقات.";
+        if (apiRef) {
+          apiRef.log("<strong>" + U.escape(player.name) + "</strong> لعب +4. القرار الآن لـ<strong>" +
+            U.escape(state.players[target].name) + "</strong>: تحدٍّ أم سحب؟", "accent");
+        }
+        render();
+        return true;
+      }
       if (unoOption("stackDraw")) {
         state.pendingDraw = (state.pendingDraw || 0) + count;
-        skip = true;
+        keepPending = true;
         effect = state.players[target].name + " " + state.pendingDraw + " بطاقات متراكمة (العقوبة تتزايد)";
       } else {
         const got = drawInto(target, count);
@@ -261,7 +291,7 @@
     state.turn += 1;
     state.phase = "play";
     state.handRevealed = !BG.prefs.hideSecrets || isOnline();
-    state.pendingDraw = 0;
+    if (!keepPending) state.pendingDraw = 0;
     setTurnNotice(effect);
     render();
 
@@ -274,6 +304,50 @@
       }, 30);
     }
     return true;
+  }
+
+  /** تحدي بطاقة +4: النجاح يعاقب صاحب البطاقة، والفشل يكلّف المتحدّي 6 بطاقات. */
+  function resolveChallenge(accept) {
+    if (!state || state.over || state.phase !== "challenge" || !state.challenge) return;
+    const challenge = state.challenge;
+    const offender = state.players[challenge.offender];
+    const target = state.players[challenge.target];
+    if (!offender || !target) { state.challenge = null; state.phase = "play"; return; }
+    const guilty = offender.hand.some((card) => card.color === challenge.previousColor);
+    state.challenge = null;
+    let effect = "";
+
+    if (!accept) {
+      const got = drawInto(challenge.target, 6);
+      state.current = nextFrom(challenge.target, 1);
+      effect = target.name + " قبل +4 وسحب " + drawPhrase(got) + " (العقوبة الكاملة) وفقد دوره";
+      if (apiRef) apiRef.log("قبل <strong>" + U.escape(target.name) + "</strong> بطاقة +4 وسحب " + got + " بطاقات.", "");
+    } else if (guilty) {
+      const got = drawInto(challenge.offender, 4);
+      state.current = challenge.target;
+      effect = "نجح التحدي — " + offender.name + " كان يملك لونًا مطابقًا، فسحب " + drawPhrase(got) + ". دور " + target.name;
+      if (apiRef) {
+        apiRef.log("🎯 <strong>" + U.escape(target.name) + "</strong> تحدّى +4 بنجاح! كان لدى <strong>" +
+          U.escape(offender.name) + "</strong> لون مطابق، فسحب " + got + " بطاقات.", "good");
+      }
+      if (FX) FX.sound("point");
+    } else {
+      const got = drawInto(challenge.target, 6);
+      state.current = nextFrom(challenge.target, 1);
+      effect = "فشل التحدي — " + target.name + " سحب " + drawPhrase(got) + " وفقد دوره";
+      if (apiRef) {
+        apiRef.log("❌ فشل تحدّي <strong>" + U.escape(target.name) + "</strong> — لم يكن لدى <strong>" +
+          U.escape(offender.name) + "</strong> لون مطابق، فسحب " + got + " بطاقات.", "warn");
+      }
+      if (FX) FX.sound("error");
+    }
+
+    state.phase = "play";
+    state.turn += 1;
+    state.handRevealed = !BG.prefs.hideSecrets || isOnline();
+    state.pendingDraw = 0;
+    setTurnNotice(effect);
+    render();
   }
 
   function drawCard() {
@@ -290,7 +364,6 @@
       setTurnNotice("");
       render();
       if (FX) FX.sound("card");
-      maybeAi();
       return;
     }
     if (!state.handRevealed && !AI.isCpu(cur())) {
@@ -414,27 +487,115 @@
 
   /* ------------------------------ النهاية ------------------------------ */
 
-  function endGame(winnerIndex) {
-    if (state.over) return;
+  function bestColorFor(hand) {
+    const counts = { red: 0, yellow: 0, green: 0, blue: 0 };
+    (hand || []).forEach((card) => {
+      if (counts[card.color] != null) counts[card.color] += 1;
+    });
+    return COLOR_KEYS.slice().sort((a, b) => counts[b] - counts[a])[0] || "red";
+  }
+
+  /** توزيع جولة جديدة وتطبيق تأثير أول بطاقة مكشوفة وفق القواعد الرسمية. */
+  function newDeal(startIndex) {
+    state.deck = U.shuffle(buildDeck());
+    state.discard = [];
+    state.players.forEach((player) => { player.hand = []; });
+    for (let round = 0; round < 7; round++) {
+      state.players.forEach((player) => { player.hand.push(state.deck.shift()); });
+    }
+
+    let first = null;
+    let guard = state.deck.length;
+    while (guard-- > 0 && state.deck.length) {
+      const card = state.deck.shift();
+      if (card.type === "wild4") {
+        state.deck.push(card);
+        continue;
+      }
+      first = card;
+      state.discard.push(card);
+      break;
+    }
+    if (!first) {
+      first = state.deck.shift();
+      state.discard.push(first);
+    }
+
+    state.dir = 1;
+    state.drawnCard = null;
+    state.pendingDraw = 0;
+    state.challenge = null;
+    state.phase = "play";
+    state.current = startIndex;
+    state.lastCard = first;
+    let effect = "";
+
+    if (first.color === "wild") {
+      state.color = bestColorFor(state.players[startIndex].hand);
+      effect = "أول بطاقة برّية؛ اختير اللون " + COLORS[state.color].name;
+    } else {
+      state.color = first.color;
+    }
+
+    if (first.type === "skip") {
+      state.current = nextFrom(startIndex, 1);
+      effect = "أول بطاقة تخطٍّ؛ خسر " + state.players[startIndex].name + " دوره";
+    } else if (first.type === "reverse") {
+      if (state.players.length === 2) {
+        state.current = nextFrom(startIndex, 1);
+        effect = "أول بطاقة عكس مع لاعبين؛ تعمل كتخطٍّ";
+      } else {
+        state.dir = -1;
+        effect = "أول بطاقة عكس؛ بدأ اللعب بعكس عقارب الساعة";
+      }
+    } else if (first.type === "draw2") {
+      const got = drawInto(startIndex, 2);
+      state.current = nextFrom(startIndex, 1);
+      effect = "أول بطاقة +2؛ سحب " + state.players[startIndex].name + " " + drawPhrase(got) + " وفقد دوره";
+    } else if (first.type === "number") {
+      effect = "أول بطاقة: " + cardLabel(first);
+    }
+
+    state.notice = "دور " + state.players[state.current].name + " — " + effect + ".";
+    return first;
+  }
+
+  function startNextRound() {
+    if (!state || state.over || state.phase !== "roundover") return;
+    const previousWinner = Number.isInteger(state.winner) ? state.winner : 0;
+    state.round += 1;
+    state.roundOver = false;
+    state.winner = null;
+    state.gained = 0;
+    state.roundPoints = 0;
+    state.turn = 1;
+    const start = (previousWinner + 1) % state.players.length;
+    const first = newDeal(start);
+    state.handRevealed = !BG.prefs.hideSecrets || isOnline();
+    if (apiRef) {
+      apiRef.log("بدأت الجولة " + state.round + " — البطاقة المكشوفة: " + U.escape(cardLabel(first)) +
+        ". يبدأ " + U.escape(state.players[start].name) + ".", "accent");
+    }
+    if (FX) FX.sound("shuffle");
+    render();
+  }
+
+  function endMatch(winnerIndex) {
     state.over = true;
     state.phase = "over";
+    state.roundOver = false;
     state.winner = winnerIndex;
     state.handRevealed = false;
-    const winner = winnerIndex != null ? state.players[winnerIndex] : null;
-    let points = 0;
-    state.players.forEach((player) => {
-      if (player.index !== winnerIndex) points += player.hand.reduce((sum, card) => sum + cardPoints(card), 0);
-    });
-    state.gained = points;
+    const winner = state.players[winnerIndex];
+    const ranking = state.players.slice().sort((a, b) => (state.scores[b.index] || 0) - (state.scores[a.index] || 0));
 
     if (winner) {
-      state.notice = "فاز " + winner.name + " — تخلّص من كل بطاقاته وجمع " + points + " نقطة من أيدي الخصوم.";
+      state.notice = "فاز " + winner.name + " بالمباراة — وصل إلى " + state.scores[winnerIndex] + " نقطة.";
       if (apiRef) {
-        apiRef.log("<strong>" + U.escape(winner.name) + "</strong> تخلّص من كل بطاقاته وفاز بالجولة (+" + points + " نقطة).", "good");
+        apiRef.log("🏆 <strong>" + U.escape(winner.name) + "</strong> فاز بالمباراة بعد وصوله إلى " +
+          state.scores[winnerIndex] + " نقطة.", "good");
         apiRef.setStatus("فاز " + winner.name);
       }
-    } else {
-      state.notice = "انتهت الجولة دون فائز.";
     }
 
     render();
@@ -442,23 +603,54 @@
 
     if (apiRef) {
       apiRef.gameOver({
-        icon: "🃏",
-        title: winner ? "فاز " + winner.name + "!" : "انتهت الجولة",
+        icon: "🏆",
+        title: winner ? "فاز " + winner.name + " بالمباراة!" : "انتهت المباراة",
         text: winner
-          ? "أنهى <strong>" + U.escape(winner.name) + "</strong> جميع بطاقاته. مجموع نقاط أيدي الخصوم: <strong>" + points + "</strong> نقطة."
+          ? "وصل <strong>" + U.escape(winner.name) + "</strong> إلى هدف <strong>" +
+            (unoOption("matchTo500") ? "500" : "الجولة الواحدة") + "</strong> نقطة. الترتيب النهائي حسب مجموع النقاط."
           : "لم يتبقَّ لاعب قادر على المتابعة.",
         winner: winner ? winner.name : "لا فائز",
-        standings: state.players.map((player) => {
-          const handPoints = player.hand.reduce((sum, card) => sum + cardPoints(card), 0);
-          return {
-            name: player.name + (player.index === winnerIndex ? " · فائز" : ""),
-            value: player.index === winnerIndex
-              ? "+" + points + " نقطة"
-              : player.hand.length + " بطاقة · " + handPoints + " نقطة",
-          };
-        }),
+        standings: ranking.map((player, place) => ({
+          name: player.name + (player.index === winnerIndex ? " · الفائز" : ""),
+          value: (state.scores[player.index] || 0) + " نقطة · المركز " + (place + 1),
+        })),
       });
     }
+  }
+
+  function endGame(winnerIndex) {
+    if (!state || state.over || state.roundOver) return;
+    const winner = winnerIndex != null ? state.players[winnerIndex] : null;
+    let points = 0;
+    state.players.forEach((player) => {
+      if (player.index !== winnerIndex) points += player.hand.reduce((sum, card) => sum + cardPoints(card), 0);
+    });
+    state.gained = points;
+    state.roundPoints = points;
+    state.winner = winnerIndex;
+    state.handRevealed = false;
+    if (winner) state.scores[winnerIndex] = (state.scores[winnerIndex] || 0) + points;
+
+    const target = unoOption("matchTo500") ? 500 : 0;
+    if (!winner || (target && state.scores[winnerIndex] < target)) {
+      state.roundOver = true;
+      state.phase = "roundover";
+      state.current = Number.isInteger(winnerIndex) ? winnerIndex : state.current;
+      state.notice = winner
+        ? "فاز " + winner.name + " بالجولة (+" + points + " نقطة). مجموعه الآن " +
+          state.scores[winnerIndex] + " نقطة من هدف " + target + "."
+        : "انتهت الجولة دون فائز.";
+      if (apiRef && winner) {
+        apiRef.log("<strong>" + U.escape(winner.name) + "</strong> فاز بالجولة (+" + points +
+          " نقطة). المجموع: " + state.scores[winnerIndex] + "/" + target + ".", "good");
+        apiRef.setStatus("فاز " + winner.name + " بالجولة");
+      }
+      if (FX) FX.after(() => FX.sound("win"), 140);
+      render();
+      return;
+    }
+
+    endMatch(winnerIndex);
   }
 
   /* ------------------------------ الكمبيوتر ------------------------------ */
@@ -497,6 +689,23 @@
     if (!AI.isCpu(seat)) return;
     if (!AI.autoAllowed(apiRef, seat)) return;
     const wait = AI.delay(seat.level, 1.2);
+
+    if (state.phase === "challenge") {
+      aiRunner.later(() => {
+        if (!state || state.over || state.phase !== "challenge") return;
+        const chance = seat.level === "hard" ? 0.68 : seat.level === "easy" ? 0.22 : 0.46;
+        resolveChallenge(Math.random() < chance);
+      }, Math.max(520, wait));
+      return;
+    }
+
+    if (state.phase === "roundover") {
+      aiRunner.later(() => {
+        if (!state || state.over || state.phase !== "roundover") return;
+        startNextRound();
+      }, Math.max(900, wait + 500));
+      return;
+    }
 
     if (state.phase === "play") {
       const choices = seat.hand.filter((card) => isPlayable(card, state.current));
@@ -609,7 +818,7 @@
         '<div class="uno-player' + (active ? " active" : "") + (uno ? " is-uno" : "") + '" style="--p:' + player.color + '">' +
         '<span class="pdot">' + (player.index + 1) + "</span>" +
         '<div class="uno-player-copy"><strong>' + U.escape(player.name) + "</strong>" +
-        "<small>" + player.hand.length + " بطاقة في اليد</small></div>" +
+        "<small>" + player.hand.length + " بطاقة" + (unoOption("matchTo500") ? " · " + (state.scores[player.index] || 0) + " نقطة" : "") + "</small></div>" +
         (uno ? '<span class="uno-badge">أونو!</span>' : "") +
         "</div>"
       );
@@ -620,11 +829,24 @@
     const player = cur();
     const drawn = state.drawnCard && canSeeActiveHand() ? cur().hand.find((card) => card.id === state.drawnCard) : null;
     const drawnPlayable = drawn ? matches(drawn) : false;
+    const phaseLabel = state.over
+      ? "المباراة منتهية"
+      : state.phase === "roundover"
+        ? "نهاية الجولة " + state.round
+        : state.phase === "challenge"
+          ? "تحدي +4"
+          : state.phase === "drawn"
+            ? "بعد السحب"
+            : "اللعب";
     return (
       '<div class="uno-panel uno-turn">' +
-      '<span class="uno-kicker">الدور ' + state.turn + " · " + (state.over ? "منتهية" : state.phase === "drawn" ? "بعد السحب" : "اللعب") + "</span>" +
-      "<strong>" + U.escape(state.over ? "انتهت الجولة" : player.name) + "</strong>" +
-      "<small>" + (state.over ? "راجع النتيجة" : player.hand.length + " بطاقة · " + (player.hand.length === 1 ? "على وشك الفوز" : "بانتظار بطاقة مناسبة")) + "</small>" +
+      '<span class="uno-kicker">الدور ' + state.turn + " · جولة " + state.round + " · " + phaseLabel + "</span>" +
+      "<strong>" + U.escape(state.over ? "انتهت المباراة" : state.phase === "roundover" ? "فاز " + (state.players[state.winner] || player).name + " بالجولة" : player.name) + "</strong>" +
+      "<small>" + (state.over || state.phase === "roundover"
+        ? "المجموع التراكمي: " + state.players.map((item) => item.name + " " + (state.scores[item.index] || 0)).join(" · ")
+        : state.phase === "challenge"
+          ? "على " + player.name + " اختيار التحدي أو سحب أربع بطاقات"
+          : player.hand.length + " بطاقة · " + (player.hand.length === 1 ? "على وشك الفوز" : "بانتظار بطاقة مناسبة")) + "</small>" +
       '<div class="uno-turn-chips">' +
       '<span class="uno-color-chip is-' + state.color + '"><i class="uno-color-dot"></i>' + U.escape(COLORS[state.color].name) + "</span>" +
       '<span class="uno-dir-chip">' + (state.dir > 0 ? "↻" : "↺") + " " + (state.dir > 0 ? "مع عقارب الساعة" : "عكس عقارب الساعة") + "</span>" +
@@ -637,25 +859,43 @@
             "<small>" + (drawnPlayable ? "قابلة للعب — انقرها في يدك أو أنهِ الدور." : "غير مطابقة — أنهِ الدور.") + "</small></div>"
           : '<div class="uno-drawn-hint wait"><strong>اللاعب يختار من يده</strong><small>أوراقه مخفية عن المشاهدين.</small></div>'
         : "") +
+      (state.phase === "challenge" && !state.over
+        ? '<div class="uno-challenge-box"><strong>🃏 بطاقة +4 على الطاولة</strong>' +
+          "<small>التحدي يكشف إن كان صاحب البطاقة يملك لونًا مطابقًا. النجاح: يسحب هو ٤ بطاقات. الفشل: تسحب أنت ٦ بطاقات وتفقد دورك.</small></div>"
+        : "") +
       "</div>"
     );
   }
 
   function actionsHTML() {
+    const canAct = !isOnline() || viewerIndex() === state.current;
     const canDraw = canDrawNow();
     const canPass = !state.over && state.phase === "drawn";
+    const canChallenge = !state.over && state.phase === "challenge" && canAct;
+    const canNext = !state.over && state.phase === "roundover" && canAct;
     const hint = state.over
-      ? "انتهت الجولة. ابدأ لعبة جديدة من زر «لعبة جديدة»."
-      : !state.handRevealed
-        ? "أظهر يدك أولًا من لوحة «أوراقك» لتتمكن من اللعب أو السحب."
-        : state.phase === "drawn"
-          ? "بعد السحب يمكنك لعب البطاقة المسحوبة فقط، أو إنهاء الدور."
-          : "طابق اللون الحالي أو الرقم أو رمز البطاقة. إن لم تملك بطاقة مناسبة فاسحب واحدة.";
+      ? "انتهت المباراة. ابدأ لعبة جديدة من زر «لعبة جديدة»."
+      : state.phase === "roundover"
+        ? (canAct ? "اضغط «الجولة التالية» لتوزيع بطاقات جديدة." : "بانتظار الفائز ليبدأ الجولة التالية.")
+        : state.phase === "challenge"
+          ? (canAct ? "قرّر الآن: تحدَّ البطاقة أو اقبل سحب أربع بطاقات." : "بانتظار قرار اللاعب المستهدف ببطاقة +4.")
+          : !state.handRevealed
+            ? "أظهر يدك أولًا من لوحة «أوراقك» لتتمكن من اللعب أو السحب."
+            : state.pendingDraw > 0
+              ? "عليك سحب " + state.pendingDraw + " بطاقات. إن ملكت +2 (أو +4) مماثلة كدّسها وأمرر العقوبة للتالي، وإلا اسحب الكل."
+              : state.phase === "drawn"
+              ? "بعد السحب يمكنك لعب البطاقة المسحوبة فقط، أو إنهاء الدور."
+              : "طابق اللون الحالي أو الرقم أو رمز البطاقة. إن لم تملك بطاقة مناسبة فاسحب واحدة.";
     return (
       '<div class="uno-panel uno-actions">' +
       '<span class="uno-kicker">أوامر الدور</span>' +
-      '<button type="button" class="bg-btn primary" data-act="draw"' + (canDraw ? "" : " disabled") + '><span>🂠 اسحب بطاقة</span></button>' +
-      '<button type="button" class="bg-btn" data-act="pass"' + (canPass ? "" : " disabled") + '><span>⏭ أنهِ الدور</span></button>' +
+      (canChallenge
+        ? '<button type="button" class="bg-btn primary" data-act="challenge"><span>🎯 تحدَّ بطاقة +4</span></button>' +
+          '<button type="button" class="bg-btn" data-act="accept4"><span>🂠 اقبل واسحب ٤</span></button>'
+        : canNext
+          ? '<button type="button" class="bg-btn primary" data-act="next-round"><span>🔄 الجولة التالية</span></button>'
+          : '<button type="button" class="bg-btn primary" data-act="draw"' + (canDraw ? "" : " disabled") + '><span>' + (state.pendingDraw > 0 ? "🂠 اسحب " + state.pendingDraw + " بطاقات" : "🂠 اسحب بطاقة") + '</span></button>' +
+            '<button type="button" class="bg-btn" data-act="pass"' + (canPass ? "" : " disabled") + '><span>⏭ أنهِ الدور</span></button>') +
       '<p class="uno-hint">' + U.escape(hint) + "</p>" +
       "</div>"
     );
@@ -773,6 +1013,9 @@
     const act = action.getAttribute("data-act");
     if (act === "draw") drawCard();
     else if (act === "pass") passTurn();
+    else if (act === "challenge") resolveChallenge(true);
+    else if (act === "accept4") resolveChallenge(false);
+    else if (act === "next-round") startNextRound();
   }
 
   /* ------------------------------ التسجيل ------------------------------ */
@@ -794,13 +1037,17 @@
 
     options: {
       hint: "خيارات قوانين إضافية. يمكن تخصيصها قبل بدء المباراة.",
-      defaults: { drawUntilPlayable: false, stackDraw: false },
+      defaults: { drawUntilPlayable: false, stackDraw: false, challengeWild4: true, matchTo500: true },
       fields: [
-        { key: "drawUntilPlayable", label: "سحب حتى الحصول على بطاقة قابلة للعب", type: "toggle", hint: "سحب بطاقات حتى الحصول على بطاقة قابلة للعب." },
-        { key: "stackDraw", label: "تكديس +2/+4", type: "toggle", hint: "السماح بتكديس +2 على +2 و+4 على +4." },
+        { key: "matchTo500", label: "مباراة كاملة حتى 500 نقطة", type: "toggle", hint: "جولات متتالية حتى يبلغ أحد اللاعبين 500 نقطة، كما في القواعد الرسمية." },
+        { key: "challengeWild4", label: "السماح بتحدي بطاقة +4", type: "toggle", hint: "المستهدف يقرر التحدي أو القبول؛ النجاح يعاقب صاحب البطاقة." },
+        { key: "drawUntilPlayable", label: "سحب حتى الحصول على بطاقة قابلة للعب", type: "toggle", hint: "قاعدة منزلية: السحب يستمر حتى تظهر بطاقة قابلة للعب." },
+        { key: "stackDraw", label: "تكديس +2/+4", type: "toggle", hint: "قاعدة منزلية: السماح بتكديس +2 على +2 و+4 على +4." },
       ],
       summary(options) {
         const parts = [];
+        if (options.matchTo500 !== false) parts.push("حتى 500 نقطة");
+        if (options.challengeWild4 !== false) parts.push("تحدي +4");
         if (options.drawUntilPlayable) parts.push("سحب متكرر");
         if (options.stackDraw) parts.push("تكديس +2/+4");
         return parts.join(", ") || "القواعد القياسية";
@@ -817,7 +1064,7 @@
       ],
       setup: [
         "تُخلط البطاقات الـ108 جيدًا وتُوزع ٧ بطاقات لكل لاعب، وتبقى البطاقات الأخرى في كومة السحب.",
-        "تُكشف البطاقة العليا لتكون أول بطاقة مكشوفة، ويصبح لونها هو اللون الحالي. في النسخة الرقمية تُدار البطاقات غير الرقمية إلى أسفل الكومة حتى تظهر بطاقة رقم نظيفة.",
+        "تُكشف البطاقة العليا لتكون أول بطاقة مكشوفة. تُطبَّق بطاقات الحركة في البداية وفق القواعد الرسمية: +2 يسحبها اللاعب الأول ويُتخطّى، والتخطي يتخطّاه، والعكس يقلب الاتجاه، والبرّية يختار لها اللاعب الأول لونًا. بطاقة +4 الأولى تعود إلى الكومة وتُسحب بدلها بطاقة أخرى.",
         "يبدأ اللاعب الأول وفق ترتيب اللاعبين، ويكون اتجاه اللعب في البداية مع عقارب الساعة.",
         "لا يرى أي لاعب بطاقات الآخرين. كل لاعب يظهر يده فقط عند دوره ثم يخفيها.",
       ],
@@ -826,19 +1073,19 @@
         "<strong>البطاقات الرقمية:</strong> من ٠ إلى ٩. يمكن لعب الرقم نفسه بلون مختلف ما دام مطابقًا للرقم المكشوف، أو أي رقم من اللون الحالي.",
         "<strong>تخطٍّ (⊘):</strong> يخسر اللاعب التالي دوره كاملًا. مع لاعبين اثنين يعود الدور إليك مباشرة.",
         "<strong>عكس (⇄):</strong> يقلب اتجاه اللعب. مع لاعبين اثنين يعمل كتخطٍّ، فيلعب صاحب البطاقة مرة أخرى.",
-        "<strong>+2:</strong> يسحب اللاعب التالي بطاقتين ويخسر دوره. لا تُراكم بطاقات +2 فوق بعضها في هذه النسخة.",
+        "<strong>+2:</strong> يسحب اللاعب التالي بطاقتين ويخسر دوره. لا تُراكم بطاقات +2 فوق بعضها في القواعد الرسمية (التكديس قاعدة منزلية اختيارية).",
         "<strong>برّية (★):</strong> تُلعب على أي بطاقة، ويختار لاعبها اللون الجديد من الألوان الأربعة. لا يمكن ردّها ببطاقة عادية.",
-        "<strong>برّية +4:</strong> تُلعب على أي بطاقة، ويختار لاعبها اللون الجديد، ثم يسحب اللاعب التالي أربع بطاقات ويخسر دوره. لا يوجد تحدي قانوني للبطاقة في النسخة الرقمية.",
+        "<strong>برّية +4:</strong> تُلعب على أي بطاقة، ويختار لاعبها اللون الجديد. يحق للاعب التالي أن يتحدى: إن كان صاحب البطاقة يملك لونًا مطابقًا للون السابق يسحب هو ٤ بطاقات، وإن فشل التحدي يسحب المتحدّي ٦ بطاقات (٤ + عقوبة ٢) ويخسر دوره. القبول يعني سحب ٤ بطاقات فقط وخسارة الدور.",
         "<strong>السحب:</strong> إن لم تملك بطاقة مطابقة، اسحب بطاقة واحدة. إن كانت قابلة للعب يمكنك لعبها فورًا، وإلا فأنهِ دورك. لا يُسمح بسحب أكثر من بطاقة في الدور نفسه.",
         "<strong>أونو:</strong> عند بقاء بطاقة واحدة في يدك يجب أن تعلن «أونو!». في النسخة الرقمية يُعلن ذلك تلقائيًا ويظهر تنبيه للجميع.",
         "<strong>نفاد كومة السحب:</strong> تُخلط البطاقات المكشوفة ما عدا البطاقة العليا لتشكيل كومة سحب جديدة، ثم يستمر اللعب.",
       ],
-      winning: "يفوز أول لاعب يتخلّص من كل بطاقاته. تُحسب نقاط الجولة للفائز من أيدي الخصوم: البطاقات الرقمية بقيمتها، وبطاقات تخطٍّ وعكس و+2 بعشرين نقطة لكل بطاقة، والبرّية والبرّية +4 بخمسين نقطة. النسخة الحالية تلعب جولة واحدة وتعلن النقاط في نهاية الجولة.",
+      winning: "يفوز أول لاعب يتخلّص من كل بطاقاته في الجولة. تُحسب نقاط الجولة للفائز من أيدي الخصوم: البطاقات الرقمية بقيمتها، وبطاقات تخطٍّ وعكس و+2 بعشرين نقطة لكل بطاقة، والبرّية والبرّية +4 بخمسين نقطة. تُلعب جولات متتالية حتى يبلغ أحد اللاعبين 500 نقطة (أو حتى نهاية الجولة الواحدة إذا عُطّل الخيار).",
       notes: [
-        "النسخة الرقمية تلعب جولة واحدة، وتُظهر مجموع نقاط أيدي الخصوم للفائز بدل الاستمرار حتى هدف نقاط محدد.",
-        "لا تُراكم بطاقات +2 أو +4: كل بطاقة عقابية تُطبّق على اللاعب التالي فقط.",
-        "بطاقة +4 لا تخضع لقاعدة التحدي؛ يمكن لعبها حتى لو كان لدى اللاعب لون مطابق.",
-        "أول بطاقة مكشوفة تكون رقمًا دائمًا لتبسيط البداية، بدل تطبيق تأثير البطاقات الخاصة في أول دور.",
+        "الهدف الرسمي 500 نقطة عبر جولات متتالية؛ الفائز بالجولة يبدأ الجولة التالية من الجهة التالية له.",
+        "لا تُراكم بطاقات +2 أو +4 افتراضيًا: كل بطاقة عقابية تُطبّق على اللاعب التالي فقط. التكديس قاعدة منزلية اختيارية.",
+        "بطاقة +4 قابلة للتحدي افتراضيًا: يتحقق التحدي من وجود لون مطابق في يد صاحب البطاقة وقت لعبها.",
+        "أول بطاقة مكشوفة تُطبَّق قواعدها الرسمية، بما فيها +2 والتخطي والعكس والبرّية، وتُعاد +4 إلى الكومة.",
         "إعلان «أونو» تلقائي عند بقاء بطاقة واحدة؛ لا توجد عقوبة نسيان في اللعب المحلي.",
         "يد اللاعب الحالي مخفية حتى يضغط «إظهار»، وتُخفى تلقائيًا عند انتقال الدور.",
       ],
@@ -859,19 +1106,23 @@
         hand: [],
       }));
 
-      const deck = U.shuffle(buildDeck());
       state = {
         players,
-        deck,
+        deck: [],
         discard: [],
         current: 0,
         dir: 1,
         turn: 1,
+        round: 1,
+        roundOver: false,
+        roundPoints: 0,
+        scores: players.map(() => 0),
         color: "red",
         phase: "play",
         drawnCard: null,
         handRevealed: !BG.prefs.hideSecrets || isOnline(),
         pendingDraw: 0,
+        challenge: null,
         lastCard: null,
         notice: "",
         over: false,
@@ -879,29 +1130,10 @@
         gained: 0,
       };
 
-      for (let round = 0; round < 7; round++) {
-        players.forEach((player) => { player.hand.push(state.deck.shift()); });
-      }
-
-      let guard = state.deck.length;
-      while (guard-- > 0 && state.deck.length) {
-        const card = state.deck.shift();
-        if (card.type === "number") {
-          state.discard.push(card);
-          state.color = card.color;
-          break;
-        }
-        state.deck.push(card);
-      }
-      if (!state.discard.length) {
-        const card = state.deck.shift();
-        state.discard.push(card);
-        state.color = card.color === "wild" ? "red" : card.color;
-      }
-
-      state.notice = "دور " + players[0].name + " — أظهر يدك ثم العب بطاقة مطابقة أو اسحب بطاقة.";
+      const firstCard = newDeal(0);
+      state.notice = "دور " + players[state.current].name + " — أظهر يدك ثم العب بطاقة مطابقة أو اسحب بطاقة.";
       apiRef.log(
-        "بدأت أونو — " + players.length + " لاعبين، ٧ بطاقات لكل لاعب. البطاقة المكشوفة: " + U.escape(cardLabel(topCard())) + ".",
+        "بدأت أونو — " + players.length + " لاعبين، ٧ بطاقات لكل لاعب. البطاقة المكشوفة: " + U.escape(cardLabel(firstCard || topCard())) + ".",
         "accent"
       );
       if (FX) FX.sound("shuffle");
@@ -911,7 +1143,7 @@
         window.__bgDebug = {
           get state() { return state; },
           get players() { return state.players; },
-          render, playCard, drawCard, passTurn, endGame, setTurnNotice,
+          render, playCard, drawCard, passTurn, endGame, startNextRound, resolveChallenge, newDeal, setTurnNotice,
           topCard, buildDeck, cardLabel, cardPoints, matches, sortHand,
           isPlayable: (cardId) => {
             const card = cur().hand.find((item) => item.id === cardId);
@@ -932,10 +1164,14 @@
           BG.closeDialogs();
           state = BG.netCodec.decode(data);
           state.handRevealed = !BG.prefs.hideSecrets || isOnline();
-          state.pendingDraw = 0;
+          state.pendingDraw = Number(state.pendingDraw) || 0;
+          state.challenge = state.challenge || null;
+          state.round = state.round || 1;
+          state.roundOver = !!state.roundOver;
           state.players.forEach((player) => {
             player.hand = Array.isArray(player.hand) ? player.hand : [];
           });
+          state.scores = Array.isArray(state.scores) ? state.scores : state.players.map(() => 0);
           state.deck = Array.isArray(state.deck) ? state.deck : [];
           state.discard = Array.isArray(state.discard) ? state.discard : [];
           render();
@@ -949,7 +1185,6 @@
         netResume() {
           if (!state) return;
           state.handRevealed = !BG.prefs.hideSecrets || isOnline();
-          state.pendingDraw = 0;
           render();
         },
         destroy() {

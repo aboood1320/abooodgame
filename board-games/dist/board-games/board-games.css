@@ -1111,6 +1111,9 @@ dialog.bg-rules-dialog { width: min(760px, calc(100vw - 28px)); }
 }
 .trade-field select:focus, .trade-field input:focus { border-color: var(--accent-2); }
 .trade-note { margin: 0; font-size: 0.68rem; color: var(--dim); }
+.trade-ratio { padding: 8px 10px; border-radius: 9px; background: rgba(255, 255, 255, 0.04); border: 1px solid var(--stroke); line-height: 1.7; }
+.trade-ratio.is-good { border-color: color-mix(in srgb, var(--accent-2) 45%, var(--stroke)); color: var(--text); }
+.trade-harbors { line-height: 1.8; color: var(--muted); }
 .trade-summary p { margin: 0 0 5px; }
 .trade-summary ul { margin: 0 0 10px; padding-inline-start: 18px; }
 .trade-summary li { color: var(--text); }
@@ -1150,6 +1153,9 @@ dialog.bg-rules-dialog { width: min(760px, calc(100vw - 28px)); }
 .cat-hex-icon { font-size: 20px; text-anchor: middle; opacity: 0.9; }
 .cat-num { font-size: 15px; font-weight: 900; text-anchor: middle; fill: #223036; font-family: inherit; }
 .cat-num.danger { fill: #b84334; }
+.cat-harbor-ratio { font-size: 9px; font-weight: 900; text-anchor: middle; fill: #f2deb0; font-family: inherit; letter-spacing: 0.02em; }
+.cat-harbor-icon { font-size: 13px; text-anchor: middle; }
+.cat-harbor.is-owned .cat-harbor-ratio { fill: #fff4d0; }
 .cat-robber { font-size: 15px; text-anchor: middle; fill: #ef6f68; font-weight: 900; }
 
 .cat-spot {

@@ -20,56 +20,109 @@
   const DISEASE_KEYS = ["blue", "yellow", "black", "red"];
 
   const CITIES = [
-    { id: "sf", name: "سان فرانسيسكو", c: "blue", x: 122, y: 238 },
-    { id: "ny", name: "نيويورك", c: "blue", x: 306, y: 226 },
-    { id: "london", name: "لندن", c: "blue", x: 472, y: 178 },
-    { id: "paris", name: "باريس", c: "blue", x: 548, y: 220 },
-    { id: "madrid", name: "مدريد", c: "blue", x: 490, y: 292 },
-    { id: "milan", name: "ميلانو", c: "blue", x: 626, y: 258 },
+    { id: "sf", name: "سان فرانسيسكو", c: "blue", x: 145, y: 225 },
+    { id: "chicago", name: "شيكاغو", c: "blue", x: 262, y: 200 },
+    { id: "montreal", name: "مونتريال", c: "blue", x: 330, y: 155 },
+    { id: "ny", name: "نيويورك", c: "blue", x: 350, y: 205 },
+    { id: "washington", name: "واشنطن", c: "blue", x: 340, y: 240 },
+    { id: "atlanta", name: "أتلانتا", c: "blue", x: 300, y: 262 },
+    { id: "london", name: "لندن", c: "blue", x: 560, y: 165 },
+    { id: "madrid", name: "مدريد", c: "blue", x: 570, y: 262 },
+    { id: "paris", name: "باريس", c: "blue", x: 625, y: 195 },
+    { id: "milan", name: "ميلانو", c: "blue", x: 675, y: 235 },
+    { id: "essen", name: "إيسن", c: "blue", x: 640, y: 155 },
+    { id: "stpetersburg", name: "سانت بطرسبرغ", c: "blue", x: 735, y: 115 },
 
-    { id: "la", name: "لوس أنجلوس", c: "yellow", x: 182, y: 322 },
-    { id: "mexico", name: "مكسيكو سيتي", c: "yellow", x: 262, y: 360 },
-    { id: "miami", name: "ميامي", c: "yellow", x: 352, y: 302 },
-    { id: "bogota", name: "بوغوتا", c: "yellow", x: 352, y: 432 },
-    { id: "lima", name: "ليما", c: "yellow", x: 334, y: 522 },
-    { id: "santiago", name: "سانتياغو", c: "yellow", x: 402, y: 620 },
+    { id: "la", name: "لوس أنجلوس", c: "yellow", x: 190, y: 290 },
+    { id: "mexico", name: "مكسيكو سيتي", c: "yellow", x: 270, y: 335 },
+    { id: "miami", name: "ميامي", c: "yellow", x: 380, y: 286 },
+    { id: "bogota", name: "بوغوتا", c: "yellow", x: 380, y: 415 },
+    { id: "lima", name: "ليما", c: "yellow", x: 355, y: 500 },
+    { id: "santiago", name: "سانتياغو", c: "yellow", x: 405, y: 590 },
+    { id: "buenos", name: "بوينس آيرس", c: "yellow", x: 455, y: 560 },
+    { id: "saopaulo", name: "ساو باولو", c: "yellow", x: 485, y: 480 },
+    { id: "lagos", name: "لاغوس", c: "yellow", x: 610, y: 430 },
+    { id: "khartoum", name: "الخرطوم", c: "yellow", x: 685, y: 390 },
+    { id: "kinshasa", name: "كينشاسا", c: "yellow", x: 650, y: 490 },
+    { id: "johannesburg", name: "جوهانسبرغ", c: "yellow", x: 720, y: 575 },
 
-    { id: "istanbul", name: "إسطنبول", c: "black", x: 654, y: 222 },
-    { id: "moscow", name: "موسكو", c: "black", x: 762, y: 142 },
-    { id: "cairo", name: "القاهرة", c: "black", x: 654, y: 322 },
-    { id: "baghdad", name: "بغداد", c: "black", x: 742, y: 322 },
-    { id: "tehran", name: "طهران", c: "black", x: 822, y: 272 },
-    { id: "karachi", name: "كراتشي", c: "black", x: 820, y: 382 },
+    { id: "algiers", name: "الجزائر", c: "black", x: 595, y: 300 },
+    { id: "cairo", name: "القاهرة", c: "black", x: 705, y: 315 },
+    { id: "istanbul", name: "إسطنبول", c: "black", x: 710, y: 245 },
+    { id: "moscow", name: "موسكو", c: "black", x: 820, y: 145 },
+    { id: "baghdad", name: "بغداد", c: "black", x: 800, y: 315 },
+    { id: "tehran", name: "طهران", c: "black", x: 860, y: 280 },
+    { id: "karachi", name: "كراتشي", c: "black", x: 890, y: 370 },
+    { id: "mumbai", name: "مومباي", c: "black", x: 900, y: 430 },
+    { id: "delhi", name: "دلهي", c: "black", x: 935, y: 345 },
+    { id: "chennai", name: "تشيناي", c: "black", x: 945, y: 460 },
+    { id: "kolkata", name: "كلكتا", c: "black", x: 985, y: 395 },
+    { id: "riyadh", name: "الرياض", c: "black", x: 805, y: 370 },
 
-    { id: "mumbai", name: "مومباي", c: "red", x: 882, y: 462 },
-    { id: "delhi", name: "دلهي", c: "red", x: 912, y: 342 },
-    { id: "beijing", name: "بكين", c: "red", x: 984, y: 262 },
-    { id: "seoul", name: "سيول", c: "red", x: 1042, y: 220 },
-    { id: "tokyo", name: "طوكيو", c: "red", x: 1072, y: 292 },
-    { id: "sydney", name: "سيدني", c: "red", x: 1012, y: 570 },
+    { id: "bangkok", name: "بانكوك", c: "red", x: 975, y: 455 },
+    { id: "jakarta", name: "جاكرتا", c: "red", x: 1015, y: 545 },
+    { id: "hcmc", name: "هو تشي منه", c: "red", x: 1030, y: 470 },
+    { id: "hongkong", name: "هونغ كونغ", c: "red", x: 1070, y: 395 },
+    { id: "shanghai", name: "شنغهاي", c: "red", x: 1110, y: 335 },
+    { id: "beijing", name: "بكين", c: "red", x: 1075, y: 270 },
+    { id: "seoul", name: "سيول", c: "red", x: 1130, y: 245 },
+    { id: "tokyo", name: "طوكيو", c: "red", x: 1195, y: 285 },
+    { id: "osaka", name: "أوساكا", c: "red", x: 1150, y: 325 },
+    { id: "taipei", name: "تايبيه", c: "red", x: 1125, y: 410 },
+    { id: "sydney", name: "سيدني", c: "red", x: 1180, y: 615 },
+    { id: "manila", name: "مانيلا", c: "red", x: 1180, y: 450 },
   ];
   const CITY_BY_ID = {};
   CITIES.forEach((city) => { CITY_BY_ID[city.id] = city; });
 
   const EDGES = [
-    ["sf", "la"], ["sf", "mexico"], ["sf", "ny"],
-    ["la", "mexico"], ["la", "miami"],
+    ["sf", "chicago"], ["sf", "la"], ["sf", "tokyo"], ["sf", "manila"],
+    ["chicago", "la"], ["chicago", "mexico"], ["chicago", "atlanta"], ["chicago", "montreal"],
+    ["montreal", "ny"], ["montreal", "washington"],
+    ["ny", "washington"], ["ny", "london"], ["ny", "madrid"],
+    ["washington", "atlanta"], ["washington", "miami"],
+    ["atlanta", "miami"],
+    ["london", "madrid"], ["london", "paris"], ["london", "essen"],
+    ["madrid", "paris"], ["madrid", "algiers"], ["madrid", "saopaulo"],
+    ["paris", "milan"], ["paris", "essen"], ["paris", "algiers"],
+    ["milan", "essen"], ["milan", "istanbul"],
+    ["essen", "stpetersburg"],
+    ["stpetersburg", "istanbul"], ["stpetersburg", "moscow"],
+
+    ["la", "mexico"], ["la", "sydney"],
     ["mexico", "miami"], ["mexico", "bogota"], ["mexico", "lima"],
-    ["miami", "ny"], ["miami", "bogota"], ["miami", "madrid"],
-    ["bogota", "lima"], ["bogota", "santiago"], ["lima", "santiago"],
-    ["ny", "london"], ["ny", "paris"],
-    ["london", "paris"], ["london", "madrid"],
-    ["paris", "madrid"], ["paris", "milan"],
-    ["madrid", "milan"], ["milan", "istanbul"],
-    ["istanbul", "moscow"], ["istanbul", "cairo"], ["istanbul", "baghdad"],
-    ["moscow", "tehran"], ["cairo", "baghdad"], ["cairo", "karachi"],
-    ["baghdad", "tehran"], ["baghdad", "karachi"], ["baghdad", "delhi"],
+    ["miami", "bogota"],
+    ["bogota", "lima"], ["bogota", "saopaulo"], ["bogota", "buenos"],
+    ["lima", "santiago"],
+    ["buenos", "saopaulo"],
+    ["saopaulo", "lagos"],
+    ["lagos", "khartoum"], ["lagos", "kinshasa"],
+    ["khartoum", "cairo"], ["khartoum", "kinshasa"], ["khartoum", "johannesburg"],
+    ["kinshasa", "johannesburg"],
+
+    ["algiers", "istanbul"], ["algiers", "cairo"],
+    ["cairo", "istanbul"], ["cairo", "baghdad"],
+    ["istanbul", "baghdad"], ["istanbul", "moscow"],
+    ["moscow", "tehran"],
+    ["baghdad", "tehran"], ["baghdad", "riyadh"], ["baghdad", "karachi"],
     ["tehran", "karachi"], ["tehran", "delhi"],
-    ["karachi", "delhi"], ["karachi", "mumbai"],
-    ["delhi", "mumbai"], ["delhi", "beijing"],
-    ["mumbai", "sydney"],
-    ["beijing", "seoul"], ["beijing", "tokyo"], ["beijing", "sydney"],
-    ["seoul", "tokyo"], ["tokyo", "sydney"],
+    ["karachi", "delhi"], ["karachi", "mumbai"], ["karachi", "riyadh"],
+    ["mumbai", "delhi"], ["mumbai", "chennai"],
+    ["delhi", "chennai"], ["delhi", "kolkata"],
+    ["chennai", "jakarta"], ["chennai", "bangkok"],
+    ["kolkata", "bangkok"], ["kolkata", "hongkong"],
+
+    ["bangkok", "jakarta"], ["bangkok", "hcmc"], ["bangkok", "hongkong"],
+    ["jakarta", "hcmc"], ["jakarta", "sydney"],
+    ["hcmc", "hongkong"], ["hcmc", "manila"],
+    ["hongkong", "shanghai"], ["hongkong", "taipei"], ["hongkong", "manila"],
+    ["shanghai", "beijing"], ["shanghai", "seoul"], ["shanghai", "taipei"], ["shanghai", "tokyo"],
+    ["beijing", "seoul"],
+    ["seoul", "tokyo"],
+    ["tokyo", "osaka"], ["tokyo", "sydney"],
+    ["osaka", "taipei"],
+    ["taipei", "manila"],
+    ["sydney", "manila"],
   ];
 
   const ADJ = {};
@@ -90,10 +143,10 @@
 
   const PCOLORS = ["#ef8074", "#5fa8f5", "#f2c75c", "#69cd8d"];
   const STATION_CITY = "ny";
-  const CUBE_SUPPLY = 12;
+  const CUBE_SUPPLY = 24;
   const MAX_OUTBREAKS = 8;
   const HAND_LIMIT = 7;
-  const INFECTION_RATES = [2, 2, 3, 4, 5, 6, 7];
+  const INFECTION_RATES = [2, 2, 2, 3, 3, 4, 4];
 
   let rootRef = null;
   let apiRef = null;
@@ -1569,19 +1622,19 @@
         ' class="pan-route' + (active ? " is-active" : "") + '" />';
     }).join("");
     return (
-      '<svg class="pan-lines" viewBox="0 0 1160 680" preserveAspectRatio="none" aria-hidden="true">' +
+      '<svg class="pan-lines" viewBox="0 0 1240 680" preserveAspectRatio="none" aria-hidden="true">' +
       '<g class="pan-continents">' +
-      '<path class="is-na" d="M66 166 252 112 386 156 370 286 286 392 190 360 108 300Z" />' +
-      '<path class="is-sa" d="M258 396 372 380 430 470 386 626 308 630 282 512Z" />' +
-      '<path class="is-eu" d="M428 140 588 108 652 178 620 300 548 356 462 320 434 222Z" />' +
-      '<path class="is-af" d="M548 330 626 312 704 348 736 430 690 534 622 590 566 508 546 416Z" />' +
-      '<path class="is-as" d="M626 150 802 108 1008 166 1104 292 1040 448 884 478 766 404 660 356 616 262Z" />' +
-      '<path class="is-au" d="M962 500 1080 500 1112 596 1010 646 946 590Z" />' +
+      '<path class="is-na" d="M60 170 250 110 400 150 390 290 300 400 190 365 100 305Z" />' +
+      '<path class="is-sa" d="M280 390 440 375 510 450 490 570 400 640 320 620 310 500Z" />' +
+      '<path class="is-eu" d="M470 135 600 100 700 115 760 175 730 290 640 330 560 350 500 300 470 220Z" />' +
+      '<path class="is-af" d="M550 330 640 310 730 350 760 435 710 545 640 600 575 510 550 415Z" />' +
+      '<path class="is-as" d="M690 140 830 100 1000 130 1180 190 1240 320 1200 470 1080 560 950 520 850 460 740 400 680 300Z" />' +
+      '<path class="is-au" d="M1030 520 1190 505 1230 600 1130 655 1010 620Z" />' +
       "</g>" +
       '<g class="pan-ocean-labels">' +
-      '<text x="190" y="470">المحيط الهادئ</text>' +
-      '<text x="420" y="170">المحيط الأطلسي</text>' +
-      '<text x="900" y="600">المحيط الهندي</text>' +
+      '<text x="200" y="500">المحيط الهادئ</text>' +
+      '<text x="430" y="170">المحيط الأطلسي</text>' +
+      '<text x="880" y="610">المحيط الهندي</text>' +
       "</g>" +
       lines + "</svg>"
     );
@@ -1604,7 +1657,7 @@
       (players.length ? " — " + players.map((p) => p.name).join("، ") : "");
     return (
       '<button type="button" class="' + classes.join(" ") + '" data-city="' + city.id + '" style="--x:' +
-      (city.x / 1160 * 100) + "%;--y:" + (city.y / 680 * 100) + '%;--cc:' + disease.hex + '" aria-label="' + U.escape(label) + '">' +
+      (city.x / 1240 * 100) + "%;--y:" + (city.y / 680 * 100) + '%;--cc:' + disease.hex + '" aria-label="' + U.escape(label) + '">' +
       '<span class="pan-node">' +
       '<span class="pan-cubes">' + Array.from({ length: cubes }, () => '<i class="pan-cube"></i>').join("") + "</span>" +
       (stationAt(city.id) ? '<span class="pan-station" title="محطة أبحاث">🏥</span>' : "") +
@@ -1896,19 +1949,19 @@
 
     rules: {
       goal: "لعبة تعاونية: يعمل جميع اللاعبين كفريق واحد لاكتشاف علاجات أربعة أمراض قبل أن تحدث ثماني فاشيات، أو تنفد مكعبات مرض من المخزون، أو تنفد بطاقات اللاعبين. الفوز جماعي والخسارة جماعية.",
-      facts: [["المدن", "٢٤ مدينة"], ["الأمراض", "٤ أمراض"], ["الإجراءات", "٤ لكل لاعب (٥ للجنرال)"], ["الفاشيات", "٨ = خسارة"]],
+      facts: [["المدن", "٤٨ مدينة"], ["الأمراض", "٤ أمراض"], ["الإجراءات", "٤ لكل لاعب (٥ للجنرال)"], ["المكعبات", "٢٤ لكل مرض"], ["الفاشيات", "٨ = خسارة"]],
       components: [
-        "٢٤ مدينة موزعة على أربعة أمراض: إنفلونزا (أزرق)، حمى صفراء (أصفر)، طاعون (أسود)، وشلل (أحمر).",
-        "٤٨ بطاقة مدينة (نسختان من كل مدينة) و٤ بطاقات وباء، تشكل كومة سحب اللاعبين.",
-        "٢٤ بطاقة عدوى (بطاقة واحدة لكل مدينة) تشكل كومة العدوى.",
-        "١٢ مكعبًا لكل مرض (٤٨ مكعبًا إجمالًا) بما يناسب خريطة ٢٤ مدينة، و٦ محطات أبحاث، وأربع بطاقات أدوار، وقطعة لكل لاعب.",
+        "٤٨ مدينة موزعة على أربعة أمراض: إنفلونزا (أزرق)، حمى صفراء (أصفر)، طاعون (أسود)، وشلل (أحمر) — ١٢ مدينة لكل مرض.",
+        "٩٦ بطاقة مدينة (نسختان من كل مدينة) و٤ بطاقات وباء، تشكل كومة سحب اللاعبين.",
+        "٤٨ بطاقة عدوى (بطاقة واحدة لكل مدينة) تشكل كومة العدوى.",
+        "٢٤ مكعبًا لكل مرض (٩٦ مكعبًا إجمالًا)، و٦ محطات أبحاث، وأربع بطاقات أدوار، وقطعة لكل لاعب.",
         "٤ بطاقات دور: الطبيب، العالمة، الباحثة، والجنرال. تُوزع عشوائيًا على اللاعبين.",
       ],
       setup: [
         "توضع محطة أبحاث البداية في نيويورك، ويبدأ جميع اللاعبين في نيويورك.",
-        "تُخلط بطاقات المدينة الـ٤٨ وتُوزع يد البداية: ٤ بطاقات لكل لاعب في لعبة اللاعبين، ٣ في لعبة الثلاثة، وبطاقتان في لعبة الأربعة.",
+        "تُخلط بطاقات المدينة الـ٩٦ وتُوزع يد البداية: ٤ بطاقات لكل لاعب في لعبة اللاعبين، ٣ في لعبة الثلاثة، وبطاقتان في لعبة الأربعة.",
         "تُقسم بقية كومة اللاعبين إلى أربع أكوام متساوية تقريبًا، ويُخلط وباء واحد في كل كومة، ثم تُكدّس الأكوام لتشكيل كومة السحب.",
-        "تُخلط بطاقات العدوى الـ٢٤. تُسحب ٩ مدن: ٣ مدن تحصل على ٣ مكعبات، و٣ على مكعبين، و٣ على مكعب واحد. توضع البطاقات المسحوبة في كومة العدوى المتجاهلة.",
+        "تُخلط بطاقات العدوى الـ٤٨. تُسحب ٩ مدن: ٣ مدن تحصل على ٣ مكعبات، و٣ على مكعبين، و٣ على مكعب واحد. توضع البطاقات المسحوبة في كومة العدوى المتجاهلة.",
         "تبدأ لعبة العدوى بمعدل ٢، ويبدأ اللاعب الأول بدوره. يُمنح كل لاعب دوره كاملًا (٤ إجراءات، أو ٥ للجنرال).",
       ],
       steps: [
@@ -1927,13 +1980,12 @@
       ],
       winning: "يفوز الفريق فور اكتشاف العلاج الرابع. لا يشترط استئصال الأمراض من اللوحة. يخسر الفريق إذا حدثت ٨ فاشيات، أو نفدت مكعبات أي مرض من المخزون، أو احتاج سحب بطاقة لاعب بينما كومة اللاعبين فارغة. استئصال المرض (علاج + صفر مكعبات على اللوحة) يمنع إضافة مكعبات جديدة منه.",
       notes: [
-        "النسخة الرقمية تبسّط خريطة اللعبة الأصلية إلى ٢٤ مدينة (٦ لكل مرض) بدل ٤٨ مدينة، مع احتفاظها بآلية العدوى والفاشيات والعلاجات.",
-        "كل مدينة مرتبطة بمرض واحد فقط، لذلك لا توجد مدن متعددة الأمراض في هذه النسخة.",
+        "الخريطة تطابق خريطة اللعبة الأصلية: ٤٨ مدينة (١٢ لكل مرض) مع اتصالاتها البرية، ومخزون ٢٤ مكعبًا لكل مرض.",
+        "كل مدينة مرتبطة بمرض واحد فقط. المدن ذات المرض الواحد هي القاعدة الأساسية في Pandemic.",
         "عند إضافة دفعة مكعبات (وباء) إلى مدينة فيها مكعبات، تُحدث فاشية واحدة وتُثبّت المدينة عند ٣ مكعبات بدل احتساب فاشية لكل مكعب زائد.",
         "أيدي اللاعبين مكشوفة لأن اللعبة تعاونية، ويمكن فتح «أيدي الفريق» لمراجعة بطاقات الجميع. كومة اللاعبين وكومة العدوى وترتيبهما سرّيان.",
         "تُوزع الأدوار عشوائيًا عند بدء اللعبة. لا توجد أحداث خاصة (Event Cards) في هذه النسخة، ويركز التبسيط على الإجراءات الأساسية والأدوار.",
         "الفاشيات الناتجة عن سلسلة واحدة لا تعيد فاشية المدينة نفسها مرتين في السلسلة نفسها، لكن يمكن أن تتكرر في سلسلة أخرى.",
-        "خُفّض مخزون كل مرض من ٢٤ إلى ١٢ مكعبًا ليتناسب مع ٦ مدن لكل مرض بدل ١٢ مدينة في اللعبة الأصلية، مع إبقاء حد ٣ مكعبات لكل مدينة. بذلك يبقى نفاد المخزون خطرًا حقيقيًا كما في القواعد الأصلية.",
       ],
     },
 

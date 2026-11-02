@@ -499,22 +499,26 @@
     PATH.forEach((cell, i) => trackIndex.set(cell[0] * 15 + cell[1], i));
 
     let cells = "";
+    /* خلايا مسارات البيت تُرسم منفصلة بمكانها الصريح: نتجاهلها هنا حتى لا تنزاح باقي الخلايا */
+    const laneKeys = new Set();
+    LANES.forEach((lane) => lane.forEach((cell) => laneKeys.add(cell[0] * 15 + cell[1])));
     for (let r = 0; r < 15; r++) {
       for (let c = 0; c < 15; c++) {
+        if (laneKeys.has(r * 15 + c)) continue;
         const idx = trackIndex.has(r * 15 + c) ? trackIndex.get(r * 15 + c) : -1;
         const classes = ["ld-cell"];
-        let style = "";
+        let style = "grid-row:" + (r + 1) + ";grid-column:" + (c + 1) + ";";
         if (idx >= 0) {
           classes.push("is-track");
           const owner = START.indexOf(idx);
           if (owner >= 0) {
             classes.push("is-start", "p" + owner);
-            style = ' style="--pc:' + COLORS[owner].css + '"';
+            style += "--pc:" + COLORS[owner].css + ";";
           } else if (SAFE.has(idx)) {
             classes.push("is-safe");
           }
         }
-        cells += '<span class="' + classes.join(" ") + '" data-r="' + r + '" data-c="' + c + '"' + style + "></span>";
+        cells += '<span class="' + classes.join(" ") + '" data-r="' + r + '" data-c="' + c + '" style="' + style + '"></span>';
       }
     }
 
