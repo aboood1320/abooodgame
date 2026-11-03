@@ -11,7 +11,7 @@
 | Price | Free |
 | Language | Arabic (UI and content) |
 | Age rating | 3+ / Everyone |
-| Version | 1.2.1 |
+| Version | 1.2.2 |
 | Suggested package ID | `games.nubala.boardgames` |
 | Email | privacy@nubala.games *(confirm before publishing)* |
 | Website | https://nubala.games/board-games/ *(confirm before publishing)* |
@@ -83,6 +83,16 @@ No accounts, no ads, no analytics. Settings and progress are stored locally on y
 board games, Arabic games, monopoly, catan, ludo, dominoes, mancala, checkers, snakes and ladders, cards, basra, rummy, uno, scrabble, risk, cluedo, party games, online board games, family games, offline games
 
 ---
+
+## What’s new in 1.2.2
+
+- **Rules closer to the originals:** Basra (the 7♦ sweeps the table and only counts as a basra when the table is all numerals totalling 10 or less; a jack no longer counts as a basra), Cluedo (a 4×4 corridor network and two-dice movement), and Pandemic (48 cities, 24 cubes per disease, and the official infection rate).
+- **Ticket to Ride:** 33 cities and 65 routes, including 12 double routes whose twin closes in a two-player game.
+- **Catan and Monopoly:** 2:1 specialist and 3:1 generic harbours with harbour-edge ownership, plus a bank stock of 32 houses and 12 hotels and an auction when a purchase is declined.
+- **Uno, Checkers, Backgammon, and Carcassonne:** Uno to 500 points with a +4 challenge, mandatory captures and a 40-move draw, doubling and games to 7, and Carcassonne farmers and fields.
+- **Unified hiding:** one global `hideSecrets` option, off by default, removed from individual game settings.
+- **Better online play:** application ping/pong, latency and connection quality, turn alerts, and leave confirmation.
+- **New cards and Ludo:** redesigned Waraq and Koot Bo Sitta cards and a visual pass on Ludo.
 
 ## What’s new in 1.2.1
 

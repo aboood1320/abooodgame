@@ -141,6 +141,7 @@
       const red = card.joker ? card.jokerColor !== "black" : SUITS[card.suit].color === "#b83b34";
       classes.push(red ? "is-red" : "is-black");
     }
+    if (card && state && state.variant === "basra" && state.sevenTakesAll !== false && isSevenDiamond(card)) classes.push("is-keycard");
     if (o.selected) classes.push("is-selected");
     if (o.dim) classes.push("is-dim");
     if (o.small) classes.push("is-small");
@@ -159,6 +160,7 @@
       ' aria-pressed="' + (o.selected ? "true" : "false") + '">' +
       '<span class="wq-card-face" aria-hidden="true">' + face + "</span>" +
       (o.badge ? '<span class="wq-card-badge">' + esc(o.badge) + "</span>" : "") +
+      (classes.indexOf("is-keycard") >= 0 ? '<span class="wq-key-badge" aria-hidden="true">★</span>' : "") +
       "</" + tag + ">"
     );
   }
@@ -257,6 +259,7 @@
       target: 101,
       jokers: false,
       jackTakesAll: true,
+      sevenTakesAll: true,
       basraBonus: 10,
       mostCardsBonus: 7,
       allowLayoff: true,
@@ -272,6 +275,7 @@
       target: Number(opts.target) || 101,
       jokers: !!opts.jokers,
       jackTakesAll: opts.jackTakesAll !== false,
+      sevenTakesAll: opts.sevenTakesAll !== false,
       basraBonus: Number(opts.basraBonus) >= 0 ? Number(opts.basraBonus) : 10,
       mostCardsBonus: Number(opts.mostCardsBonus) >= 0 ? Number(opts.mostCardsBonus) : 7,
       allowLayoff: opts.allowLayoff !== false,
@@ -354,9 +358,27 @@
     render();
   }
 
+  function isSevenDiamond(card) {
+    return !!card && card.rank === 7 && card.suit === "diamonds";
+  }
+
+  /** بصرة السبع ♦: تشترط أن تكون أوراق الأرض رقمية ومجموعها ١٠ أو أقل. */
+  function sevenDiamondBasra(cards) {
+    if (!cards.length) return false;
+    if (cards.some((card) => card.rank > 10)) return false;
+    return cards.reduce((sum, card) => sum + card.rank, 0) <= 10;
+  }
+
   function basraCapture(player, card) {
     let captured = [];
-    if (card.rank === 11 && state.jackTakesAll !== false) {
+    let basra = false;
+    const seven = isSevenDiamond(card) && state.sevenTakesAll !== false;
+    if (seven) {
+      captured = state.table.slice();
+      state.table = [];
+      basra = sevenDiamondBasra(captured);
+    } else if (card.rank === 11 && state.jackTakesAll !== false) {
+      // الجاك يأخذ كل الأرض، لكنه لا يحقق بصرة في قواعد البصرة الأصلية.
       captured = state.table.slice();
       state.table = [];
     } else {
@@ -365,8 +387,8 @@
         const ids = new Set(captured.map((item) => item.id));
         state.table = state.table.filter((item) => !ids.has(item.id));
       }
+      basra = captured.length > 0 && state.table.length === 0;
     }
-    const basra = captured.length > 0 && state.table.length === 0;
     const basraBonus = Number(state.basraBonus) >= 0 ? Number(state.basraBonus) : 10;
     const gained = captured.reduce((sum, item) => sum + basraValue(item), 0) + (basra ? basraBonus : 0);
     if (captured.length) {
@@ -429,6 +451,8 @@
         text += " إلى الأرض";
       }
       if (result.basra) text += " — <strong>بصرة!</strong> +" + ar(basraBonus);
+      else if (card.rank === 11 && state.jackTakesAll !== false && result.captured.length) text += " — الجاك يأخذ الأرض دون بصرة";
+      else if (isSevenDiamond(card) && state.sevenTakesAll !== false && result.captured.length) text += " — ٧♦ تأخذ الأرض دون بصرة";
       apiRef.log(text, result.basra ? "good" : "accent");
     }
     if (FX) {
@@ -596,8 +620,12 @@
         const matches = state.table.filter((tableCard) => tableCard.rank === item.rank);
         let score = matches.reduce((sum, tableCard) => sum + basraValue(tableCard), 0) + basraValue(item);
         if (item.rank === 11 && state.jackTakesAll !== false) score += 8 + state.table.reduce((sum, tableCard) => sum + basraValue(tableCard), 0) * 0.5;
+        if (isSevenDiamond(item) && state.sevenTakesAll !== false) {
+          score += 8 + state.table.reduce((sum, tableCard) => sum + basraValue(tableCard), 0) * 0.5;
+          if (sevenDiamondBasra(state.table)) score += 18;
+        }
         if (matches.length && state.table.length === matches.length) score += 16;
-        if (!matches.length && item.rank !== 11) score -= basraValue(item) * 0.7;
+        if (!matches.length && item.rank !== 11 && !isSevenDiamond(item)) score -= basraValue(item) * 0.7;
         return score + Math.random() * 0.1;
       },
       player.level
@@ -1022,7 +1050,7 @@
       '<div class="wq-pile"><span>كومة السحب</span><b>' + ar(state.deck.length) + "</b>" + cardHTML(null, { back: true, interactive: false, small: true }) + "</div>" +
       '<div class="wq-pile"><span>آخر حركة</span><b>' + (state.last ? esc(cardLabel(state.last.card)) : "—") + "</b></div>" +
       "</div>" +
-      '<p class="wq-rule-line">' + (state.jackTakesAll !== false ? "الجاك يأخذ كل الأرض" : "الجاك يأخذ المطابق فقط") + '. ' + (state.basraBonus > 0 ? "أخذ كل الأرض بضربة واحدة = بصرة +" + ar(state.basraBonus) + "." : "") + "</p>" +
+      '<p class="wq-rule-line">' + (state.jackTakesAll !== false ? "الجاك يأخذ كل الأرض" : "الجاك يأخذ المطابق فقط") + (state.sevenTakesAll !== false ? " · ٧♦ تأخذ كل الأرض" : "") + '. ' + (state.basraBonus > 0 ? "أخذ كل الأرض بورقة عادية = بصرة +" + ar(state.basraBonus) + "." : "") + "</p>" +
       (mine ? "" : '<p class="wq-turn-note">دور ' + esc(player.name) + " — " + (player.isCpu ? "الكمبيوتر يفكّر…" : "بانتظار اللاعب.") + "</p>") +
       "</section>"
     );
@@ -1047,7 +1075,7 @@
       (mine
         ? (state.variant === "six"
             ? '<p class="wq-hint">اضغط ورقة للعبها. إذا لم تجد مطابقة، اسحب من الكومة.</p>'
-            : '<p class="wq-hint">اضغط ورقة للعبها. طابق الرقم لأخذ الأوراق، أو العب جاك لأخذ الكل.</p>')
+            : '<p class="wq-hint">اضغط ورقة للعبها. طابق الرقم لأخذ الأوراق، أو العب جاك أو ٧♦ لأخذ الكل.</p>')
         : '<p class="wq-hint">' + (state.current === player.index
             ? "بانتظار " + esc(player.name) + "…"
             : "يدك محفوظة — تشاهد دور " + esc(state.players[state.current].name) + " الآن.") + "</p>") +
@@ -1292,6 +1320,7 @@
     target: 101,
     jokers: false,
     jackTakesAll: true,
+    sevenTakesAll: true,
     basraBonus: 10,
     mostCardsBonus: 7,
     allowLayoff: true,
@@ -1350,6 +1379,12 @@
         {
           key: "jackTakesAll",
           label: "الجاك يأخذ كل الأرض",
+          type: "toggle",
+          when: (o) => o.variant === "basra",
+        },
+        {
+          key: "sevenTakesAll",
+          label: "٧♦ تأخذ كل الأرض",
           type: "toggle",
           when: (o) => o.variant === "basra",
         },
@@ -1415,11 +1450,12 @@
 
     rules: {
       goal: "اجمع أعلى مجموع نقاط على مدى عدة جولات. في بصرة تجمع الأوراق من الأرض، وفي رامي تشكّل مجموعات وتسلسلات.",
-      facts: [["النسخ", "بصرة / رامي"], ["الأوراق", "٥٢ ورقة (+ جوكران اختياريان)"], ["الأرض", "٤ أوراق في بصرة"], ["الهدف", "قابل للاختيار"]],
+      facts: [["النسخ", "بصرة / رامي"], ["الأوراق", "٥٢ ورقة (+ جوكران اختياريان)"], ["الورقة الخاصة", "٧♦ تأخذ الأرض"], ["الهدف", "قابل للاختيار"]],
       components: [
         "مجموعة أوراق فرنسية من ٥٢ ورقة (A–K في أربعة أنواع)، ويمكن إضافة جوكرين في رامي.",
         "كومة سحب، وكومة رمي، وأوراق مكشوفة على الأرض.",
         "يد سرّية لكل لاعب، وسجل نقاط لجولات متعددة.",
+        "في بصرة تكون ٧♦ ورقة قوية: تأخذ كل أوراق الأرض، وتُحتسب بصرة إذا كانت أوراق الأرض رقمية ومجموعها ١٠ أو أقل.",
       ],
       setup: [
         "اختر النسخة (بصرة أو رامي) وعدد الأوراق الموزعة والقوانين قبل بدء اللعبة.",
@@ -1428,9 +1464,10 @@
         "يلعب اللاعبون بالترتيب، ويدور الدور مع عقارب الساعة.",
       ],
       steps: [
-        "<strong>بصرة — دورك:</strong> العب ورقة واحدة من يدك. إذا طابق رقمها رقم ورقة على الأرض، خذ الورقتين. يمكن تعديل تأثير الجاك والبصرة من الخيارات.",
-        "<strong>بصرة — الجاك:</strong> يأخذ جميع الأوراق الموجودة على الأرض دفعة واحدة حسب الإعداد.",
-        "<strong>بصرة — البصرة:</strong> إذا أخذت كل أوراق الأرض بضربة واحدة، تحصل على مكافأة قابلة للتعديل.",
+        "<strong>بصرة — دورك:</strong> العب ورقة واحدة من يدك. إذا طابق رقمها رقم ورقة على الأرض، خذ كل الأوراق المطابقة. يمكن تعديل تأثير الجاك والبصرة من الخيارات.",
+        "<strong>بصرة — ٧♦:</strong> ورقة قوية تأخذ جميع أوراق الأرض. تُحتسب بصرة فقط إذا كانت أوراق الأرض كلها رقمية ومجموعها ١٠ أو أقل؛ وإلا تأخذ الأوراق دون مكافأة بصرة.",
+        "<strong>بصرة — الجاك:</strong> يأخذ جميع الأوراق الموجودة على الأرض دفعة واحدة حسب الإعداد، لكنه لا يحقق بصرة.",
+        "<strong>بصرة — البصرة:</strong> إذا أخذت كل أوراق الأرض بورقة عادية بضربة واحدة، تحصل على مكافأة قابلة للتعديل.",
         "<strong>بصرة — السحب:</strong> بعد اللعب، اسحب ورقة من الكومة إن توفرت حتى تعود يدك إلى حجمها.",
         "<strong>رامي — السحب:</strong> ابدأ دورك بسحب ورقة من الكومة أو بأخذ الورقة المكشوفة.",
         "<strong>رامي — المجموعات:</strong> أنزل ٣ أوراق أو أكثر: مجموعة بنفس الرقم بأنواع مختلفة، أو تسلسلًا بنفس النوع بأرقام متتالية. يمكنك تفعيل/تعطيل إضافة الأوراق للمجموعات.",
@@ -1439,7 +1476,8 @@
       winning: "في بصرة: تُحتسب قيمة الأوراق المجموعة مع مكافأة البصرة ومكافأة الأكثر جمعًا حسب الإعدادات. أول لاعب يبلغ هدف النقاط بعد نهاية جولة يفوز. في رامي: من ينهي يده يحصل على مجموع نقاط أوراق الخصوم المتبقية، وأول من يبلغ الهدف يفوز.",
       notes: [
         "النسخة الرقمية تلعب جولات متتالية تلقائيًا حتى يبلغ أحد اللاعبين هدف النقاط المختار.",
-        "في بصرة لا توجد أفضلية للسبعة؛ الورقة الخاصة الوحيدة هي الجاك.",
+        "٧♦ تأخذ كل الأرض في بصرة، لكنها لا تمنح مكافأة البصرة إلا إذا كانت أوراق الأرض رقمية ومجموعها ١٠ أو أقل. الجاك يأخذ الأرض دون مكافأة بصرة.",
+        "النقاط تتبع نسخة المشرق الشائعة: الآس ١١، الملك ٤، الملكة ٣، الجاك ٢، والأوراق الرقمية بقيمتها.",
         "في رامي يمكن استخدام الجوكر بديلًا لأي ورقة عند تشكيل المجموعات.",
         "يد اللاعب الحالي فقط تظهر على الشاشة؛ تُخفى أيدي الآخرين وتُعرض أعداد أوراقهم.",
         "الأوراق المستخدمة من حزمة Kenney المرخّصة CC0، والحركات من طبقة المؤثرات المشتركة.",
@@ -1513,6 +1551,9 @@
           canLayoff,
           cardValue,
           basraValue,
+          basraCapture,
+          sevenDiamondBasra,
+          isSevenDiamond,
           setCurrent(index) {
             if (!state) return;
             state.current = U.clamp(Number(index) || 0, 0, state.players.length - 1);

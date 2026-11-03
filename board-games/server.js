@@ -42,6 +42,38 @@ const MIME = {
   ".txt": "text/plain; charset=utf-8",
 };
 
+/* ----------------------------- الوضع المدرسي (HTTP) ----------------------------- */
+
+let relay = null;
+try {
+  const core = require(path.join(__dirname, "..", "netlify", "relay-core.cjs"));
+  relay = core.createRelay(core.memoryStore());
+} catch (err) {
+  console.warn("تعذّر تحميل netlify/relay-core.cjs — الوضع المدرسي معطّل محليًا.");
+}
+
+function handleRelayRequest(req, res) {
+  const send = (status, obj) => {
+    res.writeHead(status, { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" });
+    res.end(JSON.stringify(obj));
+  };
+  if (!relay) return send(503, { ok: false, error: "unavailable" });
+  if (req.method !== "POST") return send(200, { ok: true, service: "bg-relay-local" });
+  let size = 0;
+  const chunks = [];
+  req.on("data", (chunk) => {
+    size += chunk.length;
+    if (size > 1_500_000) { req.destroy(); return; }
+    chunks.push(chunk);
+  });
+  req.on("end", async () => {
+    let body = null;
+    try { body = JSON.parse(Buffer.concat(chunks).toString("utf8")); } catch (err) { return send(400, { ok: false, error: "bad-json" }); }
+    return send(200, await relay.handle(body));
+  });
+  return undefined;
+}
+
 /* ----------------------------- أدوات عامة ----------------------------- */
 
 function lanAddresses() {
@@ -108,6 +140,11 @@ const server = http.createServer((req, res) => {
   if (urlPath === "/health") {
     res.writeHead(200, { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" });
     res.end(JSON.stringify({ ok: true, rooms: rooms.size, uptime: Math.round(process.uptime()) }));
+    return;
+  }
+
+  if (urlPath === "/api/relay") {
+    handleRelayRequest(req, res);
     return;
   }
 

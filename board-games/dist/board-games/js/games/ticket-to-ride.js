@@ -64,12 +64,14 @@
 
   const ROUTES = [
     ["seattle", "portland", 1, "gray"],
+    ["seattle", "portland", 1, "gray", 15],
     ["seattle", "calgary", 5, "gray"],
     ["portland", "sanfran", 5, "green"],
     ["sanfran", "losangeles", 3, "pink"],
     ["sanfran", "saltlake", 5, "orange"],
     ["losangeles", "lasvegas", 2, "gray"],
     ["losangeles", "phoenix", 3, "gray"],
+    ["losangeles", "phoenix", 3, "gray", 15],
     ["losangeles", "elpaso", 6, "orange", -28],
     ["lasvegas", "saltlake", 3, "orange"],
     ["phoenix", "elpaso", 3, "gray"],
@@ -84,17 +86,22 @@
     ["santafe", "oklahoma", 3, "blue"],
     ["denver", "saltlake", 3, "yellow"],
     ["denver", "kansascity", 4, "black"],
+    ["denver", "kansascity", 4, "black", 16],
     ["denver", "omaha", 4, "pink"],
     ["omaha", "kansascity", 1, "gray"],
     ["kansascity", "stlouis", 2, "blue"],
+    ["kansascity", "stlouis", 2, "blue", 14],
     ["stlouis", "chicago", 2, "green"],
+    ["stlouis", "chicago", 2, "green", 14],
     ["chicago", "omaha", 4, "pink"],
     ["chicago", "detroit", 3, "gray"],
     ["detroit", "pittsburgh", 2, "gray"],
     ["pittsburgh", "washington", 2, "gray"],
     ["pittsburgh", "newyork", 2, "green"],
     ["newyork", "boston", 2, "yellow"],
+    ["newyork", "boston", 2, "yellow", 14],
     ["newyork", "washington", 2, "black"],
+    ["newyork", "washington", 2, "black", 14],
     ["washington", "raleigh", 2, "gray"],
     ["raleigh", "atlanta", 2, "gray"],
     ["atlanta", "charleston", 2, "gray"],
@@ -106,17 +113,37 @@
     ["neworleans", "nashville", 2, "gray"],
     ["kansascity", "minneapolis", 4, "red"],
     ["minneapolis", "chicago", 3, "red"],
+    ["minneapolis", "chicago", 3, "red", 15],
     ["minneapolis", "omaha", 2, "gray"],
     ["minneapolis", "winnipeg", 4, "gray"],
     ["winnipeg", "calgary", 4, "gray"],
     ["chicago", "pittsburgh", 3, "white"],
+    ["chicago", "pittsburgh", 3, "white", 15],
     ["detroit", "toronto", 3, "gray"],
     ["toronto", "montreal", 2, "gray"],
+    ["toronto", "montreal", 2, "gray", 14],
     ["montreal", "newyork", 3, "blue"],
+    ["montreal", "newyork", 3, "blue", 15],
     ["montreal", "boston", 2, "gray"],
     ["toronto", "boston", 2, "gray"],
+    ["toronto", "boston", 2, "gray", 14],
     ["toronto", "chicago", 3, "gray", 24],
   ].map((r, i) => ({ id: "r" + i, a: r[0], b: r[1], length: r[2], color: r[3], curve: r[4] || 0 }));
+
+  // ربط المسارات المزدوجة: لكل زوج نهاية متقابلة، ولا يجوز للاعب نفسه الاستحواذ على المسارين.
+  const routeGroups = new Map();
+  ROUTES.forEach((route) => {
+    const key = [route.a, route.b].sort().join("|") + "|" + route.length;
+    if (!routeGroups.has(key)) routeGroups.set(key, []);
+    routeGroups.get(key).push(route);
+  });
+  routeGroups.forEach((group) => {
+    if (group.length !== 2) return;
+    group[0].twin = group[1].id;
+    group[1].twin = group[0].id;
+    if (!group[0].curve) group[0].curve = -14;
+    if (!group[1].curve) group[1].curve = 14;
+  });
 
   const ROUTE_POINTS = { 1: 1, 2: 2, 3: 4, 4: 7, 5: 10, 6: 15 };
 
@@ -164,7 +191,7 @@
       goal: "اجمع أكبر عدد من النقاط ببناء خطوط القطار بين المدن وإكمال تذاكر الوجهة. تُضاف نقاط التذاكر في نهاية اللعبة، وتُخصم قيمة التذكرة غير المكتملة.",
       facts: [["نهاية اللعبة", "عند وصول لاعب إلى قطارين أو أقل"], ["البطاقات", "8 ألوان + قاطرات"], ["أطول مسار", "+10 نقاط"], ["القطارات لكل لاعب", "45"]],
       components: [
-        "خريطة أمريكا الشمالية مبسّطة تضم 33 مدينة و53 مسار قطار بأطوال وألوان مختلفة.",
+        "خريطة أمريكا الشمالية تضم 33 مدينة و65 مسار قطار بأطوال وألوان مختلفة، بينها مسارات مزدوجة متوازية.",
         "بطاقات قطارات من 8 ألوان، بالإضافة إلى القاطرات التي تعمل كلون لأي مسار.",
         "5 بطاقات مكشوفة بجانب رزمة السحب، و45 قطارًا لكل لاعب.",
         "تذاكر وجهة سرّية تربط مدينتين وتُحتسب نقاطها في نهاية اللعبة.",
@@ -179,6 +206,7 @@
         "<strong>في دورك اختر إجراءً واحدًا:</strong> اسحب بطاقتين، أو اسحب تذاكر، أو استحوذ على مسار، أو مرّر الدور.",
         "<strong>سحب البطاقات:</strong> اضغط على إحدى البطاقات المكشوفة أو على رزمة السحب. اسحب بطاقتين، ثم ينتهي دورك. إذا سحبت قاطرة مكشوفة فتكفي وحدها وينتهي الدور.",
         "<strong>الاستحواذ على مسار:</strong> اضغط على المسار على الخريطة. ادفع عددًا من البطاقات يساوي طول المسار، بشرط أن تكون من لون المسار أو قاطرات. المسار الرمادي يقبل أي لون واحد.",
+        "<strong>المسارات المزدوجة:</strong> بعض المدن مرتبطة بمسارين متوازيين. لا يجوز للاعب نفسه الاستحواذ على المسارين، وفي مباراة لاعبين يُغلق المسار الثاني بمجرد الاستحواذ على الأول. في 3–5 لاعبين يمكن للاعب آخر الاستحواذ على المسار التوأم.",
         "<strong>النقاط:</strong> مسار من 1 = نقطة، 2 = نقطتان، 3 = 4، 4 = 7، 5 = 10، 6 = 15 نقطة.",
         "<strong>تذاكر الوجهة:</strong> يمكنك سحب 3 تذاكر في دورك والاحتفاظ بواحدة على الأقل، ثم ينتهي دورك. لا يمكنك سحب تذاكر وأنت في منتصف سحب بطاقات القطارات.",
         "<strong>القطارات:</strong> كل مسار تستهلكه يقلّل قطاراتك المتبقية. لا يمكنك الاستحواذ على مسار أطول من عدد قطاراتك.",
@@ -186,7 +214,8 @@
       ],
       winning: "تُحتسب نقاط المسارات فور الاستحواذ عليها، ثم تُضاف نقاط التذاكر المكتملة وتُخصم غير المكتملة. اللاعب صاحب أطول مسار متصل يحصل على 10 نقاط إضافية. الأعلى نقاطًا يفوز، وعند التعادل يُفاضل بعدد التذاكر المكتملة.",
       notes: [
-        "الخريطة مبسّطة وتحتوي مسارًا واحدًا بين كل مدينتين، ولا تحتوي مسارات مزدوجة أو محطات.",
+        "الخريطة مبنية على نسخة تذكرة القطار الأمريكية: 33 مدينة ومسارات مزدوجة متوازية، ولا تحتوي محطات (المحطات خاصية نسخة أوروبا).",
+        "في مباراة لاعبين يُغلق المسار المزدوج الثاني بعد الاستحواذ على الأول، ولا يستطيع أي لاعب امتلاك مساري المسار المزدوج نفسه.",
         "تذاكر الوجهة وبطاقات اليد سرّية. تُخفى تلقائيًا عند انتقال الدور، وتُعرض فقط بعد الضغط على «إظهار».",
         "القاطرة المسحوبة من رزمة السحب تُحسب بطاقة عادية، أما القاطرة المكشوفة في السوق فتُنهي السحب فورًا.",
         "القاطرة تعمل كلون لأي مسار، ويمكن استخدام أكثر من قاطرة واحدة في المسار الواحد.",
@@ -336,6 +365,20 @@
   function cityName(id) { return CITIES[id] ? CITIES[id].name : id; }
   function routeById(id) { return ROUTES.find((r) => r.id === id); }
   function totalCards(p) { return HAND_COLORS.reduce((n, c) => n + (p.hand[c] || 0), 0); }
+
+  /** هل المسار متاح للاعب؟ يمنع المسار المزدوج نفسه للاعب، ويُغلقه كليًا في مباراة لاعبين. */
+  function routeAvailable(route, p) {
+    if (!route) return false;
+    if (state.routeOwners[route.id] != null) return false;
+    if (route.twin) {
+      const twinOwner = state.routeOwners[route.twin];
+      if (twinOwner != null) {
+        if (state.players.length <= 2) return false;
+        if (p && twinOwner === p.index) return false;
+      }
+    }
+    return true;
+  }
   function handColorCount(p, color) { return color === "loco" ? p.hand.loco : p.hand[color]; }
 
   function drawTicketCards(n) {
@@ -642,7 +685,7 @@
     const needed = cpuNeededRoutes(p);
     const network = cpuNetwork(p);
     const candidates = ROUTES.filter((r) => {
-      if (state.routeOwners[r.id] != null) return false;
+      if (!routeAvailable(r, p)) return false;
       if (r.length > p.trains) return false;
       if (!canAfford(p, r)) return false;
       return needed.has(r.id) || network.has(r.a) || network.has(r.b) || ROUTE_POINTS[r.length] >= 7;
@@ -762,7 +805,7 @@
 
   function applyRouteClaim(p, route, chosen) {
     if (!p || !route || !chosen) return false;
-    if (state.routeOwners[route.id] != null) return false;
+    if (!routeAvailable(route, p)) return false;
     if (chosen.useColor > 0) p.hand[chosen.color] -= chosen.useColor;
     if (chosen.loco > 0) p.hand.loco -= chosen.loco;
     state.routeOwners[route.id] = p.index;
@@ -797,6 +840,11 @@
     if (!route) return;
     if (state.routeOwners[route.id] != null) { BG.toast("هذا المسار محجوز بالفعل.", "warn"); return; }
     const p = cur();
+    if (!routeAvailable(route, p)) {
+      if (route.twin && state.routeOwners[route.twin] === p.index) BG.toast("لا يمكنك الاستحواذ على مساري المسار المزدوج نفسه.", "warn");
+      else BG.toast("أُغلق هذا المسار المزدوج بعد استحواذ اللاعب الآخر على المسار التوأم.", "warn");
+      return;
+    }
     if (route.length > p.trains) { BG.toast("لا تملك قطارات كافية لهذا المسار.", "warn"); return; }
     const options = paymentOptions(p, route);
     if (!options.length) {
@@ -1188,7 +1236,7 @@
       const color = COLORS[route.color] || COLORS.gray;
       const path = routePath(route);
       const ownerColor = owner != null ? state.players[owner].color : null;
-      const affordable = !state.over && owner == null && state.phase === "action" && canAfford(p, route);
+      const affordable = !state.over && owner == null && state.phase === "action" && routeAvailable(route, p) && canAfford(p, route);
       parts.push('<g class="ttr-route' + (owner != null ? " claimed" : "") + (affordable ? " affordable" : "") + '" data-route="' + route.id + '">');
       parts.push('<path d="' + path + '" class="ttr-route-casing"/>');
       parts.push(trainCarsSVG(route, owner != null ? ownerColor : color.hex));

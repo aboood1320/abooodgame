@@ -4,6 +4,7 @@
     "build": "node board-games/tools/build.js"
   },
   "dependencies": {
+    "@netlify/blobs": "^8.1.0",
     "ws": "^8.22.0"
   }
 }

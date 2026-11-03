@@ -49,6 +49,18 @@
   background: rgba(255, 255, 255, 0.1);
 }
 .net-status.is-error { color: #ff9c8f; }
+.net-status.is-error .bg-btn { margin-top: 8px; display: inline-flex; }
+
+/* ثلاثة أوضاع: عالمي / مدرسي / محلي */
+.net-modes {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+.net-mode-btn small { display: block; line-height: 1.5; }
+@media (max-width: 680px) {
+  .net-modes { grid-template-columns: 1fr; }
+}
 
 /* جودة الاتصال في اللوبي وقائمة اللاعبين */
 .net-conn-line {

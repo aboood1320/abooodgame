@@ -155,6 +155,25 @@
 }
 .wq-card.is-red { --wq-ink: #b23b33; }
 .wq-card.is-black { --wq-ink: #22313a; }
+.wq-card.is-keycard {
+  border-color: rgba(176, 132, 48, 0.72);
+  box-shadow:
+    0 16px 30px -16px rgba(0, 0, 0, 0.95),
+    0 0 0 2px rgba(201, 163, 91, 0.42),
+    0 0 20px -4px rgba(226, 184, 92, 0.42);
+}
+.wq-card.is-keycard .wq-card-face::before { border-color: rgba(176, 132, 48, 0.58); }
+.wq-key-badge {
+  position: absolute;
+  z-index: 3;
+  top: calc(var(--cw) * 0.055);
+  right: calc(var(--cw) * 0.075);
+  color: #a9781f;
+  font-size: calc(var(--cw) * 0.2);
+  line-height: 1;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.8);
+  pointer-events: none;
+}
 
 .wq-card-face {
   position: absolute;

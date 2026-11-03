@@ -29,7 +29,7 @@
     { id: "london", name: "لندن", c: "blue", x: 560, y: 165 },
     { id: "madrid", name: "مدريد", c: "blue", x: 570, y: 262 },
     { id: "paris", name: "باريس", c: "blue", x: 625, y: 195 },
-    { id: "milan", name: "ميلانو", c: "blue", x: 675, y: 235 },
+    { id: "milan", name: "ميلانو", c: "blue", x: 655, y: 260 },
     { id: "essen", name: "إيسن", c: "blue", x: 640, y: 155 },
     { id: "stpetersburg", name: "سانت بطرسبرغ", c: "blue", x: 735, y: 115 },
 
@@ -59,11 +59,11 @@
     { id: "kolkata", name: "كلكتا", c: "black", x: 985, y: 395 },
     { id: "riyadh", name: "الرياض", c: "black", x: 805, y: 370 },
 
-    { id: "bangkok", name: "بانكوك", c: "red", x: 975, y: 455 },
+    { id: "bangkok", name: "بانكوك", c: "red", x: 985, y: 490 },
     { id: "jakarta", name: "جاكرتا", c: "red", x: 1015, y: 545 },
     { id: "hcmc", name: "هو تشي منه", c: "red", x: 1030, y: 470 },
     { id: "hongkong", name: "هونغ كونغ", c: "red", x: 1070, y: 395 },
-    { id: "shanghai", name: "شنغهاي", c: "red", x: 1110, y: 335 },
+    { id: "shanghai", name: "شنغهاي", c: "red", x: 1090, y: 355 },
     { id: "beijing", name: "بكين", c: "red", x: 1075, y: 270 },
     { id: "seoul", name: "سيول", c: "red", x: 1130, y: 245 },
     { id: "tokyo", name: "طوكيو", c: "red", x: 1195, y: 285 },

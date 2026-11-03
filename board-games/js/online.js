@@ -394,11 +394,14 @@
 
   function lobbyFormHTML() {
     const cloud = BG.net.mode === "cloud";
+    const web = BG.net.mode === "web";
     const modeTabs =
       '<div class="net-modes" role="tablist" aria-label="نوع الاتصال">' +
       '<button type="button" class="net-mode-btn' + (cloud ? " is-on" : "") + '" data-net-mode="cloud" role="tab" aria-selected="' + cloud + '">' +
       '<span aria-hidden="true">🌍</span><strong>لعب عالمي</strong><small>مع أي لاعب في العالم عبر الإنترنت</small></button>' +
-      '<button type="button" class="net-mode-btn' + (!cloud ? " is-on" : "") + '" data-net-mode="lan" role="tab" aria-selected="' + !cloud + '">' +
+      '<button type="button" class="net-mode-btn' + (web ? " is-on" : "") + '" data-net-mode="web" role="tab" aria-selected="' + web + '">' +
+      '<span aria-hidden="true">🏫</span><strong>الوضع المدرسي</strong><small>يعمل على أجهزة المدارس والشبكات المقيّدة</small></button>' +
+      '<button type="button" class="net-mode-btn' + (!cloud && !web ? " is-on" : "") + '" data-net-mode="lan" role="tab" aria-selected="' + (!cloud && !web) + '">' +
       '<span aria-hidden="true">📶</span><strong>شبكة محلية</strong><small>على نفس شبكة Wi-Fi بلا إنترنت</small></button>' +
       "</div>";
 
@@ -409,9 +412,11 @@
     if (!cloud) {
       return (
         '<div class="net-lobby-head">' +
-        '<span class="net-kicker">📶 لعب عبر الشبكة المحلية</span>' +
-        "<h2>اجلس إلى الطاولة مع من حولك</h2>" +
-        "<p>أنشئ غرفة على هذا الجهاز، أو انضم برمز من أربعة أحرف. الاتصال مباشر بين الأجهزة (WebRTC) عبر خادم الإشارات المحلي، بلا حسابات وبلا إنترنت.</p>" +
+        '<span class="net-kicker">' + (web ? "🏫 الوضع المدرسي — يعمل حتى مع الشبكات المقيّدة" : "📶 لعب عبر الشبكة المحلية") + "</span>" +
+        "<h2>" + (web ? "العب مع أصدقائك حتى لو كانت أجهزتكم مقيّدة" : "اجلس إلى الطاولة مع من حولك") + "</h2>" +
+        (web
+          ? "<p>أنشئ غرفة وشارك الرمز مع زملائك، أو انضم برمز من أربعة أحرف. لا يحتاج إلا أن يفتح هذا الموقع: كل شيء يمرّ عبر موقعنا نفسه باتصال عادي، بلا برامج ولا إعدادات ولا حسابات. الاستجابة أبطأ قليلًا من اللعب العالمي، لكنها كافية لألعاب الطاولة.</p>"
+          : "<p>أنشئ غرفة على هذا الجهاز، أو انضم برمز من أربعة أحرف. الاتصال عبر خادم اللعب المحلي، بلا حسابات وبلا إنترنت.</p>") +
         "</div>" +
         modeTabs +
         nameField +
@@ -425,8 +430,9 @@
         '<div class="net-join-row"><input data-net-code type="text" maxlength="8" inputmode="latin" placeholder="ABCD" aria-label="رمز الغرفة" value="' + esc(state.pendingInvite || "") + '" /><button type="button" class="bg-btn primary" data-net-join>انضم</button></div>' +
         "</section>" +
         "</div>" +
+        (web ? '<p class="net-hint">🏫 جميع اللاعبين يفتحون هذا الموقع نفسه ويضغطون «الوضع المدرسي» ثم يدخلون الرمز — لا حاجة لأي برنامج أو إعداد. الغرفة تُحذف تلقائيًا إذا غاب المضيف.</p>' : "") +
         status +
-        '<p class="net-hint">💡 للعب على أجهزة مختلفة على نفس الشبكة: على جهاز المضيف شغّل الملف <code>start-lan.bat</code> (أو <code>node board-games/server.js</code>) ثم افتح على كل جهاز العنوان الذي يظهر في نافذته. اللعب يمرّ عبر المضيف نفسه فلا حاجة لإنترنت.</p>'
+        '<p class="net-hint"' + (web ? " hidden" : "") + '>💡 للعب على أجهزة مختلفة على نفس الشبكة: على جهاز المضيف شغّل الملف <code>start-lan.bat</code> (أو <code>node board-games/server.js</code>) ثم افتح على كل جهاز العنوان الذي يظهر في نافذته. اللعب يمرّ عبر المضيف نفسه فلا حاجة لإنترنت.</p>'
       );
     }
 
@@ -472,6 +478,23 @@
       '<div class="net-join-row"><button type="button" class="bg-btn small primary" data-turn-save>حفظ</button><button type="button" class="bg-btn small" data-turn-clear>مسح</button></div>' +
       "</details>"
     );
+  }
+
+  /** فشل في الوضع العالمي (غالبًا جهاز مدرسي يحجب WebRTC/الخوادم الخارجية): نعرض زرّ التبديل للوضع المدرسي. */
+  function offerSchoolMode(status, message, code) {
+    if (!status || !document.body.contains(status) || BG.net.mode !== "cloud") return;
+    status.className = "net-status is-error";
+    status.innerHTML = esc(message) + ' <button type="button" class="bg-btn small primary" data-net-switch-web>🏫 جرّب الوضع المدرسي (يعمل على أجهزة المدارس)</button>';
+    const button = status.querySelector("[data-net-switch-web]");
+    if (button) {
+      button.addEventListener("click", () => {
+        if (state.busy) return;
+        BG.net.setMode("web");
+        if (code) state.pendingInvite = code;
+        renderLobby();
+        BG.toast("تم التبديل إلى الوضع المدرسي. يجب أن يستخدمه الجميع معًا.", "good");
+      });
+    }
   }
 
   function bindLobbyForm(body) {
@@ -554,6 +577,7 @@
       if (state.busy) return;
       state.busy = true;
       busy(true, BG.net.mode === "cloud" ? "جارٍ فتح غرفة على الشبكة العالمية…" : "جارٍ إنشاء الغرفة والاتصال…");
+      let failure = null;
       try {
         const msg = await BG.net.createRoom(state.name);
         state.inRoom = true;
@@ -563,12 +587,13 @@
         BG.net.ensureHostConnections();
         if (msg && msg.peers) renderLobby();
       } catch (err) {
-        busy(false, "");
-        BG.toast(err.message || "تعذّر إنشاء الغرفة.", "warn");
+        failure = (err && err.message) || "تعذّر إنشاء الغرفة.";
+        BG.toast(failure, "warn");
       } finally {
         state.busy = false;
         busy(false, "");
       }
+      if (failure) offerSchoolMode(status, failure, "");
     });
 
     join.addEventListener("click", async () => {
@@ -581,6 +606,7 @@
       }
       state.busy = true;
       busy(true, "جارٍ الانضمام إلى الغرفة…");
+      let joinFailure = null;
       try {
         await BG.net.joinRoom(code, state.name);
         state.inRoom = true;
@@ -588,12 +614,13 @@
         state.pendingInvite = "";
         renderLobby();
       } catch (err) {
-        busy(false, "");
-        BG.toast(err.message || "تعذّر الانضمام.", "warn");
+        joinFailure = (err && err.message) || "تعذّر الانضمام.";
+        BG.toast(joinFailure, "warn");
       } finally {
         state.busy = false;
         busy(false, "");
       }
+      if (joinFailure) offerSchoolMode(status, joinFailure, code);
     });
 
     if (quick) {
@@ -661,7 +688,7 @@
 
     return (
       '<div class="net-lobby-head net-room-head">' +
-      '<span class="net-kicker">' + (cloud ? "🌍 غرفة عالمية" : "📶 غرفة محلية") + "</span>" +
+      '<span class="net-kicker">' + (cloud ? "🌍 غرفة عالمية" : BG.net.mode === "web" ? "🏫 غرفة الوضع المدرسي" : "📶 غرفة محلية") + "</span>" +
       '<div class="net-code-box"><span>رمز الغرفة</span><strong data-net-code-label>' + esc(code) + "</strong>" +
       '<button type="button" class="bg-btn small" data-net-copy>نسخ الرمز</button>' +
       '<button type="button" class="bg-btn small primary" data-net-invite>نسخ رابط الدعوة</button>' +
@@ -670,7 +697,7 @@
         ? "شارك رابط الدعوة مع أي شخص في العالم، أو أعطه الرمز لينضم من صفحة «لعب جماعي». اللاعبون المتصلون يظهرون أدناه."
         : "شارك الرمز مع أصدقائك على الشبكة نفسها. اللاعبون المتصلون يظهرون أدناه.") + "</p>" +
       '<p class="net-conn-line"><span class="net-conn-dot" aria-hidden="true"></span><span>جودة الاتصال</span><strong data-net-quality data-quality="unknown">تُقاس بعد أول تبادل…</strong></p>' +
-      (!cloud && host ? '<p class="net-lan-urls" data-net-lan-urls></p>' : "") +
+      (BG.net.mode === "lan" && host ? '<p class="net-lan-urls" data-net-lan-urls></p>' : "") +
       "</div>" +
       '<div class="net-people">' +
       playersListHTML(peers, openPeers, seats) +
@@ -702,7 +729,7 @@
           (state.config && state.config.options ? '<p class="net-option-summary" data-net-guest-options>' + esc(optionsSummary(gameDef(state.config.gameId), state.config.options)) + "</p>" : "") +
           "</div>") +
       '<div class="net-room-foot"><button type="button" class="bg-btn ghost" data-net-leave>مغادرة الغرفة</button><span>' +
-      (cloud ? "إشارات عالمية + اتصال مشفّر نقطة بنقطة عبر WebRTC" : "الاتصال مشفّر نقطة بنقطة عبر WebRTC") + "</span></div>"
+      (cloud ? "إشارات عالمية + اتصال مشفّر نقطة بنقطة عبر WebRTC" : BG.net.mode === "web" ? "اتصال HTTPS عادي عبر الموقع نفسه" : "الاتصال عبر خادم اللعب المحلي") + "</span></div>"
     );
   }
 
@@ -1384,7 +1411,7 @@
     const role = state.hud.querySelector(".net-hud-role");
     if (!role) return;
     const me = state.localSeat >= 0 ? seatName(state.localSeat) : "مشاهد";
-    const icon = BG.net && BG.net.mode === "cloud" ? "🌍" : "📶";
+    const icon = BG.net && BG.net.mode === "cloud" ? "🌍" : BG.net && BG.net.mode === "web" ? "🏫" : "📶";
     const mode = state.spectating ? "👁 مشاهد" : (state.isHost ? "المضيف" : "لاعب");
     const myTurn = state.inGame && !state.spectating && state.localSeat >= 0 && state.lastSeat === state.localSeat;
     role.textContent = icon + " " + mode + " · " + me + (myTurn ? " · دورك" : "");
@@ -2046,7 +2073,7 @@
     try {
       const params = new URLSearchParams(location.search);
       const requestedMode = params.get("mode");
-      if (requestedMode === "cloud" || requestedMode === "lan") BG.net.setMode(requestedMode);
+      if (requestedMode === "cloud" || requestedMode === "lan" || requestedMode === "web") BG.net.setMode(requestedMode);
       const join = (params.get("join") || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 8);
       if (join.length >= 4) {
         state.pendingInvite = join;

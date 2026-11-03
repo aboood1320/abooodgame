@@ -40,7 +40,7 @@
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   grid-template-rows: repeat(3, minmax(0, 1fr));
-  gap: 15px;
+  gap: 27px;
   width: 100%;
   min-width: 330px;
   max-width: 860px;
@@ -84,6 +84,7 @@
   stroke-dasharray: 4 5;
   stroke-width: 1.4px;
 }
+.cluedo-hall-dot { fill: rgba(246, 242, 232, 0.26); stroke: rgba(10, 23, 29, 0.8); stroke-width: 0.3px; }
 
 /* ------------------------------ الغرف ------------------------------ */
 

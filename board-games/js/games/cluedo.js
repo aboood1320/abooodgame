@@ -38,13 +38,48 @@
     ["kitchen", "study"], ["conservatory", "lounge"],
   ];
 
-  const ADJ = {};
-  ROOMS.forEach((room) => { ADJ[room.id] = []; });
-  ROOM_EDGES.forEach(([a, b]) => {
-    if (!ADJ[a] || !ADJ[b]) return;
-    ADJ[a].push(b);
-    ADJ[b].push(a);
+  const SECRET_PASSAGES = [["kitchen", "study"], ["conservatory", "lounge"]];
+
+  /*
+   * شبكة الممرات: 4×4 عقد بين الغرف وحولها، وكل غرفة تصل إلى العقد الأربع المجاورة لها.
+   * الانتقال بين غرفتين يكلّف خطوة للخروج وخطوات الممر وخطوة للدخول.
+   */
+  const HALL_N = 4;
+  const ROOM_DOORS = {
+    kitchen: [[0, 0], [1, 0], [0, 1], [1, 1]],
+    ballroom: [[1, 0], [2, 0], [1, 1], [2, 1]],
+    conservatory: [[2, 0], [3, 0], [2, 1], [3, 1]],
+    dining: [[0, 1], [1, 1], [0, 2], [1, 2]],
+    billiard: [[1, 1], [2, 1], [1, 2], [2, 2]],
+    library: [[2, 1], [3, 1], [2, 2], [3, 2]],
+    lounge: [[0, 2], [1, 2], [0, 3], [1, 3]],
+    hall: [[1, 2], [2, 2], [1, 3], [2, 3]],
+    study: [[2, 2], [3, 2], [2, 3], [3, 3]],
+  };
+
+  function hallKey(row, col) { return "h:" + row + "," + col; }
+
+  const CORRIDOR = new Map();
+  function corridorLink(a, b) {
+    if (!CORRIDOR.has(a)) CORRIDOR.set(a, []);
+    if (!CORRIDOR.has(b)) CORRIDOR.set(b, []);
+    if (!CORRIDOR.get(a).includes(b)) CORRIDOR.get(a).push(b);
+    if (!CORRIDOR.get(b).includes(a)) CORRIDOR.get(b).push(a);
+  }
+  for (let row = 0; row < HALL_N; row++) {
+    for (let col = 0; col < HALL_N; col++) {
+      const key = hallKey(row, col);
+      if (!CORRIDOR.has(key)) CORRIDOR.set(key, []);
+      if (col + 1 < HALL_N) corridorLink(key, hallKey(row, col + 1));
+      if (row + 1 < HALL_N) corridorLink(key, hallKey(row + 1, col));
+    }
+  }
+  ROOMS.forEach((room) => {
+    (ROOM_DOORS[room.id] || []).forEach(([row, col]) => corridorLink(room.id, hallKey(row, col)));
   });
+  SECRET_PASSAGES.forEach(([a, b]) => corridorLink(a, b));
+
+  function corridorNeighbors(node) { return CORRIDOR.get(node) || []; }
 
   /* ------------------------------ البطاقات ------------------------------ */
 
@@ -132,7 +167,9 @@
     const queue = [from];
     while (queue.length) {
       const node = queue.shift();
-      ADJ[node].forEach((next) => {
+      // لا يُسمح بالمرور عبر غرفة وسيطة؛ الغرفة نهاية مسار فقط.
+      if (node !== from && node.indexOf("h:") !== 0) continue;
+      corridorNeighbors(node).forEach((next) => {
         if (dist[next] == null) {
           dist[next] = dist[node] + 1;
           queue.push(next);
@@ -792,6 +829,28 @@
     return Object.keys(sides).map((side) => '<i class="cluedo-door is-' + side + '" aria-hidden="true"></i>').join("");
   }
 
+  function corridorSVG() {
+    const pos = [4.2, 34.4, 65.6, 95.8];
+    const parts = ['<svg class="cluedo-links" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">'];
+    for (let row = 0; row < HALL_N; row++) {
+      for (let col = 0; col < HALL_N; col++) {
+        if (col + 1 < HALL_N) {
+          parts.push('<line x1="' + pos[col] + '" y1="' + pos[row] + '" x2="' + pos[col + 1] + '" y2="' + pos[row] + '" />');
+        }
+        if (row + 1 < HALL_N) {
+          parts.push('<line x1="' + pos[col] + '" y1="' + pos[row] + '" x2="' + pos[col] + '" y2="' + pos[row + 1] + '" />');
+        }
+      }
+    }
+    for (let row = 0; row < HALL_N; row++) {
+      for (let col = 0; col < HALL_N; col++) {
+        parts.push('<circle class="cluedo-hall-dot" cx="' + pos[col] + '" cy="' + pos[row] + '" r="0.72" />');
+      }
+    }
+    parts.push("</svg>");
+    return parts.join("");
+  }
+
   function boardHTML() {
     const reachMap = {};
     if (state.phase === "move" && !state.over) state.reachable.forEach((entry) => { reachMap[entry.room.id] = entry.steps; });
@@ -824,7 +883,7 @@
         "</button>"
       );
     }).join("");
-    return '<div class="cluedo-board">' + rooms + "</div>";
+    return '<div class="cluedo-board">' + corridorSVG() + rooms + "</div>";
   }
 
   function diceHTML() {
@@ -1032,7 +1091,7 @@
       goal: "اكتشف ثلاث بطاقات القضية المخبأة في الظرف: من ارتكب الجريمة، وبأي سلاح، وفي أي غرفة. اطرح اقتراحات لتضيّق الاحتمالات، ودحض اقتراحات خصومك، ثم قدّم اتهامًا نهائيًا صحيحًا قبل أن يسبقك أحد.",
       facts: [["الغرف", "٩ غرف"], ["المشتبه بهم", "٦"], ["الأسلحة", "٦"], ["بطاقات التحقيق", "٢١ بطاقة"]],
       components: [
-        "لوحة قصر من ٩ غرف متصلة بممرات، مع ممرين سرّيين بين الزوايا.",
+        "لوحة قصر من ٩ غرف متصلة بشبكة ممرات من ١٦ عقدة، مع ممرين سرّيين بين الزوايا.",
         "٦ بطاقات مشتبه بهم و٦ بطاقات أسلحة و٩ بطاقات غرف (٢١ بطاقة إجمالًا).",
         "ظرف القضية يحوي بطاقة واحدة من كل فئة: الفاعل، السلاح، المكان.",
         "قطعة لكل محقق، وورقة استنتاج سرّية (يدك في النسخة الرقمية).",
@@ -1046,7 +1105,7 @@
         "بطاقات اليد سرّية دائمًا. لا يُظهرها اللاعب إلا عند دوره أو عند دحض اقتراح، وبطاقة واحدة فقط.",
       ],
       steps: [
-        "<strong>الحركة:</strong> ارمِ النردين في بداية دورك. يمكنك الانتقال إلى أي غرفة تبعد عن غرفتك بعدد خطوات لا يتجاوز مجموع النرد. كل غرفة تُحتسب خطوة واحدة، والممرات السرية تربط المكتب بالمطبخ والدفيئة بالصالة بخطوة واحدة. يمكنك أيضًا البقاء في مكانك.",
+        "<strong>الحركة:</strong> ارمِ النردين في بداية دورك. تحرّك عبر شبكة الممرات: الخروج من غرفتك يكلّف خطوة، وكل ضلع ممر خطوة، ودخول الغرفة خطوة. يمكنك التوقف في أي غرفة تصل إليها ضمن مجموع النرد، والممرات السرية تربط المكتب بالمطبخ والدفيئة بالصالة بخطوة واحدة. يمكنك أيضًا البقاء في مكانك.",
         "<strong>الاقتراح:</strong> بعد الحركة، وأنت داخل غرفة، يمكنك اقتراح مشتبه به وسلاح. الغرفة المقترحة هي الغرفة التي تقف فيها حتمًا. الاقتراح يُنهي دورك.",
         "<strong>الدحض:</strong> يبدأ اللاعب التالي لك في السؤال سرًا: هل يملك أي بطاقة من العناصر الثلاثة؟ أول لاعب يملك بطاقة مطابقة يعرض عليك بطاقة واحدة فقط من اختياره، دون أن يراها بقية اللاعبين. إن كان يملك أكثر من بطاقة، يختار واحدة فقط.",
         "<strong>لا دحض:</strong> إذا لم يملك أي لاعب نشط أو مُقصى أي بطاقة من العناصر الثلاثة، فلا أحد يدحض اقتراحك. هذا يعني أن أحد العناصر الثلاثة على الأقل قد يكون في ظرف القضية.",
@@ -1055,7 +1114,7 @@
       ],
       winning: "يفوز من يقدّم اتهامًا نهائيًا صحيحًا ويكشف بطاقات الظرف الثلاث. إذا أُقصي جميع المحققين الآخرين بالأخطاء، يفوز المحقق النشط الأخير بالقضية. لا يمكن للمُقصى أن يقدّم اتهامًا أو اقتراحًا، لكنه يظل مطالبًا بدحض الاقتراحات.",
       notes: [
-        "النسخة الرقمية تبسّط الحركة: الغرف عقد متصلة، وتُحتسب كل غرفة خطوة، ويُسمح بالمرور عبر الغرف حتى مجموع النرد. لا توجد مربعات ممرات منفصلة.",
+        "الحركة تعتمد شبكة ممرات حقيقية من ١٦ عقدة بين الغرف؛ لا يُسمح بالمرور عبر غرفة وسيطة، بل يجب السير في الممرات حتى باب الغرفة الهدف.",
         "الاقتراح يستخدم غرفتك الحالية تلقائيًا وينهي دورك، بدل السماح بالاقتراح ثم مواصلة الحركة.",
         "قطع المشتبه بهم والأسلحة لا تتحرك على اللوحة عند الاقتراح؛ الاقتراح للاستنتاج فقط.",
         "الممرات السرية: المكتب ↔ المطبخ، والدفيئة ↔ الصالة.",

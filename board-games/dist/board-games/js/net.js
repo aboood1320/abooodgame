@@ -46,7 +46,7 @@
   function readMode() {
     try {
       const saved = localStorage.getItem(MODE_KEY);
-      if (saved === "lan" || saved === "cloud") return saved;
+      if (saved === "lan" || saved === "cloud" || saved === "web") return saved;
     } catch (err) { /* ignore */ }
     return "cloud";
   }
@@ -241,8 +241,161 @@
     return scheme + "//" + host + "/signal";
   }
 
+  /* ============================== الوضع المدرسي (HTTPS فقط) ==============================
+     يعمل حتى على أجهزة المدارس التي تحجب WebRTC وخوادم الإشارات الخارجية:
+     كل شيء طلبات POST عادية إلى نفس عنوان الموقع (/api/relay). يقلّد واجهة WebSocket
+     فتعمل نفس منطق الوضع المحلي (تمرير الرسائل عبر الخادم). */
+
+  const RELAY_ENDPOINT = "/api/relay";
+
+  function HttpSocket(endpoint) {
+    const listeners = { open: [], message: [], close: [], error: [] };
+    const self = this;
+    const queue = [];
+    let flushing = false;
+    let closed = false;
+    let failures = 0;
+    let sendFailures = 0;
+    let inRoom = false;
+    const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+    const sid = (() => {
+      const bytes = new Uint8Array(8);
+      if (window.crypto && window.crypto.getRandomValues) window.crypto.getRandomValues(bytes);
+      else for (let i = 0; i < 8; i++) bytes[i] = Math.floor(Math.random() * 256);
+      return Array.from(bytes).map((b) => (b < 16 ? "0" : "") + b.toString(16)).join("");
+    })();
+
+    this.readyState = 0;
+    this.sid = sid;
+
+    function dispatch(type, event) {
+      (listeners[type] || []).slice().forEach((fn) => {
+        try { fn(event || {}); } catch (err) { console.warn(err); }
+      });
+    }
+
+    this.addEventListener = (type, fn) => {
+      if (listeners[type]) listeners[type].push(fn);
+    };
+
+    async function post(body, timeoutMs) {
+      const ctl = typeof AbortController === "function" ? new AbortController() : null;
+      const timer = ctl ? setTimeout(() => ctl.abort(), timeoutMs) : null;
+      try {
+        const res = await fetch(endpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(Object.assign({ sid }, body)),
+          cache: "no-store",
+          signal: ctl ? ctl.signal : undefined,
+        });
+        if (!res.ok) throw new Error("http " + res.status);
+        const data = await res.json();
+        if (!data || data.ok === false) throw new Error((data && data.error) || "bad-response");
+        return data;
+      } finally {
+        if (timer) clearTimeout(timer);
+      }
+    }
+
+    function fail() {
+      if (closed) return;
+      closed = true;
+      self.readyState = 3;
+      dispatch("close", {});
+    }
+
+    async function flush() {
+      if (flushing) return;
+      flushing = true;
+      try {
+        while (queue.length && !closed) {
+          const batch = queue.splice(0, 20);
+          try {
+            await post({ op: "send", msgs: batch }, 12000);
+            sendFailures = 0;
+          } catch (err) {
+            sendFailures += 1;
+            if (sendFailures > 4) { queue.length = 0; fail(); return; }
+            queue.unshift.apply(queue, batch);
+            await wait(600 * sendFailures);
+          }
+        }
+      } finally {
+        flushing = false;
+      }
+    }
+
+    async function pollLoop() {
+      while (!closed) {
+        const started = Date.now();
+        try {
+          const data = await post({ op: "poll", wait: 6, inRoom }, 15000);
+          failures = 0;
+          const msgs = data.msgs || [];
+          msgs.forEach((msg) => {
+            if (msg && msg.t === "room") inRoom = true;
+            else if (msg && (msg.t === "room-closed" || msg.t === "left")) inRoom = false;
+            dispatch("message", { data: JSON.stringify(msg) });
+          });
+          /* خادم بلا انتظار طويل: لا نقصفه بالطلبات */
+          if (!msgs.length && Date.now() - started < 400) await wait(800);
+        } catch (err) {
+          if (closed) return;
+          failures += 1;
+          if (failures >= 6) { fail(); return; }
+          await wait(Math.min(4000, 700 * failures));
+        }
+      }
+    }
+
+    this.send = (text) => {
+      if (self.readyState !== 1) throw new Error("closed");
+      let msg;
+      try { msg = JSON.parse(text); } catch (err) { return; }
+      if (!msg || msg.t === "ping") return; /* النبض يتمّ عبر الاستطلاع */
+      if (msg.t === "leave") inRoom = false;
+      queue.push(msg);
+      flush();
+    };
+
+    this.close = () => {
+      if (closed) return;
+      closed = true;
+      self.readyState = 3;
+      if (queue.length) {
+        try {
+          fetch(endpoint, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ sid, op: "send", msgs: queue.splice(0) }),
+            keepalive: true,
+          }).catch(() => {});
+        } catch (err) { /* ignore */ }
+      }
+      setTimeout(() => dispatch("close", {}), 0);
+    };
+
+    setTimeout(async () => {
+      try {
+        await post({ op: "ping" }, 9000);
+      } catch (err) {
+        if (closed) return;
+        closed = true;
+        self.readyState = 3;
+        dispatch("error", {});
+        return;
+      }
+      if (closed) return;
+      self.readyState = 1;
+      dispatch("open", {});
+      pollLoop();
+    }, 0);
+  }
+
   function connect() {
-    if (mode !== "lan") return Promise.resolve();
+    if (mode === "cloud") return Promise.resolve();
     if (socket && socket.readyState === WebSocket.OPEN) {
       return Promise.resolve();
     }
@@ -255,7 +408,7 @@
     socketPromise = new Promise((resolve, reject) => {
       let ws;
       try {
-        ws = new WebSocket(signalUrl());
+        ws = mode === "web" ? new HttpSocket(RELAY_ENDPOINT) : new WebSocket(signalUrl());
       } catch (err) {
         socketPromise = null;
         setStatus("error", err.message || "تعذّر إنشاء اتصال WebSocket");
@@ -295,7 +448,9 @@
         if (!settles) {
           settles = true;
           socketPromise = null;
-          setStatus("error", "لا يوجد خادم لعب محلي يعمل. شغّل الملف start-lan.bat (أو node board-games/server.js) على جهاز المضيف ثم افتح الرابط الذي يظهر في نافذته.");
+          setStatus("error", mode === "web"
+            ? "تعذّر الوصول إلى خدمة الغرف عبر الموقع. تأكد من الإنترنت ثم أعد المحاولة بعد لحظات."
+            : "لا يوجد خادم لعب محلي يعمل. شغّل الملف start-lan.bat (أو node board-games/server.js) على جهاز المضيف ثم افتح الرابط الذي يظهر في نافذته.");
           reject(new Error("signal-error"));
         }
       });
@@ -579,7 +734,7 @@
   }
 
   function ensureHostConnections() {
-    if (mode !== "lan" || role !== "host") return;
+    if (mode === "cloud" || role !== "host") return;
     peers.forEach((peer) => {
       if (peer.id !== selfId) ensureGuest(peer.id);
     });
@@ -1102,7 +1257,7 @@
   }
 
   function setMode(next) {
-    if (next !== "lan" && next !== "cloud") return mode;
+    if (next !== "lan" && next !== "cloud" && next !== "web") return mode;
     if (roomStarted || role) return mode;
     mode = next;
     try { localStorage.setItem(MODE_KEY, mode); } catch (err) { /* ignore */ }

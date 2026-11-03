@@ -6,6 +6,11 @@
 [build.environment]
   NODE_VERSION = "20"
 
+# دالة الوضع المدرسي (/api/relay) — غرف اللعب عبر HTTPS عادي
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
+
 # عامل الخدمة والبيان لا يُخزَّنان طويلًا حتى تصل التحديثات فورًا
 [[headers]]
   for = "/sw.js"
