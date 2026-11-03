@@ -40,6 +40,19 @@
     checkers: "g-checkers",
     mancala: "g-mancala",
     chess: "i-chess",
+    yahtzee: "i-dice",
+    rummikub: "g-domino",
+    othello: "g-checkers",
+    "connect-four": "g-checkers",
+    stratego: "g-risk",
+    parcheesi: "g-ludo",
+    sorry: "g-ludo",
+    battleship: "g-risk",
+    "seven-wonders": "g-cards",
+    azul: "g-carcassonne",
+    wingspan: "g-cards",
+    dominion: "g-cards",
+    "terraforming-mars": "g-pandemic",
   };
 
   // ألوان دافئة موحّدة تحفظ هوية كل بطاقة داخل المكتبة الفاخرة.
@@ -64,6 +77,19 @@
     snakes: "#b49a63",
     checkers: "#bd9270",
     mancala: "#d4a55e",
+    yahtzee: "#c98a55",
+    rummikub: "#c77c64",
+    othello: "#759b7c",
+    "connect-four": "#d88355",
+    stratego: "#a8755f",
+    parcheesi: "#c8895d",
+    sorry: "#cf796c",
+    battleship: "#7391a8",
+    "seven-wonders": "#c8a05f",
+    azul: "#5f8ca3",
+    wingspan: "#9a8a58",
+    dominion: "#b88a58",
+    "terraforming-mars": "#c96f4d",
   };
 
   function icon(id, cls) {

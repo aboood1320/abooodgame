@@ -54,9 +54,24 @@ try {
 
 function handleRelayRequest(req, res) {
   const send = (status, obj) => {
-    res.writeHead(status, { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" });
+    res.writeHead(status, {
+      "Content-Type": "application/json; charset=utf-8",
+      "Cache-Control": "no-store",
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
+      "Access-Control-Allow-Headers": "content-type",
+    });
     res.end(JSON.stringify(obj));
   };
+  if (req.method === "OPTIONS") {
+    res.writeHead(204, {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
+      "Access-Control-Allow-Headers": "content-type",
+    });
+    res.end();
+    return undefined;
+  }
   if (!relay) return send(503, { ok: false, error: "unavailable" });
   if (req.method !== "POST") return send(200, { ok: true, service: "bg-relay-local" });
   let size = 0;

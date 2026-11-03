@@ -25,9 +25,17 @@ const relay = core.createRelay(adapter);
 const headers = {
   "content-type": "application/json; charset=utf-8",
   "cache-control": "no-store",
+  /* يسمح للمواقع الأخرى (مثل github.io) باستخدام هذه الخدمة */
+  "access-control-allow-origin": "*",
+  "access-control-allow-methods": "POST, GET, OPTIONS",
+  "access-control-allow-headers": "content-type",
+  "access-control-max-age": "86400",
 };
 
 export default async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { status: 204, headers });
+  }
   if (req.method !== "POST") {
     return new Response(JSON.stringify({ ok: true, service: "bg-relay" }), { headers });
   }
