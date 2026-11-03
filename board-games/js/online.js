@@ -1397,7 +1397,7 @@
   /** تنبيه لطيف عند انتقال الدور إلى اللاعب المحلي. */
   function alertLocalTurn() {
     BG.toast("🎯 دورك الآن — نفّذ حركتك ثم انتظر بقية اللاعبين.", "good");
-    BG.fx.sound("turn");
+    BG.fx.sound("yourturn");
     try {
       if (navigator.vibrate) navigator.vibrate([35, 45, 35]);
     } catch (err) { /* ignore */ }
@@ -1430,6 +1430,7 @@
     const pop = BG.el("div", { class: "net-react-pop", "aria-hidden": "true" });
     pop.style.setProperty("--rx", (12 + Math.random() * 70).toFixed(1) + "%");
     pop.innerHTML = "<span>" + esc(emoji) + "</span><small>" + esc(name || "") + "</small>";
+    if (BG.fx) BG.fx.sound("select");
     host.appendChild(pop);
     setTimeout(() => { if (pop.parentNode) pop.parentNode.removeChild(pop); }, 2800);
   }
@@ -2028,6 +2029,7 @@
       }
     });
     BG.net.on("peer-joined", (peer) => {
+      if (BG.fx) BG.fx.sound("join");
       if (state.inRoom && BG.net.isHost) {
         BG.net.ensureHostConnections();
         if (state.inGame) {
@@ -2044,6 +2046,7 @@
     });
     BG.net.on("peer-state", () => { if (state.inRoom && !state.inGame) renderLobby(); });
     BG.net.on("peer-left", (id) => {
+      if (BG.fx) BG.fx.sound("leave");
       if (state.inRoom && !state.inGame) renderLobby();
       if (state.inGame) {
         const seat = state.seats.findIndex((item) => item.peerId === id);

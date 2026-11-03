@@ -431,6 +431,7 @@
         "</section>" +
         "</div>" +
         (web ? '<p class="net-hint">🏫 جميع اللاعبين يفتحون هذا الموقع نفسه ويضغطون «الوضع المدرسي» ثم يدخلون الرمز — لا حاجة لأي برنامج أو إعداد. الغرفة تُحذف تلقائيًا إذا غاب المضيف.</p>' : "") +
+        (web ? relayBoxHTML() : "") +
         status +
         '<p class="net-hint"' + (web ? " hidden" : "") + '>💡 للعب على أجهزة مختلفة على نفس الشبكة: على جهاز المضيف شغّل الملف <code>start-lan.bat</code> (أو <code>node board-games/server.js</code>) ثم افتح على كل جهاز العنوان الذي يظهر في نافذته. اللعب يمرّ عبر المضيف نفسه فلا حاجة لإنترنت.</p>'
       );
@@ -464,6 +465,23 @@
     );
   }
 
+  /* إعداد عنوان خدمة الغرف للوضع المدرسي (ضروري على GitHub Pages لأنه لا يشغّل دوال) */
+  function relayBoxHTML() {
+    const missing = BG.net.relayMissing && BG.net.relayMissing();
+    const current = (BG.net.getRelayUrl && BG.net.getRelayUrl()) || "";
+    return (
+      '<details class="net-advanced"' + (missing ? " open" : "") + '><summary>🔧 إعداد خدمة الغرف' + (missing ? " — مطلوب هنا" : "") + "</summary>" +
+      '<p class="net-note">' +
+      (missing
+        ? "هذا الموقع مستضاف على GitHub Pages وهو لا يشغّل خدمة غرف. اكتب عنوان نسخة الموقع على Netlify (مثل https://اسم-موقعك.netlify.app) وسيُحفظ هنا ويكون جزءًا من رابط الدعوة تلقائيًا."
+        : "يعمل الوضع المدرسي عبر خدمة الغرف هذه. لا تغيّرها إلا إن استضفت خدمةً خاصة بك.") +
+      "</p>" +
+      '<label class="net-field"><span>عنوان خدمة الغرف</span><input data-relay-url type="url" dir="ltr" value="' + esc(current) + '" placeholder="https://your-site.netlify.app" /></label>' +
+      '<div class="net-join-row"><button type="button" class="bg-btn small primary" data-relay-save>حفظ</button><button type="button" class="bg-btn small" data-relay-clear>مسح</button></div>' +
+      "</details>"
+    );
+  }
+
   function turnBoxHTML() {
     const t = (BG.net.getTurn && BG.net.getTurn()) || {};
     const urls = Array.isArray(t.urls) ? t.urls.join(" ") : (t.urls || "");
@@ -482,7 +500,12 @@
 
   /** فشل في الوضع العالمي (غالبًا جهاز مدرسي يحجب WebRTC/الخوادم الخارجية): نعرض زرّ التبديل للوضع المدرسي. */
   function offerSchoolMode(status, message, code) {
-    if (!status || !document.body.contains(status) || BG.net.mode !== "cloud") return;
+    if (!status || !document.body.contains(status)) return;
+    if (BG.net.mode !== "cloud") {
+      status.className = "net-status is-error";
+      status.textContent = message;
+      return;
+    }
     status.className = "net-status is-error";
     status.innerHTML = esc(message) + ' <button type="button" class="bg-btn small primary" data-net-switch-web>🏫 جرّب الوضع المدرسي (يعمل على أجهزة المدارس)</button>';
     const button = status.querySelector("[data-net-switch-web]");
@@ -538,6 +561,23 @@
     });
 
     const turnSave = body.querySelector("[data-turn-save]");
+    const relaySave = body.querySelector("[data-relay-save]");
+    const relayClear = body.querySelector("[data-relay-clear]");
+    if (relaySave) {
+      relaySave.addEventListener("click", () => {
+        const value = body.querySelector("[data-relay-url]").value;
+        const ok = BG.net.setRelayUrl(value);
+        BG.toast(ok ? (value.trim() ? "حُفظ عنوان خدمة الغرف." : "مُسح العنوان.") : "العنوان غير صالح — يجب أن يبدأ بـ https://", ok ? "good" : "warn");
+        if (ok) renderLobby();
+      });
+    }
+    if (relayClear) {
+      relayClear.addEventListener("click", () => {
+        BG.net.setRelayUrl("");
+        BG.toast("مُسح عنوان خدمة الغرف.");
+        renderLobby();
+      });
+    }
     const turnClear = body.querySelector("[data-turn-clear]");
     if (turnSave) {
       turnSave.addEventListener("click", () => {
@@ -1357,7 +1397,7 @@
   /** تنبيه لطيف عند انتقال الدور إلى اللاعب المحلي. */
   function alertLocalTurn() {
     BG.toast("🎯 دورك الآن — نفّذ حركتك ثم انتظر بقية اللاعبين.", "good");
-    BG.fx.sound("turn");
+    BG.fx.sound("yourturn");
     try {
       if (navigator.vibrate) navigator.vibrate([35, 45, 35]);
     } catch (err) { /* ignore */ }
@@ -1390,6 +1430,7 @@
     const pop = BG.el("div", { class: "net-react-pop", "aria-hidden": "true" });
     pop.style.setProperty("--rx", (12 + Math.random() * 70).toFixed(1) + "%");
     pop.innerHTML = "<span>" + esc(emoji) + "</span><small>" + esc(name || "") + "</small>";
+    if (BG.fx) BG.fx.sound("select");
     host.appendChild(pop);
     setTimeout(() => { if (pop.parentNode) pop.parentNode.removeChild(pop); }, 2800);
   }
@@ -1988,6 +2029,7 @@
       }
     });
     BG.net.on("peer-joined", (peer) => {
+      if (BG.fx) BG.fx.sound("join");
       if (state.inRoom && BG.net.isHost) {
         BG.net.ensureHostConnections();
         if (state.inGame) {
@@ -2004,6 +2046,7 @@
     });
     BG.net.on("peer-state", () => { if (state.inRoom && !state.inGame) renderLobby(); });
     BG.net.on("peer-left", (id) => {
+      if (BG.fx) BG.fx.sound("leave");
       if (state.inRoom && !state.inGame) renderLobby();
       if (state.inGame) {
         const seat = state.seats.findIndex((item) => item.peerId === id);
@@ -2073,6 +2116,8 @@
     try {
       const params = new URLSearchParams(location.search);
       const requestedMode = params.get("mode");
+      const relayParam = params.get("relay");
+      if (relayParam && BG.net.setRelayUrl) BG.net.setRelayUrl(relayParam);
       if (requestedMode === "cloud" || requestedMode === "lan" || requestedMode === "web") BG.net.setMode(requestedMode);
       const join = (params.get("join") || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 8);
       if (join.length >= 4) {

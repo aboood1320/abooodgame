@@ -5,8 +5,8 @@
    ========================================================================== */
 "use strict";
 
-const VERSION = "1.2.2";
-const CACHE = "bg-shell-v" + VERSION + "-r4";
+const VERSION = "1.3.0";
+const CACHE = "bg-shell-v" + VERSION + "-r1";
 const OFFLINE_URL = "index.html";
 
 const CORE = [
@@ -37,14 +37,30 @@ const CORE = [
   "css/chess.css",
   "css/net2.css",
   "css/ludo.css",
+  "css/yahtzee.css",
+  "css/rummikub.css",
+  "css/othello.css",
+  "css/connect-four.css",
+  "css/stratego.css",
+  "css/parcheesi.css",
+  "css/sorry.css",
+  "css/battleship.css",
+  "css/seven-wonders.css",
+  "css/azul.css",
+  "css/wingspan.css",
+  "css/dominion.css",
+  "css/terraforming-mars.css",
   "css/perf.css",
   "js/core.js",
   "js/fx.js",
   "js/library-art.js",
+  "js/library-art-expansion.js",
   "js/ai.js",
   "js/engine.js",
   "js/chess-ai.js",
   "js/chess-ai-worker.js",
+  "js/relay-config.js",
+  "js/sound-packs.js",
   "js/net.js",
   "js/app.js",
   "js/online.js",
@@ -71,6 +87,19 @@ const CORE = [
   "js/games/snakes.js",
   "js/games/checkers.js",
   "js/games/mancala.js",
+  "js/games/yahtzee.js",
+  "js/games/rummikub.js",
+  "js/games/othello.js",
+  "js/games/connect-four.js",
+  "js/games/stratego.js",
+  "js/games/parcheesi.js",
+  "js/games/sorry.js",
+  "js/games/battleship.js",
+  "js/games/seven-wonders.js",
+  "js/games/azul.js",
+  "js/games/wingspan.js",
+  "js/games/dominion.js",
+  "js/games/terraforming-mars.js",
   "vendor/peerjs/peerjs.min.js",
   "assets/brand/icon.svg",
   "assets/icons/icon-192.png",

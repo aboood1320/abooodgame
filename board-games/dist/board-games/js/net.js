@@ -106,8 +106,11 @@
 
   function setStatus(next, detail) {
     status = next;
+    if (next === "error") lastErrorDetail = detail || "";
     emit("status", { status: next, detail: detail || null });
   }
+
+  let lastErrorDetail = "";
 
   /* ============================== أدوات عامة ============================== */
 
@@ -246,7 +249,53 @@
      كل شيء طلبات POST عادية إلى نفس عنوان الموقع (/api/relay). يقلّد واجهة WebSocket
      فتعمل نفس منطق الوضع المحلي (تمرير الرسائل عبر الخادم). */
 
-  const RELAY_ENDPOINT = "/api/relay";
+  const RELAY_KEY = "bg.relayUrl";
+
+  /* عنوان خدمة الغرف: يقبل https فقط (أو localhost أثناء التطوير). إن كتب المستخدم مجرد النطاق
+     يُكمَل بـ /api/relay. مطلوب عند استضافة الموقع على GitHub Pages (لا تشغّل دوال). */
+  function cleanRelayUrl(value) {
+    const text = String(value == null ? "" : value).trim();
+    if (!text) return "";
+    try {
+      const url = new URL(/^[a-z]+:\/\//i.test(text) ? text : "https://" + text);
+      const local = url.hostname === "localhost" || url.hostname === "127.0.0.1";
+      if (url.protocol !== "https:" && !(local && url.protocol === "http:")) return "";
+      let pathname = url.pathname.replace(/\/+$/, "");
+      if (!pathname) pathname = "/api/relay";
+      return url.origin + pathname;
+    } catch (err) {
+      return "";
+    }
+  }
+
+  function getRelayUrl() {
+    try {
+      const saved = window.localStorage.getItem(RELAY_KEY);
+      if (saved) return cleanRelayUrl(saved);
+    } catch (err) { /* ignore */ }
+    return cleanRelayUrl(window.BG_RELAY_URL);
+  }
+
+  /** true إن حُفظ العنوان (أو مُسح بقيمة فارغة)، false إن كان غير صالح. */
+  function setRelayUrl(value) {
+    const text = String(value == null ? "" : value).trim();
+    const clean = cleanRelayUrl(text);
+    if (text && !clean) return false;
+    try {
+      if (clean) window.localStorage.setItem(RELAY_KEY, clean);
+      else window.localStorage.removeItem(RELAY_KEY);
+    } catch (err) { /* ignore */ }
+    return true;
+  }
+
+  function relayEndpoint() {
+    return getRelayUrl() || "/api/relay";
+  }
+
+  /* استضافة ثابتة (GitHub Pages ونحوها) بلا عنوان خدمة غرف مضبوط */
+  function relayMissing() {
+    return !getRelayUrl() && /(^|\.)github\.io$/i.test(location.hostname);
+  }
 
   function HttpSocket(endpoint) {
     const listeners = { open: [], message: [], close: [], error: [] };
@@ -408,7 +457,7 @@
     socketPromise = new Promise((resolve, reject) => {
       let ws;
       try {
-        ws = mode === "web" ? new HttpSocket(RELAY_ENDPOINT) : new WebSocket(signalUrl());
+        ws = mode === "web" ? new HttpSocket(relayEndpoint()) : new WebSocket(signalUrl());
       } catch (err) {
         socketPromise = null;
         setStatus("error", err.message || "تعذّر إنشاء اتصال WebSocket");
@@ -449,9 +498,11 @@
           settles = true;
           socketPromise = null;
           setStatus("error", mode === "web"
-            ? "تعذّر الوصول إلى خدمة الغرف عبر الموقع. تأكد من الإنترنت ثم أعد المحاولة بعد لحظات."
+            ? (relayMissing()
+              ? "هذا الموقع مستضاف على GitHub Pages ولا يشغّل خدمة الغرف. أدخل عنوان خدمة الغرف (موقع Netlify) في «إعداد خدمة الغرف» أدناه."
+              : "تعذّر الوصول إلى خدمة الغرف (" + relayEndpoint() + "). تأكد من الإنترنت ومن صحة العنوان ثم أعد المحاولة.")
             : "لا يوجد خادم لعب محلي يعمل. شغّل الملف start-lan.bat (أو node board-games/server.js) على جهاز المضيف ثم افتح الرابط الذي يظهر في نافذته.");
-          reject(new Error("signal-error"));
+          reject(new Error(lastErrorDetail || "signal-error"));
         }
       });
     });
@@ -1312,6 +1363,9 @@
   }
 
   BG.net = {
+    getRelayUrl,
+    setRelayUrl,
+    relayMissing,
     lanInfo,
     inviteLinkFor,
     on,
@@ -1337,6 +1391,7 @@
         url.hash = "";
         url.searchParams.set("join", String(code || roomCode || "").toUpperCase());
         url.searchParams.set("mode", mode);
+        if (mode === "web" && getRelayUrl()) url.searchParams.set("relay", getRelayUrl());
         return url.toString();
       } catch (err) {
         return "?join=" + encodeURIComponent(String(code || "").toUpperCase());

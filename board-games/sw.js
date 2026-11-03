@@ -60,6 +60,7 @@ const CORE = [
   "js/chess-ai.js",
   "js/chess-ai-worker.js",
   "js/relay-config.js",
+  "js/sound-packs.js",
   "js/net.js",
   "js/app.js",
   "js/online.js",

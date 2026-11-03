@@ -11,7 +11,7 @@
 
   const STORE_KEY = "fx.v1";
   const isLite = () => document.documentElement.classList.contains("lite");
-  const DEFAULTS = { sound: true, volume: 0.55, motion: true };
+  const DEFAULTS = { sound: true, volume: 0.55, motion: true, pack: "classic", music: false };
   const ASSET_BASE = "vendor/kenney/audio/";
 
   /* أسماء منطقية → ملفات صوتية (يُختار أحدها عشوائيًا لتجنّب التكرار) */
@@ -97,6 +97,8 @@
       sound: saved.sound !== false,
       volume: Number.isFinite(Number(saved.volume)) ? U.clamp(Number(saved.volume), 0, 1) : DEFAULTS.volume,
       motion: saved.motion !== false,
+      pack: typeof saved.pack === "string" ? saved.pack : DEFAULTS.pack,
+      music: saved.music === true,
     };
   }
 
@@ -200,6 +202,7 @@
       unlocked = true;
     }
     preloadAll();
+    if (prefs.music && prefs.sound) startMusicNow();
     document.documentElement.classList.add("fx-audio-ready");
   }
 
@@ -397,6 +400,22 @@
   SYNTH.robber = SYNTH.error;
   SYNTH.snake = SYNTH.error;
   SYNTH.ladder = SYNTH.score;
+  SYNTH.join = function () {
+    tone({ f: 520, d: 0.1, g: 0.04, type: "triangle" });
+    tone({ f: 780, d: 0.18, g: 0.04, type: "sine", when: 0.09 });
+  };
+  SYNTH.leave = function () {
+    tone({ f: 780, d: 0.1, g: 0.035, type: "triangle" });
+    tone({ f: 520, d: 0.2, g: 0.035, type: "sine", when: 0.09 });
+  };
+  SYNTH.yourturn = function () {
+    tone({ f: 523, d: 0.1, g: 0.045, type: "triangle" });
+    tone({ f: 659, d: 0.1, g: 0.045, type: "triangle", when: 0.1 });
+    tone({ f: 988, d: 0.26, g: 0.05, type: "sine", when: 0.2 });
+  };
+  SYNTH.tick = function () {
+    tone({ f: 1800, d: 0.03, g: 0.03, type: "square" });
+  };
 
   function synthSound(name) {
     const fn = SYNTH[name];
@@ -429,7 +448,8 @@
   function sound(name, opts) {
     const o = opts || {};
     if (!o.force && !prefs.sound) return;
-    if (!SAMPLES[name] && !SYNTH[name]) return;
+    const packActive = prefs.pack && prefs.pack !== "classic" && BG.soundPacks && BG.soundPacks.has(prefs.pack);
+    if (!SAMPLES[name] && !SYNTH[name] && !packActive) return;
     const audio = ensureContext();
     if (!audio) {
       synthSound(name);
@@ -439,6 +459,9 @@
     if (audio.state === "suspended") {
       audio.resume().catch(() => { /* لا شيء */ });
     }
+
+    /* حزمة مولّدة: تعزف الحدث بنغمات الحزمة بدل العيّنات */
+    if (packActive && BG.soundPacks.play(prefs.pack, name, audio, master)) return;
 
     if (name === "dice") {
       const first = playSample("dice", { gain: 0.8 });
@@ -906,12 +929,14 @@
   /* ------------------------------ الإعدادات ------------------------------ */
 
   function savePrefs() {
-    BG.store.set(STORE_KEY, { sound: prefs.sound, volume: prefs.volume, motion: prefs.motion });
+    BG.store.set(STORE_KEY, { sound: prefs.sound, volume: prefs.volume, motion: prefs.motion, pack: prefs.pack, music: prefs.music });
   }
 
   function setSound(on) {
     prefs.sound = !!on;
     savePrefs();
+    if (!prefs.sound) stopMusicNow();
+    else if (prefs.music) startMusicNow();
     if (prefs.sound) sound("click");
     document.dispatchEvent(new CustomEvent("bgfxchange", { detail: Object.assign({}, prefs) }));
     return prefs.sound;
@@ -930,6 +955,33 @@
     savePrefs();
     document.dispatchEvent(new CustomEvent("bgfxchange", { detail: Object.assign({}, prefs) }));
     return prefs.motion;
+  }
+
+  /* حزمة الأصوات: classic = العيّنات الأصلية، والباقي مولّدة برمجيًا (sound-packs.js) */
+  function setPack(id) {
+    const next = id === "classic" || (BG.soundPacks && BG.soundPacks.has(id)) ? id : "classic";
+    prefs.pack = next;
+    savePrefs();
+    document.dispatchEvent(new CustomEvent("bgfxchange", { detail: Object.assign({}, prefs) }));
+    return prefs.pack;
+  }
+
+  function startMusicNow() {
+    if (!BG.soundPacks) return;
+    const audio = ensureContext();
+    if (audio && master) BG.soundPacks.startMusic(audio, master);
+  }
+
+  function stopMusicNow() {
+    if (BG.soundPacks) BG.soundPacks.stopMusic();
+  }
+
+  function setMusic(on) {
+    prefs.music = !!on;
+    savePrefs();
+    if (prefs.music && prefs.sound) { unlock(); startMusicNow(); }
+    else stopMusicNow();
+    return prefs.music;
   }
 
   function icon(id) {
@@ -952,6 +1004,18 @@
       '<div class="fx-option fx-option-volume">' +
       '<div class="fx-option-copy"><span class="fx-option-icon">' + icon("i-volume") + "</span><div><strong>مستوى الصوت</strong><small><output data-volume-label>" + Math.round(prefs.volume * 100) + "%</output></small></div></div>" +
       '<input type="range" min="0" max="100" step="5" value="' + Math.round(prefs.volume * 100) + '" data-volume aria-label="مستوى الصوت" />' +
+      "</div>" +
+      '<div class="fx-option">' +
+      '<div class="fx-option-copy"><span class="fx-option-icon">' + icon("i-speaker") + "</span><div><strong>حزمة الأصوات</strong><small>غيّر شخصية المؤثرات: خشبي، ريترو، كريستال أو هادئ</small></div></div>" +
+      '<select class="fx-select" data-pack aria-label="حزمة الأصوات">' +
+      ((BG.soundPacks && BG.soundPacks.list) || [{ id: "classic", name: "كلاسيكي" }]).map((pack) =>
+        '<option value="' + pack.id + '"' + (pack.id === prefs.pack ? " selected" : "") + ">" + pack.name + (pack.note ? " — " + pack.note : "") + "</option>"
+      ).join("") +
+      "</select>" +
+      "</div>" +
+      '<div class="fx-option">' +
+      '<div class="fx-option-copy"><span class="fx-option-icon">' + icon("i-speaker") + "</span><div><strong>موسيقى هادئة للخلفية</strong><small>نغمات متولّدة بهدوء أثناء اللعب (مغلقة افتراضيًا)</small></div></div>" +
+      '<button type="button" class="fx-switch" data-toggle="music" role="switch" aria-checked="' + (prefs.music ? "true" : "false") + '"><span></span></button>' +
       "</div>" +
       '<div class="fx-option">' +
       '<div class="fx-option-copy"><span class="fx-option-icon">' + icon("i-motion") + "</span><div><strong>الحركات والأنميشن</strong><small>سحب الأوراق، النرد، حركة القطع والاحتفال</small></div></div>" +
@@ -980,6 +1044,24 @@
     const soundSwitch = body.querySelector('[data-toggle="sound"]');
     const motionSwitch = body.querySelector('[data-toggle="motion"]');
     const hideSecretsSwitch = body.querySelector('[data-toggle="hideSecrets"]');
+    const packSelect = body.querySelector("[data-pack]");
+    const musicSwitch = body.querySelector('[data-toggle="music"]');
+    if (packSelect) {
+      packSelect.addEventListener("change", () => {
+        setPack(packSelect.value);
+        sound("card", { force: true });
+        setTimeout(() => sound("score", { force: true }), 260);
+        setTimeout(() => sound("win", { force: true }), 620);
+      });
+    }
+    if (musicSwitch) {
+      musicSwitch.classList.toggle("on", prefs.music);
+      musicSwitch.addEventListener("click", () => {
+        const on = setMusic(!prefs.music);
+        musicSwitch.classList.toggle("on", on);
+        musicSwitch.setAttribute("aria-checked", on ? "true" : "false");
+      });
+    }
     const volume = body.querySelector("[data-volume]");
     const label = body.querySelector("[data-volume-label]");
 
@@ -1142,11 +1224,15 @@
     setSound,
     setVolume,
     setMotion,
+    setPack,
+    setMusic,
     openSettings,
     settings: {
       get sound() { return prefs.sound; },
       get volume() { return prefs.volume; },
       get motion() { return prefs.motion; },
+      get pack() { return prefs.pack; },
+      get music() { return prefs.music; },
       get hideSecrets() { return BG.prefs.hideSecrets; },
     },
   });

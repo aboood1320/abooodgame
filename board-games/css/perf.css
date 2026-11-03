@@ -130,6 +130,21 @@ html.lite {
 
 /* ------------------------------ تقليل الحركة ------------------------------ */
 
+/* قائمة حزمة الأصوات في الإعدادات */
+.fx-select {
+  min-width: 150px;
+  max-width: 52%;
+  min-height: 40px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(0, 0, 0, 0.3);
+  color: inherit;
+  font: inherit;
+  font-size: 0.85rem;
+}
+.fx-select option { color: #111; background: #fff; }
+
 @media (prefers-reduced-motion: reduce) {
   body.library-mode .game-card {
     content-visibility: auto;
