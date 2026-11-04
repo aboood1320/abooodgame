@@ -1,0 +1,59 @@
+/* أوتيلو — ألوان هادئة للوح الأخضر */
+.ot { --accent: #759b7c; }
+.ot-layout { display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: 12px; align-items: start; }
+.ot-board {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 3px;
+  width: 100%;
+  max-width: 620px;
+  margin-inline: auto;
+  padding: 8px;
+  border-radius: 16px;
+  background: linear-gradient(150deg, #2f5c48, #1c3a2e);
+  border: 1px solid #0f241c;
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.05), 0 18px 38px -28px #000;
+}
+.ot-cell {
+  appearance: none;
+  position: relative;
+  aspect-ratio: 1;
+  min-width: 0;
+  cursor: pointer;
+  border: 0;
+  border-radius: 4px;
+  background: #3c7058;
+  padding: 0;
+  display: grid;
+  place-items: center;
+}
+.ot-cell:nth-child(odd) { background: #396a54; }
+.ot-cell:disabled { cursor: default; }
+.ot-cell:focus-visible { outline: 2px solid #ffe9ae; outline-offset: -1px; }
+.ot-cell.is-move::after {
+  content: "";
+  width: 30%;
+  height: 30%;
+  border-radius: 50%;
+  background: #f0d58a;
+  box-shadow: 0 0 10px rgba(240, 213, 138, 0.7);
+  opacity: 0.8;
+}
+.ot-piece { width: 78%; height: 78%; border-radius: 50%; display: block; }
+.ot-piece.black { background: radial-gradient(circle at 35% 28%, #4d5a54, #0d1412 72%); border: 1px solid #050a08; box-shadow: 0 3px 6px -2px rgba(0, 0, 0, 0.7); }
+.ot-piece.white { background: radial-gradient(circle at 35% 28%, #fffdf4, #d8c9a7 74%); border: 1px solid #8e7c55; box-shadow: 0 3px 6px -2px rgba(0, 0, 0, 0.55); }
+.ot-cell.is-last .ot-piece { outline: 2px solid #f0d58a; outline-offset: 1px; }
+.ot-side { display: flex; flex-direction: column; gap: 10px; }
+.ot-score { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 10px; border-radius: 11px; background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(246, 242, 232, 0.08); }
+.ot-score.is-current { border-color: color-mix(in srgb, var(--pc, #759b7c) 60%, transparent); background: color-mix(in srgb, var(--pc, #759b7c) 12%, transparent); }
+.ot-score strong { font-size: 1.1rem; }
+.ot-dot { width: 16px; height: 16px; border-radius: 50%; border: 1px solid rgba(0, 0, 0, 0.4); }
+.ot-dot.black { background: #101715; }
+.ot-dot.white { background: #f6ecd3; }
+.ot-note { font-size: 0.74rem; color: var(--muted, #9fb0ac); line-height: 1.7; }
+
+@media (max-width: 760px) {
+  .ot-layout { grid-template-columns: minmax(0, 1fr); }
+  .ot-board { max-width: 480px; gap: 2px; padding: 6px; }
+  .ot-side { order: 2; }
+}

@@ -1,0 +1,88 @@
+/* باتشيزي */
+.pc { --accent: #c8895d; }
+.pc-layout { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 12px; align-items: start; }
+.pc-board-wrap { position: relative; width: 100%; max-width: 700px; margin-inline: auto; min-width: 0; }
+.pc-board {
+  display: grid;
+  grid-template-columns: repeat(18, minmax(0, 1fr));
+  gap: 1px;
+  padding: 7px;
+  border-radius: 26px;
+  background: linear-gradient(160deg, #5a3f2a, #291c13);
+  border: 1px solid #86613f;
+  box-shadow: 0 22px 44px -32px #000, inset 0 0 0 2px rgba(255, 255, 255, 0.04);
+}
+.pc-void { background: transparent; }
+.pc-track {
+  aspect-ratio: 1;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  border-radius: 3px;
+  background: #f3e7ca;
+  border: 1px solid rgba(90, 62, 38, 0.24);
+}
+.pc-track:nth-child(odd) { background: #ecdcb8; }
+.pc-track.is-start { background: #c8895d; box-shadow: inset 0 0 0 2px #ffe3ae; }
+.pc-track.is-safe { background: #cfbb8e; }
+.pc-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--pc, #b85b4d);
+  border: 1px solid rgba(0, 0, 0, 0.45);
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.35);
+  flex: 0 0 auto;
+}
+.pc-center {
+  position: absolute;
+  inset: 6.2%;
+  border-radius: 50%;
+  background: radial-gradient(80% 80% at 50% 26%, #26383a, #0f1a1c 74%);
+  border: 2px solid #86613f;
+  box-shadow: inset 0 0 26px rgba(0, 0, 0, 0.6), 0 0 0 6px rgba(243, 231, 202, 0.12);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  padding: 4% 6%;
+  pointer-events: none;
+}
+.pc-home-title { text-align: center; font-size: 0.6rem; font-weight: 800; color: #d6a24c; letter-spacing: 0.04em; margin-bottom: 2px; }
+.pc-home-row { display: flex; align-items: center; gap: 5px; min-width: 0; padding: 2px 4px; border-radius: 7px; background: color-mix(in srgb, var(--pc, #c8895d) 12%, transparent); }
+.pc-home-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.56rem; color: #f3e7ca; }
+.pc-home-lane { display: flex; gap: 2px; flex: 0 0 auto; }
+.pc-home-slot { width: 10px; height: 10px; border-radius: 2px; border: 1px solid rgba(243, 231, 202, 0.3); display: grid; place-items: center; }
+.pc-home-slot .pc-dot { width: 6px; height: 6px; }
+.pc-home-done { flex: 0 0 auto; font-size: 0.55rem; font-weight: 800; color: var(--pc, #c8895d); }
+.pc-side { display: flex; flex-direction: column; gap: 10px; }
+.pc-dice-panel { display: flex; flex-direction: column; gap: 8px; }
+.pc-dice { display: flex; justify-content: center; gap: 10px; padding: 4px 0; }
+.pc-empty-dice { font-size: 1.4rem; color: var(--muted, #9fb0ac); letter-spacing: 0.1em; }
+.pc-dice .xg-die { width: 50px; height: 50px; }
+.pc-dice .xg-die.is-used { opacity: 0.32; filter: grayscale(0.7); }
+.pc-roll, .pc-end { width: 100%; }
+.pc-moves { display: flex; flex-wrap: wrap; gap: 6px; }
+.pc-moves .xg-btn { font-size: 0.66rem; padding: 6px 9px; }
+.pc-last { margin: 0; font-size: 0.68rem; color: #b9ecd3; line-height: 1.6; }
+.pc-player { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 5px; padding: 6px 8px; border-radius: 9px; border: 1px solid rgba(246, 242, 232, 0.08); }
+.pc-player.is-current { border-color: color-mix(in srgb, var(--pc, #c8895d) 65%, transparent); background: color-mix(in srgb, var(--pc, #c8895d) 12%, transparent); }
+.pc-swatch { width: 12px; height: 12px; border-radius: 50%; background: var(--pc, #c8895d); border: 1px solid rgba(0, 0, 0, 0.35); }
+.pc-counts { font-size: 0.58rem; color: var(--muted, #9fb0ac); }
+@media (max-width: 860px) {
+  .pc-layout { grid-template-columns: minmax(0, 1fr); }
+  .pc-side { order: 2; }
+}
+@media (max-width: 430px) {
+  .pc-board { gap: 1px; padding: 4px; border-radius: 18px; }
+  .pc-dot { width: 6px; height: 6px; }
+  .pc-home-slot { width: 8px; height: 8px; }
+  .pc-home-row { gap: 3px; padding: 1px 2px; }
+  .pc-home-name { font-size: 0.46rem; }
+  .pc-home-done { font-size: 0.46rem; }
+  .pc-center { padding: 2% 4%; gap: 2px; }
+  .pc-home-title { font-size: 0.48rem; }
+}

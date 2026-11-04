@@ -1,0 +1,113 @@
+/* ==========================================================================
+   كوب — أدوار مخفية وتحديات وحجب
+   ========================================================================== */
+
+.cp { --accent: #8a7dbb; }
+
+.cp-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 12px;
+  align-items: start;
+}
+.cp-main { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.cp-side { display: flex; flex-direction: column; gap: 10px; }
+
+.cp-players { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 8px; }
+.cp-player {
+  padding: 9px;
+  border-radius: 12px;
+  border: 1px solid rgba(246, 242, 232, 0.09);
+  background: rgba(255, 255, 255, 0.025);
+}
+.cp-player.is-current {
+  border-color: color-mix(in srgb, var(--pc, #8a7dbb) 62%, transparent);
+  background: color-mix(in srgb, var(--pc, #8a7dbb) 10%, transparent);
+}
+.cp-player.is-out { opacity: 0.55; filter: saturate(0.5); }
+.cp-coins { font-size: 0.68rem; font-weight: 800; color: #ffe9ae; }
+.cp-roles { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
+.cp-role {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 7px;
+  border-radius: 7px;
+  border: 1px solid color-mix(in srgb, var(--rc, #8a7dbb) 55%, transparent);
+  background: color-mix(in srgb, var(--rc, #8a7dbb) 16%, transparent);
+  font-size: 0.58rem;
+  font-weight: 800;
+}
+.cp-role.is-back {
+  justify-content: center;
+  min-width: 30px;
+  color: var(--muted, #9fb0ac);
+  border-color: rgba(246, 242, 232, 0.16);
+  background: repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0 4px, transparent 4px 8px);
+}
+.cp-player-note { margin: 5px 0 0; font-size: 0.58rem; color: var(--muted, #9fb0ac); }
+
+.cp-action-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 7px; margin-top: 6px; }
+.cp-action {
+  appearance: none;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 8px 9px;
+  border-radius: 10px;
+  border: 1px solid rgba(138, 125, 187, 0.4);
+  background: linear-gradient(150deg, rgba(138, 125, 187, 0.14), rgba(255, 255, 255, 0.02));
+  color: #f6f2e8;
+  font: inherit;
+  text-align: right;
+  transition: transform 0.14s ease, border-color 0.14s ease;
+}
+.cp-action strong { font-size: 0.76rem; }
+.cp-action span { font-size: 0.56rem; color: var(--muted, #9fb0ac); line-height: 1.55; }
+.cp-action:hover:not(:disabled) { transform: translateY(-2px); border-color: #b7a9e8; }
+.cp-action.is-targeting { outline: 2px solid #ffe08a; outline-offset: 1px; }
+.cp-action:disabled { cursor: not-allowed; opacity: 0.5; }
+.cp-action:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+.cp-targets {
+  margin-top: 8px;
+  padding: 8px;
+  border-radius: 10px;
+  border: 1px solid rgba(201, 164, 92, 0.35);
+  background: rgba(201, 164, 92, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.66rem;
+}
+.cp-react,
+.cp-lose,
+.cp-exchange { display: flex; flex-direction: column; gap: 6px; }
+.cp-last { margin: 4px 0 0; font-size: 0.66rem; color: #b9ecd3; }
+
+.cp-role-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 0;
+  border-bottom: 1px solid rgba(246, 242, 232, 0.06);
+  font-size: 0.64rem;
+}
+.cp-role-row:last-child { border-bottom: 0; }
+.cp-role-icon { font-size: 1rem; flex: 0 0 auto; }
+.cp-role-row div { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.cp-role-row strong { font-size: 0.7rem; }
+.cp-role-row span { color: var(--muted, #9fb0ac); font-size: 0.56rem; }
+
+@media (max-width: 880px) {
+  .cp-layout { grid-template-columns: minmax(0, 1fr); }
+  .cp-side { order: 2; }
+}
+@media (max-width: 430px) {
+  .cp-action-grid { grid-template-columns: minmax(0, 1fr); }
+  .cp-players { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cp-action { transition: none; }
+}

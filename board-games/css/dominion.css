@@ -1,0 +1,116 @@
+/* ==========================================================================
+   دومينيون — بناء السلسلة وشراء الممالك
+   ========================================================================== */
+
+.dmn { --accent: #c9a45c; }
+
+.dmn-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 290px;
+  gap: 12px;
+  align-items: start;
+}
+.dmn-main { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.dmn-side { display: flex; flex-direction: column; gap: 10px; }
+
+.dmn-card {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  padding: 8px 9px;
+  border-radius: 10px;
+  border: 1px solid rgba(0, 0, 0, 0.45);
+  background: linear-gradient(165deg, #f3ead6, #d9c8a4);
+  color: #2a2118;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55), 0 4px 10px -8px #000;
+  text-align: right;
+}
+.dmn-card.is-treasure { background: linear-gradient(165deg, #f6e3a8, #d7b75d); }
+.dmn-card.is-victory { background: linear-gradient(165deg, #cfe3c0, #9dc087); }
+.dmn-card.is-curse { background: linear-gradient(165deg, #c9b3c9, #94748f); color: #1e1420; }
+.dmn-card.is-action { background: linear-gradient(165deg, #efe6d1, #cabb96); }
+.dmn-card-name { font-size: 0.74rem; font-weight: 800; line-height: 1.3; }
+.dmn-card-meta { font-size: 0.58rem; font-weight: 700; color: #5c4a2f; }
+.dmn-card.is-small { padding: 6px; }
+.dmn-card.is-small .dmn-card-name { font-size: 0.64rem; }
+.dmn-card.is-small .dmn-card-meta { font-size: 0.52rem; }
+
+.dmn-hand { display: flex; flex-wrap: wrap; gap: 7px; }
+.dmn-hand-card {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  width: 108px;
+}
+.dmn-hand-card .dmn-card { flex: 1 1 auto; }
+.dmn-play { font-size: 0.62rem; padding: 4px 6px; border-radius: 7px; }
+
+.dmn-supply-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 7px;
+}
+.dmn-supply {
+  position: relative;
+  appearance: none;
+  cursor: pointer;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  font: inherit;
+  text-align: right;
+  transition: transform 0.15s ease, filter 0.15s ease;
+}
+.dmn-supply .dmn-card { min-height: 74px; }
+.dmn-supply.is-buyable .dmn-card { box-shadow: 0 0 0 2px #ffe08a, 0 4px 10px -8px #000; }
+.dmn-supply:hover:not(:disabled) { transform: translateY(-2px); }
+.dmn-supply:disabled { cursor: not-allowed; filter: saturate(0.45) brightness(0.72); }
+.dmn-supply:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+.dmn-supply-count {
+  position: absolute;
+  inset-inline-end: 4px;
+  bottom: 4px;
+  min-width: 18px;
+  height: 18px;
+  display: grid;
+  place-items: center;
+  padding: 0 4px;
+  border-radius: 999px;
+  font-size: 0.58rem;
+  font-weight: 900;
+  color: #fff8e8;
+  background: rgba(30, 24, 16, 0.82);
+}
+
+.dmn-actions { margin-bottom: 8px; }
+.dmn-last { margin: 6px 0 0; font-size: 0.66rem; color: #b9ecd3; line-height: 1.6; }
+
+.dmn-player {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 7px 8px;
+  border-radius: 10px;
+  border: 1px solid rgba(246, 242, 232, 0.08);
+  font-size: 0.68rem;
+}
+.dmn-player.is-current { border-color: rgba(201, 164, 92, 0.55); background: rgba(201, 164, 92, 0.09); }
+.dmn-counts { color: var(--muted, #9fb0ac); font-size: 0.6rem; }
+
+@media (max-width: 880px) {
+  .dmn-layout { grid-template-columns: minmax(0, 1fr); }
+  .dmn-side { order: 2; }
+}
+@media (max-width: 430px) {
+  .dmn-hand-card { width: calc(50% - 4px); }
+  .dmn-supply-grid { grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); }
+}
+@media (max-width: 370px) {
+  .dmn-hand-card { width: 100%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dmn-supply { transition: none; }
+}

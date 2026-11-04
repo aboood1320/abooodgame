@@ -1,0 +1,74 @@
+/* وينغسبان */
+.wg { --accent: #6f9b6e; }
+.wg-layout { display: grid; grid-template-columns: minmax(0, 1fr) 290px; gap: 12px; align-items: start; }
+.wg-main { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.wg-side { display: flex; flex-direction: column; gap: 10px; }
+.wg-board { display: flex; flex-direction: column; gap: 8px; }
+.wg-row { border-radius: 13px; border: 1px solid rgba(246, 242, 232, 0.09); background: rgba(255, 255, 255, 0.025); padding: 8px; }
+.wg-row:nth-of-type(2) { background: linear-gradient(120deg, rgba(111, 155, 110, 0.09), transparent 60%), rgba(255, 255, 255, 0.02); }
+.wg-row:nth-of-type(3) { background: linear-gradient(120deg, rgba(201, 164, 92, 0.09), transparent 60%), rgba(255, 255, 255, 0.02); }
+.wg-row:nth-of-type(4) { background: linear-gradient(120deg, rgba(95, 143, 168, 0.11), transparent 60%), rgba(255, 255, 255, 0.02); }
+.wg-row-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px; margin-bottom: 6px; font-size: 0.72rem; font-weight: 800; }
+.wg-row-birds { display: flex; flex-wrap: wrap; gap: 6px; }
+.wg-bird {
+  width: 122px;
+  padding: 7px;
+  border-radius: 10px;
+  border: 1px solid rgba(111, 155, 110, 0.4);
+  background: linear-gradient(160deg, #1c3330, #101f1e);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.wg-bird-top { display: flex; align-items: center; justify-content: space-between; gap: 4px; font-size: 0.68rem; }
+.wg-bird-points { display: grid; place-items: center; min-width: 20px; height: 20px; padding: 0 4px; border-radius: 6px; background: rgba(201, 164, 92, 0.22); color: #ffe9ae; font-weight: 900; font-size: 0.66rem; }
+.wg-bird-food { font-size: 0.62rem; color: var(--muted, #9fb0ac); }
+.wg-bird-eggs { display: flex; flex-wrap: wrap; gap: 3px; }
+.wg-egg { width: 9px; height: 11px; border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%; border: 1px solid rgba(233, 216, 180, 0.35); background: rgba(255, 255, 255, 0.05); }
+.wg-egg.is-on { background: linear-gradient(160deg, #fff6d8, #d9c08a); border-color: #b39a63; }
+.wg-bird-power { align-self: flex-start; font-size: 0.52rem; padding: 2px 5px; border-radius: 5px; background: rgba(111, 155, 110, 0.18); color: #b9ecd3; }
+.wg-slot { width: 122px; min-height: 74px; border-radius: 10px; border: 1px dashed rgba(246, 242, 232, 0.13); background: rgba(0, 0, 0, 0.1); }
+.wg-hand { display: flex; flex-wrap: wrap; gap: 7px; }
+.wg-hand-card {
+  appearance: none;
+  cursor: pointer;
+  width: 148px;
+  padding: 8px;
+  border-radius: 10px;
+  border: 1px solid rgba(246, 242, 232, 0.13);
+  background: linear-gradient(160deg, #20383a, #122225);
+  color: #f6f2e8;
+  font: inherit;
+  text-align: right;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  transition: transform 0.15s ease, border-color 0.15s ease;
+}
+.wg-hand-card:hover { transform: translateY(-2px); border-color: #6f9b6e; }
+.wg-hand-card.is-selected { outline: 3px solid #ffe08a; outline-offset: 1px; transform: translateY(-4px); }
+.wg-hand-card:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+.wg-hand-habitat { font-size: 0.58rem; color: #b9ecd3; font-weight: 700; }
+.wg-hand-card strong { font-size: 0.8rem; }
+.wg-hand-meta { font-size: 0.6rem; color: var(--muted, #9fb0ac); line-height: 1.5; }
+.wg-play-panel { margin-top: 8px; padding: 8px; border-radius: 10px; border: 1px solid rgba(201, 164, 92, 0.35); background: rgba(201, 164, 92, 0.08); display: flex; flex-direction: column; gap: 6px; }
+.wg-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.wg-actions .xg-btn { flex: 1 1 140px; }
+.wg-actions b { color: #ffe9ae; }
+.wg-last { margin: 4px 0 0; font-size: 0.66rem; color: #b9ecd3; line-height: 1.6; }
+.wg-players { display: flex; flex-direction: column; gap: 7px; }
+.wg-player { padding: 7px; border-radius: 10px; border: 1px solid rgba(246, 242, 232, 0.08); }
+.wg-player.is-current { border-color: color-mix(in srgb, var(--pc, #6f9b6e) 62%, transparent); background: color-mix(in srgb, var(--pc, #6f9b6e) 11%, transparent); }
+.wg-player-score { font-size: 1rem; font-weight: 900; color: #ffe9ae; }
+.wg-player-stats { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 4px; font-size: 0.58rem; color: #e7e2d1; }
+.wg-player-food { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 4px; font-size: 0.58rem; color: var(--muted, #9fb0ac); }
+@media (max-width: 880px) {
+  .wg-layout { grid-template-columns: minmax(0, 1fr); }
+  .wg-side { order: 2; }
+}
+@media (max-width: 430px) {
+  .wg-bird, .wg-slot { width: calc(50% - 3px); }
+  .wg-bird { padding: 6px; }
+  .wg-hand-card { width: calc(50% - 4px); }
+  .wg-hand-card strong { font-size: 0.72rem; }
+}

@@ -1,0 +1,136 @@
+/* للبيع! */
+.fs { --accent: #c9a45c; }
+.fs-layout { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 12px; align-items: start; }
+.fs-main { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.fs-side { display: flex; flex-direction: column; gap: 10px; }
+
+.fs-auction,
+.fs-selling { display: flex; flex-direction: column; gap: 9px; }
+
+.fs-cards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  justify-content: center;
+  padding: 8px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid rgba(246, 242, 232, 0.07);
+}
+.fs-prop {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  width: 74px;
+  height: 96px;
+  padding: 5px;
+  border-radius: 9px;
+  border: 2px solid #8b6b3e;
+  background:
+    radial-gradient(90% 65% at 30% 10%, #fffdf6, transparent 55%),
+    linear-gradient(160deg, #f7eedb, #ddc9a3);
+  color: #4a321c;
+  box-shadow: 0 10px 18px -14px #000, inset 0 1px 0 #fff;
+  font: inherit;
+}
+.fs-prop.is-taken { border-color: color-mix(in srgb, var(--pc, #c9a45c) 70%, #6b5536); filter: saturate(0.8) brightness(0.86); }
+.fs-prop.is-hot { outline: 2px solid #ffe08a; outline-offset: 1px; }
+.fs-prop-value { font-size: 1.75rem; font-weight: 900; line-height: 1; font-family: Georgia, serif; }
+.fs-prop-label { font-size: 0.5rem; font-weight: 800; letter-spacing: 0.04em; color: #6b5536; }
+.fs-prop-owner {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.5rem;
+  font-weight: 800;
+  color: var(--pc, #6b5536);
+}
+.fs-prop-btn { cursor: pointer; transition: transform 0.14s ease, filter 0.14s ease; }
+.fs-prop-btn:hover:not(:disabled) { transform: translateY(-3px); }
+.fs-prop-btn:disabled { cursor: not-allowed; filter: saturate(0.4) brightness(0.7); }
+.fs-prop-btn:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+
+.fs-bid-box {
+  padding: 10px;
+  border-radius: 12px;
+  border: 1px solid rgba(201, 164, 92, 0.32);
+  background: rgba(201, 164, 92, 0.07);
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.fs-bid-head,
+.fs-sell-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 7px; font-size: 0.7rem; }
+.fs-bid-head strong { color: #ffe9ae; }
+.fs-bid-amount { font-size: 0.66rem; color: #e7e2d1; }
+.fs-bid-amount strong { font-size: 0.95rem; }
+.fs-bid-controls { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 7px; }
+.fs-bid-field { display: flex; flex-direction: column; gap: 3px; font-size: 0.58rem; color: var(--muted, #9fb0ac); }
+.fs-bid-field input {
+  width: 108px;
+  padding: 7px 9px;
+  border-radius: 8px;
+  border: 1px solid rgba(246, 242, 232, 0.18);
+  background: rgba(9, 18, 22, 0.65);
+  color: #f6f2e8;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 800;
+  direction: ltr;
+  text-align: center;
+}
+.fs-bid-field input:focus-visible { outline: 2px solid #ffe08a; outline-offset: 1px; }
+.fs-last { margin: 0; font-size: 0.66rem; color: #b9ecd3; line-height: 1.6; }
+
+.fs-sell-props { display: flex; flex-wrap: wrap; gap: 7px; }
+.fs-sell-head { padding: 7px 9px; border-radius: 9px; background: rgba(255, 255, 255, 0.03); }
+
+.fs-money-row { justify-content: center; }
+.fs-money {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 58px;
+  height: 78px;
+  border-radius: 8px;
+  border: 1px solid #9a7c4b;
+  background: linear-gradient(160deg, #f5e7c6, #d6ba83);
+  color: #45301a;
+  box-shadow: inset 0 1px 0 #fff;
+}
+.fs-money span { font-size: 1.35rem; font-weight: 900; line-height: 1; font-family: Georgia, serif; }
+.fs-money small { font-size: 0.48rem; font-weight: 800; }
+.fs-money:nth-child(odd) { transform: rotate(-1.2deg); }
+.fs-money:nth-child(even) { transform: rotate(1deg); }
+
+.fs-players { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; }
+.fs-player { padding: 8px; border-radius: 11px; border: 1px solid rgba(246, 242, 232, 0.08); }
+.fs-player.is-current { border-color: color-mix(in srgb, var(--pc, #c9a45c) 62%, transparent); background: color-mix(in srgb, var(--pc, #c9a45c) 10%, transparent); }
+.fs-player-cash { font-size: 0.76rem; font-weight: 900; color: #ffe9ae; }
+.fs-player-stats { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; font-size: 0.58rem; color: #e7e2d1; }
+.fs-player-bid { color: #ffe08a; font-weight: 800; }
+.fs-player-money { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 5px; }
+.fs-mini-money { min-width: 20px; padding: 1px 4px; border-radius: 4px; background: #e2cfa7; color: #4a321c; font-size: 0.54rem; font-weight: 900; text-align: center; }
+
+@media (max-width: 880px) {
+  .fs-layout { grid-template-columns: minmax(0, 1fr); }
+  .fs-side { order: 2; }
+}
+@media (max-width: 430px) {
+  .fs-prop { width: 58px; height: 78px; }
+  .fs-prop-value { font-size: 1.35rem; }
+  .fs-bid-field input { width: 88px; }
+  .fs-bid-controls .xg-btn { flex: 1 1 120px; }
+  .fs-money { width: 48px; height: 66px; }
+  .fs-money span { font-size: 1.1rem; }
+  .fs-players { grid-template-columns: minmax(0, 1fr); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .fs-prop-btn { transition: none; }
+  .fs-money:nth-child(odd), .fs-money:nth-child(even) { transform: none; }
+}

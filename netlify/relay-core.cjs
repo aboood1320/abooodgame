@@ -131,7 +131,10 @@ function createRelay(store) {
   async function onCreate(sid, msg) {
     await leaveCurrent(sid);
     const name = cleanName(msg.name, "المضيف");
-    const code = await makeCode();
+    /* رمز مطلوب (نقل الاستضافة): نقبله إن كان بشكل صحيح ولم تكن هناك غرفة حيّة به */
+    const wanted = String(msg.code || "").trim().toUpperCase();
+    const useWanted = /^[A-Z0-9]{4}$/.test(wanted) && !(await roomAlive(wanted));
+    const code = useWanted ? wanted : await makeCode();
     const t = now();
     await store.set("room/" + code, { code, hostId: sid, created: t, sweptAt: t });
     await store.set("mem/" + code + "/" + sid, { id: sid, name, joined: t, last: t });
@@ -181,8 +184,23 @@ function createRelay(store) {
     await push(to, { t: "relay", from: sid, data: msg.data });
   }
 
+  /** طرد لاعب (للمضيف فقط). ندفع إشعار «طُرد» بعد الإزالة لأن الإزالة تمسح صندوق وارده. */
+  async function onKick(sid, msg) {
+    const sess = await store.get("sess/" + sid);
+    if (!sess || !sess.room) return;
+    const room = await store.get("room/" + sess.room);
+    if (!room || room.hostId !== sid) return;
+    const target = String(msg.id || "");
+    if (!target || target === sid) return;
+    const member = await store.get("mem/" + sess.room + "/" + target);
+    if (!member) return;
+    await removeMember(sess.room, target);
+    await push(target, { t: "kicked", reason: "طردك المضيف من الغرفة." });
+  }
+
   async function handleMsg(sid, msg) {
     if (!msg || typeof msg !== "object") return undefined;
+    if (msg.t === "kick") return onKick(sid, msg);
     if (msg.t === "create") return onCreate(sid, msg);
     if (msg.t === "join") return onJoin(sid, msg);
     if (msg.t === "relay") return onRelay(sid, msg);
@@ -228,6 +246,54 @@ function createRelay(store) {
     }
   }
 
+  /* ------------------------------ دليل الغرف العامة ------------------------------ */
+
+  const DIR_STALE_MS = 75000;
+
+  async function dirPublish(sid, room) {
+    if (!room || typeof room !== "object") return;
+    const code = String(room.code || "").toUpperCase();
+    if (!/^[A-Z0-9]{4}$/.test(code)) return;
+    const mode = ["cloud", "web", "lan"].indexOf(room.mode) >= 0 ? room.mode : "cloud";
+    await store.set("pub/" + code, {
+      code,
+      mode,
+      host: cleanName(room.host, "مضيف"),
+      game: cleanName(room.game, ""),
+      players: Math.max(0, Math.min(99, Number(room.players) || 0)),
+      max: Math.max(0, Math.min(99, Number(room.max) || 0)),
+      inGame: !!room.inGame,
+      sid,
+      at: now(),
+    });
+  }
+
+  async function dirRemove(sid, code) {
+    const key = "pub/" + String(code || "").toUpperCase();
+    const current = await store.get(key);
+    if (current && current.sid === sid) await store.del(key);
+  }
+
+  async function dirList() {
+    const keys = await store.list("pub/");
+    const found = await Promise.all(keys.map(async (key) => ({ key, value: await store.get(key) })));
+    const rooms = [];
+    for (const item of found) {
+      if (!item.value) continue;
+      if (now() - (item.value.at || 0) > DIR_STALE_MS) { await store.del(item.key); continue; }
+      rooms.push({
+        code: item.value.code,
+        mode: item.value.mode,
+        host: item.value.host,
+        game: item.value.game,
+        players: item.value.players,
+        max: item.value.max,
+        inGame: !!item.value.inGame,
+      });
+    }
+    return rooms.slice(0, 40);
+  }
+
   /* ------------------------------ نقطة الدخول ------------------------------ */
 
   async function handle(body) {
@@ -237,6 +303,10 @@ function createRelay(store) {
       if (!/^[a-f0-9]{16}$/.test(sid)) return { ok: false, error: "bad-sid" };
 
       if (body.op === "ping") return { ok: true, t: now() };
+
+      if (body.op === "dir-list") return { ok: true, rooms: await dirList() };
+      if (body.op === "dir-publish") { await dirPublish(sid, body.room); return { ok: true }; }
+      if (body.op === "dir-remove") { await dirRemove(sid, body.code); return { ok: true }; }
 
       if (body.op === "send") {
         const list = Array.isArray(body.msgs) ? body.msgs.slice(0, 30) : [];

@@ -547,10 +547,10 @@
     socket.send(JSON.stringify(payload));
   }
 
-  async function lanCreateRoom(name) {
+  async function lanCreateRoom(name, code) {
     await connect();
     const roomPromise = waitForRoom();
-    rawSend({ t: "create", name: name || "المضيف" });
+    rawSend({ t: "create", name: name || "المضيف", code: code ? String(code).toUpperCase() : undefined });
     return roomPromise;
   }
 
@@ -597,6 +597,10 @@
         guestConns.delete(msg.id);
       }
       emit("peer-left", msg.id);
+      return;
+    }
+    if (msg.t === "kicked") {
+      emit("message", { from: hostId, data: { t: "kicked", reason: msg.reason || "طردك المضيف من الغرفة." } });
       return;
     }
     if (msg.t === "relay") {
@@ -1207,10 +1211,78 @@
 
   /* ============================== الواجهة الموحّدة ============================== */
 
-  async function createRoom(name) {
-    if (mode === "cloud") return cloudCreateRoom(name);
-    return lanCreateRoom(name);
+  async function createRoom(name, opts) {
+    const wanted = opts && opts.code ? String(opts.code).toUpperCase() : "";
+    if (mode === "cloud") return cloudCreateRoom(name, wanted || undefined);
+    return lanCreateRoom(name, wanted);
   }
+
+  /** طرد لاعب (للمضيف فقط). يُرسل إشعارًا ثم يقطع الاتصال. */
+  function kick(peerId) {
+    if (role !== "host" || !peerId || peerId === selfId) return false;
+    if (mode === "cloud") {
+      const conn = guestConns.get(peerId);
+      if (!conn) return false;
+      try {
+        if (channelOpen(conn)) conn.dc.send(JSON.stringify({ t: "kicked", reason: "طردك المضيف من الغرفة." }));
+      } catch (err) { /* ignore */ }
+      setTimeout(() => { try { onCloudHostClose(peerId); } catch (err) { /* ignore */ } }, 350);
+      return true;
+    }
+    try {
+      rawSend({ t: "kick", id: peerId });
+      return true;
+    } catch (err) {
+      return false;
+    }
+  }
+
+  /* ============================== دليل الغرف العامة ==============================
+     نشرة حائط تستضيفها خدمة الغرف (/api/relay). المضيف العام ينشر غرفته، واللاعب يتصفحها.
+     النقل نفسه يبقى عبر وضع الغرفة (عالمي/مدرسي/محلي). */
+
+  const dirSid = (() => {
+    const bytes = new Uint8Array(8);
+    if (window.crypto && window.crypto.getRandomValues) window.crypto.getRandomValues(bytes);
+    else for (let i = 0; i < 8; i++) bytes[i] = Math.floor(Math.random() * 256);
+    return Array.from(bytes).map((b) => (b < 16 ? "0" : "") + b.toString(16)).join("");
+  })();
+
+  async function dirCall(body, timeoutMs) {
+    if (relayMissing()) throw new Error("relay-missing");
+    const ctl = typeof AbortController === "function" ? new AbortController() : null;
+    const timer = ctl ? setTimeout(() => ctl.abort(), timeoutMs || 8000) : null;
+    try {
+      const res = await fetch(relayEndpoint(), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(Object.assign({ sid: dirSid }, body)),
+        cache: "no-store",
+        keepalive: !!(body && body.op === "dir-remove"),
+        signal: ctl ? ctl.signal : undefined,
+      });
+      if (!res.ok) throw new Error("http " + res.status);
+      const data = await res.json();
+      if (!data || data.ok === false) throw new Error((data && data.error) || "bad-response");
+      return data;
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
+  }
+
+  const directory = {
+    async list() {
+      const data = await dirCall({ op: "dir-list" });
+      return Array.isArray(data.rooms) ? data.rooms : [];
+    },
+    async publish(room) {
+      await dirCall({ op: "dir-publish", room });
+      return true;
+    },
+    async remove(code) {
+      try { await dirCall({ op: "dir-remove", code }, 4000); } catch (err) { /* ignore */ }
+    },
+  };
 
   async function joinRoom(code, name) {
     if (mode === "cloud") return cloudJoinRoom(code, name);
@@ -1363,6 +1435,8 @@
   }
 
   BG.net = {
+    kick,
+    directory,
     getRelayUrl,
     setRelayUrl,
     relayMissing,

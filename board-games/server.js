@@ -297,7 +297,10 @@ function handleSignalMessage(peer, msg) {
       sendJson(peer.socket, { t: "error", message: "أنت داخل غرفة بالفعل." });
       return;
     }
-    const code = makeCode();
+    /* رمز مطلوب (يُستخدم عند نقل الاستضافة: المضيف الجديد يُنشئ نفس الرمز المتفق عليه) */
+    const wanted = String(msg.code || "").trim().toUpperCase();
+    const validWanted = /^[A-Z0-9]{4}$/.test(wanted) && !rooms.has(wanted);
+    const code = validWanted ? wanted : makeCode();
     const newRoom = { code, hostId: peer.id, peers: new Map(), createdAt: Date.now() };
     peer.name = normalizeName(msg.name, "المضيف");
     peer.room = code;
@@ -374,6 +377,17 @@ function handleSignalMessage(peer, msg) {
     const target = room.peers.get(String(msg.to || ""));
     if (!target) return;
     sendJson(target.socket, { t: "signal", from: peer.id, data: msg.data || null });
+    return;
+  }
+
+  if (msg.t === "kick") {
+    /* طرد لاعب: للمضيف فقط */
+    const room = peer.room ? rooms.get(peer.room) : null;
+    if (!room || room.hostId !== peer.id) return;
+    const target = room.peers.get(String(msg.id || ""));
+    if (!target || target.id === peer.id) return;
+    sendJson(target.socket, { t: "kicked", reason: "طردك المضيف من الغرفة." });
+    removePeer(target, "طُرد أحد اللاعبين.");
     return;
   }
 
