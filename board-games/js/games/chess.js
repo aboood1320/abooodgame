@@ -1,5 +1,5 @@
 /* ==========================================================================
-   الشطرنج — لعبة كاملة بقواعد دولية
+   الشطرنج — تجربة كاملة بمحرك Stockfish حقيقي
    ========================================================================== */
 (function () {
   "use strict";
@@ -16,78 +16,152 @@
     return;
   }
 
-  const GLYPH = { P: "♟", N: "♞", B: "♝", R: "♜", Q: "♛", K: "♚" };
-  const ICON = "♔";
+  /* ------------------------------------------------------------------ */
+  /* ثوابت                                                              */
+  /* ------------------------------------------------------------------ */
+
   const PIECE_NAME = { P: "بيدق", N: "حصان", B: "فيل", R: "رخ", Q: "وزير", K: "ملك" };
   const SAN_AR = { K: "م", Q: "و", R: "ر", B: "ف", N: "ح" };
   const VALUE = { P: 1, N: 3, B: 3, R: 5, Q: 9, K: 0 };
   const START_COUNT = { P: 8, N: 2, B: 2, R: 2, Q: 1 };
   const FILES = "abcdefgh";
+  const PIECE_URL = "vendor/chess/pieces/";
+  const ENGINE_URL = "vendor/stockfish/stockfish-17.1-lite-single.js";
+  const REDUCED = "matchMedia" in window && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   const LEVEL_NAME = { easy: "سهل", normal: "متوسط", hard: "صعب", expert: "خبير" };
+  const LEVEL_ELO = { easy: "250", normal: "1000", hard: "2000", expert: "3600" };
 
-  const AI_CFG = {
-    easy: { depth: 2, timeLimit: 240, randomness: 75, blunder: 0.35 },
-    normal: { depth: 4, timeLimit: 800, randomness: 12, blunder: 0.02 },
-    hard: { depth: 7, timeLimit: 2600, randomness: 0, blunder: 0 },
-    expert: { depth: 12, timeLimit: 6000, randomness: 0, blunder: 0 },
+  const LEVEL_CFG = {
+    easy: { elo: 1320, limit: true, movetime: 260, multipv: 5, style: "easy" },
+    normal: { elo: 1320, limit: true, movetime: 620, multipv: 4, style: "normal" },
+    hard: { elo: 2000, limit: true, movetime: 1250, multipv: 1, style: "best" },
+    expert: { elo: 3600, limit: false, movetime: 2800, multipv: 1, style: "best" },
   };
 
-  let state = null;
+  const TIME_LABEL = {
+    "3+2": "3+2",
+    "5+0": "5 دقائق",
+    "10+0": "10 دقائق",
+    "15+10": "15+10",
+    "30+0": "30 دقيقة",
+    none: "بلا ساعة",
+  };
+
+  /* ------------------------------------------------------------------ */
+  /* حالة الوحدة                                                        */
+  /* ------------------------------------------------------------------ */
+
+  let rootRef = null;
   let apiRef = null;
   let el = null;
+  let state = null;
 
   let selected = -1;
   let selectedMoves = [];
   let flip = false;
-  let thinking = false;
-  let over = false;
-  let endReported = false;
-  let endInfo = null;
-
+  let initialFen = C.START_FEN;
   let history = [];
   let lastMove = null;
   let positionCounts = new Map();
 
+  let over = false;
+  let endReported = false;
+  let endInfo = null;
+  let thinking = false;
+  let hintBusy = false;
   let hintSquares = null;
   let hintTimer = null;
-
   let pendingPromo = null;
+  let concluded = false;
 
-  let worker = null;
-  let workerFailed = false;
+  let clock = { w: 600000, b: 600000 };
+  let increment = 0;
+  let clockStartedAt = 0;
+  let clockTimer = null;
+  let currentEval = null;
+  let lastCheckSound = false;
+  let flagWarned = false;
+
+  let drag = null;
+  let suppressClick = false;
+
+  let engine = null;
+  let engineInit = null;
+  let engineQueue = Promise.resolve();
+  let pendingSearch = null;
+  let engineFailed = false;
   let searchToken = 0;
   let aiTimer = null;
-  let safetyTimer = null;
 
   /* ------------------------------------------------------------------ */
   /* أدوات مساعدة                                                       */
   /* ------------------------------------------------------------------ */
 
+  function online() {
+    return !!(apiRef && apiRef.net && apiRef.net.enabled);
+  }
+
+  function localSide() {
+    if (!online()) return null;
+    const seat = apiRef.net.seat;
+    if (seat === 0) return "w";
+    if (seat === 1) return "b";
+    return null;
+  }
+
+  function isSpectator() {
+    return online() && localSide() == null;
+  }
+
+  function canPlayLocal() {
+    if (!state || over || concluded) return false;
+    if (pendingPromo || thinking || hintBusy) return false;
+    if (apiRef && apiRef.finished) return false;
+    if (!online()) return true;
+    if (isSpectator()) return false;
+    return localSide() === state.turn;
+  }
+
+  function canRunCpu() {
+    if (!apiRef) return false;
+    if (!online()) return true;
+    if (isSpectator()) return false;
+    return !!apiRef.net.isHost;
+  }
+
   function seatOf(side) {
-    const players = (apiRef && apiRef.players) || [];
-    if (side === "w") {
-      return players[0] || { name: "أنت", isCpu: false, level: "normal" };
-    }
-    return players[1] || {
-      name: "اللاعب الآلي",
-      isCpu: true,
-      level: (players[0] && players[0].level) || "normal",
-    };
+    const list = (apiRef && apiRef.players) || [];
+    const index = side === "w" ? 0 : 1;
+    if (list[index]) return list[index];
+    return side === "w"
+      ? { name: "أنت", isCpu: false, type: "human", level: "normal" }
+      : { name: "اللاعب الآلي", isCpu: true, type: "cpu", level: "normal" };
   }
 
   function isCpuSide(side) {
     const seat = seatOf(side);
-    return !!(seat && seat.isCpu);
+    return !!(seat && (seat.isCpu || seat.type === "cpu"));
   }
 
   function levelOf(side) {
     const raw = seatOf(side).level || "normal";
-    return AI_CFG[raw] ? raw : "normal";
+    return LEVEL_CFG[raw] ? raw : "normal";
   }
 
   function sideName(side) {
     return side === "w" ? "الأبيض" : "الأسود";
+  }
+
+  function other(side) {
+    return side === "w" ? "b" : "w";
+  }
+
+  function playerLabel(side) {
+    const seat = seatOf(side);
+    let name = seat.name || sideName(side);
+    if (online() && localSide() === side) name += " (أنت)";
+    return name;
   }
 
   function sanArabic(san) {
@@ -107,25 +181,57 @@
     return name === "-" ? "خارج الرقعة" : name;
   }
 
-  function other(side) {
-    return side === "w" ? "b" : "w";
+  function pieceSrc(color, type) {
+    return PIECE_URL + color + type + ".svg";
   }
 
-  function cancelAI() {
-    searchToken += 1;
-    thinking = false;
-    if (aiTimer) {
-      clearTimeout(aiTimer);
-      aiTimer = null;
+  function pad2(n) {
+    return n < 10 ? "0" + n : String(n);
+  }
+
+  function formatClock(ms) {
+    const value = Math.max(0, Math.floor(ms));
+    if (value < 20000) {
+      const tenths = Math.floor(value / 100);
+      const m = Math.floor(tenths / 600);
+      const s = Math.floor((tenths % 600) / 10);
+      return m + ":" + pad2(s) + "." + (tenths % 10);
     }
-    if (safetyTimer) {
-      clearTimeout(safetyTimer);
-      safetyTimer = null;
-    }
-    if (worker) {
-      try { worker.terminate(); } catch (e) { /* لا شيء */ }
-      worker = null;
-    }
+    const totalSeconds = Math.floor(value / 1000);
+    const m = Math.floor(totalSeconds / 60);
+    const s = totalSeconds % 60;
+    if (m < 60) return m + ":" + pad2(s);
+    const h = Math.floor(m / 60);
+    return h + ":" + pad2(m % 60) + ":" + pad2(s);
+  }
+
+  function timeSpec() {
+    const raw = String((apiRef && apiRef.options && apiRef.options.clock) || "10+0");
+    if (raw === "none") return { base: 0, inc: 0, id: "none" };
+    const match = /^(\d+)\+(\d+)$/.exec(raw);
+    if (!match) return { base: 600000, inc: 0, id: "10+0" };
+    return { base: Number(match[1]) * 60000, inc: Number(match[2]) * 1000, id: raw };
+  }
+
+  function timeLabel() {
+    const id = String((apiRef && apiRef.options && apiRef.options.clock) || "10+0");
+    return TIME_LABEL[id] || id;
+  }
+
+  function remainingOf(side) {
+    const base = Math.max(0, Number(clock[side]) || 0);
+    if (!base || over || side !== state.turn) return base;
+    return Math.max(0, base - (Date.now() - clockStartedAt));
+  }
+
+  function isMyTurn() {
+    return canPlayLocal();
+  }
+
+  function cancelledError() {
+    const err = new Error("cancelled");
+    err.cancelled = true;
+    return err;
   }
 
   /* ------------------------------------------------------------------ */
@@ -134,74 +240,120 @@
 
   function create(root, api) {
     apiRef = api;
+    rootRef = root;
     root.innerHTML = "";
     el = {};
+    engineFailed = false;
+    concluded = false;
+
+    if (online()) {
+      const seat = api.net && api.net.seat;
+      flip = seat === 1;
+    } else {
+      flip = false;
+    }
 
     const layout = document.createElement("div");
     layout.className = "chess-layout";
     layout.innerHTML =
-      '<div class="chess-main">' +
+      '<section class="chess-main">' +
         '<div class="chess-center">' +
-          '<div class="ch-player" data-ch-player="top">' +
-            '<span class="ch-avatar is-b" data-ch-avatar aria-hidden="true">♚</span>' +
-            '<div class="ch-player-copy"><strong data-ch-name></strong><small data-ch-meta></small></div>' +
+          '<div class="ch-player ch-player-top" data-ch-player="top">' +
+            '<span class="ch-avatar is-b" data-ch-avatar aria-hidden="true"></span>' +
+            '<div class="ch-player-copy">' +
+              '<span class="ch-name-row"><strong data-ch-name></strong><span class="ch-you" data-ch-you hidden>أنت</span><span class="ch-cpu-tag" data-ch-cpu hidden>حاسوب</span></span>' +
+              '<small data-ch-meta></small>' +
+            '</div>' +
             '<div class="ch-captured" data-ch-captured aria-label="القطع المأسورة"></div>' +
             '<span class="ch-material" data-ch-material hidden></span>' +
-          "</div>" +
-          '<div class="chess-boardwrap">' +
+            '<span class="ch-clock" data-ch-clock aria-live="off"><span data-ch-clock-time>10:00</span></span>' +
+          '</div>' +
+          '<div class="chess-board-wrap">' +
             '<div class="chess-board" data-ch-board role="grid" aria-label="رقعة الشطرنج"></div>' +
+            '<div class="ch-check-toast" data-ch-check-toast hidden>كش!</div>' +
             '<div class="ch-promo" data-ch-promo hidden>' +
               '<div class="ch-promo-card" role="dialog" aria-modal="true" aria-label="ترقية البيدق">' +
-                "<strong>ترقية البيدق</strong>" +
-                "<p>اختر القطعة الجديدة</p>" +
+                '<span class="ch-promo-kicker">اختر قطعة الترقية</span>' +
+                '<strong>ترقية البيدق</strong>' +
                 '<div class="ch-promo-row" data-ch-promo-row></div>' +
                 '<button type="button" class="bg-btn small ghost" data-ch-promo-cancel>إلغاء</button>' +
-              "</div>" +
-            "</div>" +
-          "</div>" +
-          '<div class="ch-player" data-ch-player="bottom">' +
-            '<span class="ch-avatar is-w" data-ch-avatar aria-hidden="true">♔</span>' +
-            '<div class="ch-player-copy"><strong data-ch-name></strong><small data-ch-meta></small></div>' +
+              '</div>' +
+            '</div>' +
+          '</div>' +
+          '<div class="ch-player ch-player-bottom" data-ch-player="bottom">' +
+            '<span class="ch-avatar is-w" data-ch-avatar aria-hidden="true"></span>' +
+            '<div class="ch-player-copy">' +
+              '<span class="ch-name-row"><strong data-ch-name></strong><span class="ch-you" data-ch-you hidden>أنت</span><span class="ch-cpu-tag" data-ch-cpu hidden>حاسوب</span></span>' +
+              '<small data-ch-meta></small>' +
+            '</div>' +
             '<div class="ch-captured" data-ch-captured aria-label="القطع المأسورة"></div>' +
             '<span class="ch-material" data-ch-material hidden></span>' +
-          "</div>" +
-        "</div>" +
-      "</div>" +
+            '<span class="ch-clock" data-ch-clock aria-live="off"><span data-ch-clock-time>10:00</span></span>' +
+          '</div>' +
+          '<div class="ch-mobile-hint" data-ch-mobile-hint aria-hidden="true">اسحب القطعة أو انقر مرتين للتحريك</div>' +
+        '</div>' +
+      '</section>' +
       '<aside class="chess-side">' +
         '<section class="ch-panel ch-status-panel">' +
+          '<div class="ch-panel-head">' +
+            '<h3 class="ch-panel-title">المباراة</h3>' +
+            '<span class="ch-engine-badge" data-ch-engine><i aria-hidden="true"></i>Stockfish</span>' +
+          '</div>' +
           '<div class="ch-status" data-ch-status>' +
             '<span class="ch-status-dot" aria-hidden="true"></span>' +
             '<div class="ch-status-copy"><b data-ch-turn>دور الأبيض</b><small data-ch-note></small></div>' +
-          "</div>" +
-        "</section>" +
-        '<div class="chess-side-grid">' +
-          '<section class="ch-panel ch-controls">' +
-            '<button type="button" class="bg-btn small" data-ch-undo>↶ تراجع</button>' +
-            '<button type="button" class="bg-btn small" data-ch-hint>؟ تلميح</button>' +
-            '<button type="button" class="bg-btn small" data-ch-flip>⇅ عكس اللوحة</button>' +
-            '<button type="button" class="bg-btn small danger" data-ch-resign>🏳️ استسلام</button>' +
-            '<button type="button" class="bg-btn small primary ch-wide" data-ch-new>لعبة جديدة</button>' +
-          "</section>" +
-          '<section class="ch-panel ch-log-panel">' +
+            '<span class="ch-eval" data-ch-eval hidden></span>' +
+          '</div>' +
+          '<div class="ch-meta-row">' +
+            '<span class="ch-meta">المستوى <b data-ch-level>متوسط</b></span>' +
+            '<span class="ch-meta">الساعة <b data-ch-tc>10 دقائق</b></span>' +
+          '</div>' +
+        '</section>' +
+        '<section class="ch-panel ch-controls">' +
+          '<button type="button" class="bg-btn small" data-ch-undo><span aria-hidden="true">↶</span> تراجع</button>' +
+          '<button type="button" class="bg-btn small" data-ch-hint><span aria-hidden="true">✦</span> تلميح</button>' +
+          '<button type="button" class="bg-btn small" data-ch-flip><span aria-hidden="true">⇅</span> عكس</button>' +
+          '<button type="button" class="bg-btn small danger" data-ch-resign><span aria-hidden="true">⚑</span> استسلام</button>' +
+          '<button type="button" class="bg-btn small primary ch-wide" data-ch-new><span aria-hidden="true">↻</span> إعادة اللعبة</button>' +
+        '</section>' +
+        '<section class="ch-panel ch-log-panel">' +
+          '<div class="ch-panel-head">' +
             '<h3 class="ch-panel-title">سجل الحركات</h3>' +
-            '<ol class="ch-moves" data-ch-moves aria-label="سجل الحركات"></ol>' +
-          "</section>" +
-        "</div>" +
-      "</aside>";
+            '<button type="button" class="ch-mini-btn" data-ch-copy title="نسخ سجل الحركات">نسخ</button>' +
+          '</div>' +
+          '<ol class="ch-moves" data-ch-moves aria-label="سجل الحركات"></ol>' +
+        '</section>' +
+      '</aside>';
 
     root.appendChild(layout);
 
+    el.layout = layout;
+    el.main = layout.querySelector(".chess-main");
     el.board = layout.querySelector("[data-ch-board]");
     el.top = playerRefs(layout.querySelector('[data-ch-player="top"]'));
     el.bottom = playerRefs(layout.querySelector('[data-ch-player="bottom"]'));
     el.status = layout.querySelector("[data-ch-status]");
     el.turn = layout.querySelector("[data-ch-turn]");
     el.note = layout.querySelector("[data-ch-note]");
+    el.eval = layout.querySelector("[data-ch-eval]");
     el.moves = layout.querySelector("[data-ch-moves]");
     el.promo = layout.querySelector("[data-ch-promo]");
     el.promoRow = layout.querySelector("[data-ch-promo-row]");
+    el.checkToast = layout.querySelector("[data-ch-check-toast]");
+    el.engineBadge = layout.querySelector("[data-ch-engine]");
+    el.level = layout.querySelector("[data-ch-level]");
+    el.tc = layout.querySelector("[data-ch-tc]");
+    el.copy = layout.querySelector("[data-ch-copy]");
+    el.mobileHint = layout.querySelector("[data-ch-mobile-hint]");
 
     el.board.addEventListener("click", onBoardClick);
+    el.board.addEventListener("keydown", onBoardKeydown);
+    el.board.addEventListener("pointerdown", onPointerDown);
+    window.addEventListener("pointermove", onPointerMove, { passive: false });
+    window.addEventListener("pointerup", onPointerUp);
+    window.addEventListener("pointercancel", onPointerCancel);
+    window.addEventListener("fullscreenchange", onFullscreenChange);
+
     layout.querySelector("[data-ch-undo]").addEventListener("click", undoMove);
     layout.querySelector("[data-ch-hint]").addEventListener("click", showHint);
     layout.querySelector("[data-ch-flip]").addEventListener("click", function () {
@@ -210,10 +362,7 @@
       render();
     });
     layout.querySelector("[data-ch-resign]").addEventListener("click", resign);
-    layout.querySelector("[data-ch-new]").addEventListener("click", function () {
-      if (FX) FX.sound("shuffle");
-      newGame();
-    });
+    layout.querySelector("[data-ch-new]").addEventListener("click", restartGame);
     layout.querySelector("[data-ch-promo-cancel]").addEventListener("click", function () {
       pendingPromo = null;
       selected = -1;
@@ -221,9 +370,10 @@
       hidePromotion();
       render();
     });
+    if (el.copy) el.copy.addEventListener("click", copyMoves);
 
     buildBoard();
-    newGame();
+    newGame(true);
 
     if (new URLSearchParams(location.search).has("bgdebug")) {
       window.__bgDebug = {
@@ -231,12 +381,14 @@
         get history() { return history; },
         get over() { return over; },
         get thinking() { return thinking; },
+        get clock() { return { w: remainingOf("w"), b: remainingOf("b") }; },
+        get engineReady() { return !!engine && !engineFailed; },
         render,
         setFen(fen) {
-          cancelAI();
-          if (hintTimer) clearTimeout(hintTimer);
-          hintTimer = null;
+          cancelSearch();
+          stopHint();
           state = C.fromFEN(fen);
+          initialFen = fen;
           history = [];
           lastMove = null;
           selected = -1;
@@ -246,8 +398,11 @@
           over = false;
           endReported = false;
           endInfo = null;
+          concluded = false;
+          currentEval = null;
           positionCounts = new Map();
           positionCounts.set(C.positionKey(state), 1);
+          clockStartedAt = Date.now();
           hidePromotion();
           render();
         },
@@ -258,17 +413,17 @@
         undoMove,
         square(name) { return C.parseSquare ? C.parseSquare(name) : -1; },
         legal() { return C.legalMoves(state); },
+        hint: showHint,
       };
     }
 
     return {
-      destroy: function () {
-        cancelAI();
-        if (hintTimer) clearTimeout(hintTimer);
-        hintTimer = null;
-        el = null;
-        state = null;
-      },
+      netSnapshot,
+      netLoad,
+      netSeat,
+      netOver,
+      netResume,
+      destroy,
     };
   }
 
@@ -277,9 +432,13 @@
       node: node,
       avatar: node.querySelector("[data-ch-avatar]"),
       name: node.querySelector("[data-ch-name]"),
+      you: node.querySelector("[data-ch-you]"),
+      cpu: node.querySelector("[data-ch-cpu]"),
       meta: node.querySelector("[data-ch-meta]"),
       captured: node.querySelector("[data-ch-captured]"),
       material: node.querySelector("[data-ch-material]"),
+      clock: node.querySelector("[data-ch-clock]"),
+      clockTime: node.querySelector("[data-ch-clock-time]"),
     };
   }
 
@@ -289,7 +448,9 @@
       const cell = document.createElement("button");
       cell.type = "button";
       cell.className = "ch-sq";
+      cell.dataset.vis = String(vis);
       cell.setAttribute("role", "gridcell");
+      cell.tabIndex = vis === 52 ? 0 : -1;
 
       const file = document.createElement("span");
       file.className = "ch-coord ch-coord-file";
@@ -299,9 +460,14 @@
       rank.className = "ch-coord ch-coord-rank";
       rank.setAttribute("aria-hidden", "true");
 
-      const piece = document.createElement("span");
+      const piece = document.createElement("img");
       piece.className = "ch-piece";
-      piece.setAttribute("aria-hidden", "true");
+      piece.alt = "";
+      piece.draggable = false;
+      piece.hidden = true;
+      piece.addEventListener("error", function () {
+        piece.hidden = true;
+      });
 
       cell.appendChild(file);
       cell.appendChild(rank);
@@ -317,12 +483,16 @@
   /* اللعبة                                                             */
   /* ------------------------------------------------------------------ */
 
-  function newGame() {
-    cancelAI();
-    if (hintTimer) clearTimeout(hintTimer);
-    hintTimer = null;
+  function newGame(first) {
+    cancelSearch();
+    stopHint();
+    if (aiTimer) {
+      clearTimeout(aiTimer);
+      aiTimer = null;
+    }
 
     state = C.createGame ? C.createGame() : C.fromFEN(C.START_FEN);
+    initialFen = C.START_FEN;
     history = [];
     lastMove = null;
     selected = -1;
@@ -332,23 +502,49 @@
     over = false;
     endReported = false;
     endInfo = null;
+    concluded = false;
+    currentEval = null;
+    lastCheckSound = false;
+    flagWarned = false;
+    thinking = false;
+
+    const spec = timeSpec();
+    clock = { w: spec.base, b: spec.base };
+    increment = spec.inc;
+    clockStartedAt = Date.now();
 
     positionCounts = new Map();
     positionCounts.set(C.positionKey(state), 1);
 
+    if (!first) {
+      const hasCpu = isCpuSide("w") || isCpuSide("b");
+      if (!online() && !flip && hasCpu) flip = isCpuSide("w") && !isCpuSide("b");
+      if (APIhasCpuSeatW() && !APIhasCpuSeatB()) flip = true;
+    }
+
+    if (apiRef) apiRef.finished = false;
     hidePromotion();
-    flip = !!(seatOf("w").isCpu && !seatOf("b").isCpu);
     render();
+    startClockLoop();
     maybeAi();
   }
 
-  function render() {
+  function APIhasCpuSeatW() {
+    return isCpuSide("w") && !isCpuSide("b");
+  }
+  function APIhasCpuSeatB() {
+    return isCpuSide("b") && !isCpuSide("w");
+  }
+
+  function render(opts) {
     if (!state || !el) return;
+    const animate = opts && opts.animate;
 
     const board = state.board;
-    const checkSq = !over && C.inCheck(state, state.turn) ? state.kings[state.turn] : -1;
+    const checkSq = C.inCheck(state, state.turn) ? state.kings[state.turn] : -1;
     const targets = new Set();
     for (let i = 0; i < selectedMoves.length; i++) targets.add(selectedMoves[i].to);
+    const active = canPlayLocal();
 
     for (let vis = 0; vis < 64; vis++) {
       const r = vis >> 3;
@@ -365,6 +561,7 @@
       if (targets.has(i)) cls += p ? " is-capture" : " is-legal";
       if (i === checkSq) cls += " is-check";
       if (hintSquares && (i === hintSquares.from || i === hintSquares.to)) cls += " is-hint";
+      if (!active && !over) cls += " is-idle";
       cell.className = cls;
       cell.dataset.sq = String(i);
 
@@ -372,14 +569,17 @@
       if (p) {
         const color = C.colorOf(p);
         const type = C.typeOf(p);
-        piece.textContent = GLYPH[type] || "?";
+        const src = pieceSrc(color, type);
+        if (piece.getAttribute("src") !== src) piece.setAttribute("src", src);
+        piece.hidden = false;
         piece.className = "ch-piece is-" + color;
         cell.setAttribute(
           "aria-label",
           squareLabel(i) + " " + (color === "w" ? "أبيض " : "أسود ") + PIECE_NAME[type]
         );
       } else {
-        piece.textContent = "";
+        piece.removeAttribute("src");
+        piece.hidden = true;
         piece.className = "ch-piece";
         cell.setAttribute("aria-label", squareLabel(i) + " فارغ");
       }
@@ -388,14 +588,20 @@
       cell._rank.textContent = c === 0 ? String(8 - dr) : "";
     }
 
-    el.board.classList.toggle("is-locked", over || thinking || !!pendingPromo);
+    el.board.classList.toggle("is-locked", !active);
+    el.board.classList.toggle("is-gameover", over);
 
     paintPlayers();
+    paintClocks();
     updateStatus();
+    updateEval();
     updateMoves();
+
+    if (animate) animateMove(animate);
   }
 
   function paintPlayers() {
+    if (!el) return;
     if (flip) {
       paintPlayer(el.top, "w");
       paintPlayer(el.bottom, "b");
@@ -409,25 +615,40 @@
     if (!refs) return;
     const seat = seatOf(side);
     const level = levelOf(side);
+    const isYou = online() && localSide() === side;
 
     refs.node.dataset.side = side;
-    refs.avatar.textContent = side === "w" ? "♔" : "♚";
     refs.avatar.className = "ch-avatar is-" + side;
-    refs.name.textContent = seat.name || (seat.isCpu ? "اللاعب الآلي" : sideName(side));
-    refs.meta.textContent = seat.isCpu
-      ? "حاسوب · مستوى " + (LEVEL_NAME[level] || "متوسط")
-      : "لاعب";
-    refs.node.classList.toggle("is-active", !over && state.turn === side);
+    refs.avatar.innerHTML = '<img src="' + pieceSrc(side, "K") + '" alt="" draggable="false" />';
+    refs.name.textContent = playerLabel(side);
+    if (refs.you) refs.you.hidden = !isYou;
+    if (refs.cpu) {
+      refs.cpu.hidden = !seat.isCpu;
+      refs.cpu.textContent = "حاسوب";
+    }
+
+    let meta;
+    if (seat.isCpu) meta = "مستوى " + (LEVEL_NAME[level] || "متوسط") + " · ~" + (LEVEL_ELO[level] || "1000") + " إيلو";
+    else if (online()) meta = isYou ? "أنت · لاعب أونلاين" : "لاعب أونلاين";
+    else meta = "لاعب";
+    refs.meta.textContent = meta;
+
+    const active = !over && state.turn === side && !endReported;
+    refs.node.classList.toggle("is-active", active);
+    refs.node.classList.toggle("is-you", isYou);
+    refs.node.classList.toggle("is-low", remainingOf(side) > 0 && remainingOf(side) <= 30000);
 
     const enemy = other(side);
     const lost = missingPieces(enemy);
     refs.captured.innerHTML = "";
     for (let i = 0; i < lost.length; i++) {
-      const chip = document.createElement("span");
-      chip.className = "is-" + enemy;
-      chip.textContent = GLYPH[lost[i]];
-      chip.title = PIECE_NAME[lost[i]];
-      refs.captured.appendChild(chip);
+      const img = document.createElement("img");
+      img.className = "ch-captured-piece is-" + enemy;
+      img.src = pieceSrc(enemy, lost[i]);
+      img.alt = "";
+      img.title = PIECE_NAME[lost[i]];
+      img.draggable = false;
+      refs.captured.appendChild(img);
     }
 
     const diff = materialDiff(side);
@@ -467,37 +688,122 @@
     return mine - theirs;
   }
 
+  function paintClocks() {
+    if (!el || !state) return;
+    const noClock = !clock.w && !clock.b;
+    const pairs = [
+      [el.top, flip ? "w" : "b"],
+      [el.bottom, flip ? "b" : "w"],
+    ];
+
+    for (let i = 0; i < pairs.length; i++) {
+      const refs = pairs[i][0];
+      const side = pairs[i][1];
+      if (!refs) continue;
+      const ms = remainingOf(side);
+      const label = noClock ? "∞" : formatClock(ms);
+      if (refs.clockTime.textContent !== label) refs.clockTime.textContent = label;
+      refs.clock.classList.toggle("is-off", noClock);
+      refs.clock.classList.toggle("is-active", !over && state.turn === side);
+      refs.clock.classList.toggle("is-low", !noClock && ms <= 30000);
+      refs.clock.classList.toggle("is-critical", !noClock && ms <= 10000);
+      refs.clock.setAttribute(
+        "aria-label",
+        noClock ? "بلا ساعة" : "الوقت المتبقي " + (side === "w" ? "للأبيض " : "للأسود ") + label
+      );
+    }
+  }
+
   function updateStatus() {
     if (!el) return;
-
     const side = state.turn;
-    const inCheck = !over && C.inCheck(state, side);
+    const inCheck = C.inCheck(state, side);
     let title;
     let note;
+    let tone = "live";
 
     if (over && endInfo) {
       title = endInfo.title;
       note = endInfo.note;
+      tone = "over";
     } else if (thinking) {
-      title = "اللاعب الآلي يفكّر…";
-      note = "دور " + sideName(side) + (inCheck ? " — الملك في كش" : "");
+      title = "الحاسوب يفكّر…";
+      note = "Stockfish يبحث عن أفضل حركة" + (inCheck ? " · الملك في كش" : "");
+    } else if (hintBusy) {
+      title = "جاري البحث عن تلميح…";
+      note = "لحظات من فضلك.";
+    } else if (online() && !canPlayLocal() && !over) {
+      title = "دور " + sideName(side);
+      note = isCpuSide(side) ? "الحاسوب يلعب الآن." : playerLabel(side) + " يفكّر…";
+    } else if (inCheck) {
+      title = "كش!";
+      note = "ملك " + sideName(side) + " مهدد — يجب حمايته أو تحريكه.";
     } else {
       title = "دور " + sideName(side);
-      if (inCheck) note = "كش! يجب حماية الملك أو تحريكه.";
-      else if (pendingPromo) note = "اختر قطعة الترقية للمتابعة.";
+      if (pendingPromo) note = "اختر قطعة الترقية للمتابعة.";
       else if (history.length) note = "آخر حركة: " + sanArabic(history[history.length - 1].san);
-      else note = "الأبيض يبدأ المباراة.";
+      else note = "الأبيض يبدأ المباراة — بالتوفيق!";
     }
 
     el.status.classList.toggle("is-thinking", thinking && !over);
     el.status.classList.toggle("is-over", over);
-    el.status.classList.toggle("is-check", !!inCheck);
+    el.status.classList.toggle("is-check", !!inCheck && !over);
     el.turn.textContent = title;
     el.note.textContent = note;
 
-    if (apiRef && typeof apiRef.setStatus === "function") {
-      apiRef.setStatus("الشطرنج — " + (over ? "انتهت المباراة" : title), over ? "over" : "live");
+    if (el.checkToast) {
+      const showCheck = inCheck && !over && !thinking;
+      el.checkToast.hidden = !showCheck;
     }
+
+    if (inCheck && !over && !lastCheckSound) {
+      lastCheckSound = true;
+      if (FX) {
+        setTimeout(function () {
+          if (state && !over && C.inCheck(state, state.turn)) FX.sound("turn");
+        }, 140);
+      }
+    } else if (!inCheck) {
+      lastCheckSound = false;
+    }
+
+    if (apiRef && typeof apiRef.setStatus === "function") {
+      apiRef.setStatus("الشطرنج — " + (over ? "انتهت المباراة" : title), over ? "over" : tone);
+    }
+
+    const cpuSide = isCpuSide("w") ? "w" : isCpuSide("b") ? "b" : null;
+    if (el.level) el.level.textContent = cpuSide ? LEVEL_NAME[levelOf(cpuSide)] || "متوسط" : "لاعبان";
+    if (el.tc) el.tc.textContent = timeLabel();
+    if (el.engineBadge) {
+      el.engineBadge.classList.toggle("is-offline", engineFailed);
+      el.engineBadge.classList.toggle("is-thinking", thinking && !engineFailed);
+      el.engineBadge.innerHTML = engineFailed
+        ? '<i aria-hidden="true"></i>محرك احتياطي'
+        : '<i aria-hidden="true"></i>Stockfish 17.1';
+    }
+  }
+
+  function updateEval() {
+    if (!el || !el.eval) return;
+    if (currentEval == null || over) {
+      el.eval.hidden = true;
+      return;
+    }
+    let text = "";
+    if (currentEval.mate != null) {
+      const sign = currentEval.mate > 0 ? "+" : "-";
+      text = "M" + Math.abs(currentEval.mate);
+      el.eval.className = "ch-eval " + (currentEval.mate > 0 ? "is-good" : "is-bad");
+      el.eval.title = "كش مات خلال " + Math.abs(currentEval.mate) + " نقلة";
+      if (sign === "-") text = "-" + text;
+    } else {
+      const pawns = currentEval.cp / 100;
+      text = (pawns > 0 ? "+" : "") + pawns.toFixed(1);
+      el.eval.className = "ch-eval " + (pawns >= 0.4 ? "is-good" : pawns <= -0.4 ? "is-bad" : "is-even");
+      el.eval.title = "تقييم Stockfish";
+    }
+    el.eval.textContent = text;
+    el.eval.hidden = false;
   }
 
   function updateMoves() {
@@ -549,16 +855,49 @@
   /* التفاعل                                                            */
   /* ------------------------------------------------------------------ */
 
-  function onBoardClick(event) {
-    const cell = event.target.closest ? event.target.closest(".ch-sq") : null;
-    if (!cell) return;
+  function cellAt(vis) {
+    return el && el.board ? el.board.children[vis] : null;
+  }
+
+  function viewOf(sq) {
+    const r = sq >> 4;
+    const c = sq & 7;
+    const vr = flip ? 7 - r : r;
+    const vc = flip ? 7 - c : c;
+    return { r: vr, c: vc };
+  }
+
+  function squareFromEvent(event) {
+    const target = event.target && event.target.closest ? event.target.closest(".ch-sq") : null;
+    if (!target || !el.board.contains(target)) return -1;
+    const sq = Number(target.dataset.sq);
+    return Number.isFinite(sq) ? sq : -1;
+  }
+
+  function squareFromPoint(x, y) {
+    const node = document.elementFromPoint(x, y);
+    const cell = node && node.closest ? node.closest(".ch-sq") : null;
+    if (!cell || !el.board.contains(cell)) return -1;
     const sq = Number(cell.dataset.sq);
-    if (!Number.isFinite(sq)) return;
-    onSquare(sq);
+    return Number.isFinite(sq) ? sq : -1;
+  }
+
+  function onBoardClick(event) {
+    if (suppressClick) return;
+    const sq = squareFromEvent(event);
+    if (sq >= 0) onSquare(sq);
   }
 
   function onSquare(i) {
-    if (!state || over || thinking || pendingPromo) return;
+    if (!state || !el) return;
+    if (over) return;
+    if (!canPlayLocal()) {
+      if (online() && !isSpectator() && localSide() !== state.turn && apiRef && apiRef.toast) {
+        apiRef.toast("انتظر دورك.", "warn");
+      }
+      return;
+    }
+    if (pendingPromo || thinking || hintBusy) return;
 
     if (selected >= 0) {
       const move = selectedMoves.find(function (m) {
@@ -594,32 +933,222 @@
     render();
   }
 
+  function onBoardKeydown(event) {
+    const cell = event.target && event.target.closest ? event.target.closest(".ch-sq") : null;
+    if (!cell) return;
+    const vis = Number(cell.dataset.vis);
+    if (!Number.isFinite(vis)) return;
+    let next = -1;
+    if (event.key === "ArrowLeft") next = vis % 8 === 0 ? vis + 7 : vis - 1;
+    else if (event.key === "ArrowRight") next = vis % 8 === 7 ? vis - 7 : vis + 1;
+    else if (event.key === "ArrowUp") next = vis < 8 ? vis + 56 : vis - 8;
+    else if (event.key === "ArrowDown") next = vis >= 56 ? vis - 56 : vis + 8;
+    else if (event.key === "Home") next = 0;
+    else if (event.key === "End") next = 63;
+    else if (event.key === "Escape") {
+      if (document.body.classList.contains("fullscreen-game") && !document.fullscreenElement) {
+        document.body.classList.remove("fullscreen-game");
+      }
+      return;
+    } else {
+      return;
+    }
+    event.preventDefault();
+    for (let i = 0; i < el.board.children.length; i++) el.board.children[i].tabIndex = -1;
+    const target = cellAt(next);
+    if (!target) return;
+    target.tabIndex = 0;
+    target.focus();
+  }
+
+  function onPointerDown(event) {
+    if (event.button != null && event.button !== 0) return;
+    if (!canPlayLocal() || pendingPromo) return;
+    const sq = squareFromEvent(event);
+    if (sq < 0) return;
+    const p = state.board[sq];
+    if (!p || C.colorOf(p) !== state.turn) return;
+    drag = {
+      from: sq,
+      id: event.pointerId,
+      x: event.clientX,
+      y: event.clientY,
+      moved: false,
+      ghost: null,
+      target: -1,
+    };
+  }
+
+  function startDragGhost(event) {
+    if (!drag || drag.ghost) return;
+    const p = state.board[drag.from];
+    if (!p) return;
+    const rect = el.board.getBoundingClientRect();
+    const size = rect.width / 8;
+    const img = document.createElement("img");
+    img.className = "ch-ghost";
+    img.src = pieceSrc(C.colorOf(p), C.typeOf(p));
+    img.alt = "";
+    img.draggable = false;
+    img.style.width = size * 0.94 + "px";
+    img.style.height = size * 0.94 + "px";
+    img.style.left = event.clientX - size * 0.47 + "px";
+    img.style.top = event.clientY - size * 0.47 + "px";
+    document.body.appendChild(img);
+    drag.ghost = img;
+    drag.size = size;
+
+    selected = drag.from;
+    selectedMoves = C.legalMoves(state).filter(function (m) {
+      return m.from === drag.from;
+    });
+    if (FX) FX.sound("select");
+    render();
+  }
+
+  function clearDropHighlight() {
+    if (!el) return;
+    const marked = el.board.querySelectorAll(".ch-sq.is-drop");
+    for (let i = 0; i < marked.length; i++) marked[i].classList.remove("is-drop");
+  }
+
+  function onPointerMove(event) {
+    if (!drag || event.pointerId !== drag.id) return;
+    if (!drag.moved) {
+      const dx = event.clientX - drag.x;
+      const dy = event.clientY - drag.y;
+      if (dx * dx + dy * dy < 30) return;
+      drag.moved = true;
+      startDragGhost(event);
+    }
+    if (drag.ghost) {
+      drag.ghost.style.left = event.clientX - drag.size * 0.47 + "px";
+      drag.ghost.style.top = event.clientY - drag.size * 0.47 + "px";
+    }
+    const sq = squareFromPoint(event.clientX, event.clientY);
+    if (sq !== drag.target) {
+      drag.target = sq;
+      clearDropHighlight();
+      if (sq >= 0) {
+        const vis = viewOf(sq);
+        const cell = cellAt(vis.r * 8 + vis.c);
+        if (cell) cell.classList.add("is-drop");
+      }
+    }
+    if (event.cancelable) event.preventDefault();
+  }
+
+  function onPointerUp(event) {
+    if (!drag || event.pointerId !== drag.id) return;
+    const info = drag;
+    drag = null;
+    if (info.ghost && info.ghost.parentNode) info.ghost.parentNode.removeChild(info.ghost);
+    clearDropHighlight();
+    if (!info.moved) return;
+
+    suppressClick = true;
+    setTimeout(function () {
+      suppressClick = false;
+    }, 0);
+
+    const to = squareFromPoint(event.clientX, event.clientY);
+    if (to < 0) {
+      render();
+      return;
+    }
+    if (to === info.from) {
+      selected = -1;
+      selectedMoves = [];
+      render();
+      return;
+    }
+    const move = selectedMoves.find(function (m) {
+      return m.to === to;
+    });
+    if (move) {
+      if (move.promo) openPromotion(info.from, to);
+      else playMove(info.from, to, null);
+    } else if (state.board[to] && C.colorOf(state.board[to]) === state.turn) {
+      selected = to;
+      selectedMoves = C.legalMoves(state).filter(function (m) {
+        return m.from === to;
+      });
+      render();
+    } else {
+      selected = -1;
+      selectedMoves = [];
+      render();
+    }
+  }
+
+  function onPointerCancel() {
+    if (drag && drag.ghost && drag.ghost.parentNode) drag.ghost.parentNode.removeChild(drag.ghost);
+    drag = null;
+    clearDropHighlight();
+  }
+
+  function onFullscreenChange() {
+    if (!el || !el.layout) return;
+    el.layout.classList.toggle("is-immersive", !!document.fullscreenElement);
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* تنفيذ الحركة                                                       */
+  /* ------------------------------------------------------------------ */
+
   function playMove(from, to, promo) {
     if (!state || over) return;
+    if (apiRef && apiRef.finished) return;
+    if (online() && localSide() !== state.turn && !apiRef.net.isHost) return;
+
     const move = C.parseMove(state, from, to, promo);
     if (!move) return;
+
+    const mover = state.turn;
+    const now = Date.now();
+    const left = clock[mover] ? Math.max(0, clock[mover] - (now - clockStartedAt)) : 0;
+    const before = { w: clock.w, b: clock.b };
+
+    if (clock[mover] && left <= 0) {
+      clock[mover] = 0;
+      flagFall(mover);
+      return;
+    }
 
     const san = C.moveToSAN(state, move);
     const undo = C.makeMove(state, move);
     const key = C.positionKey(state);
+
+    if (clock[mover]) clock[mover] = left + increment;
+    clockStartedAt = Date.now();
+
     positionCounts.set(key, (positionCounts.get(key) || 0) + 1);
 
-    history.push({ move: move, undo: undo, san: san, key: key });
+    history.push({
+      move: move,
+      undo: undo,
+      san: san,
+      key: key,
+      mover: mover,
+      clockBefore: before,
+    });
     lastMove = { from: move.from, to: move.to };
     selected = -1;
     selectedMoves = [];
     pendingPromo = null;
+    hintSquares = null;
+    currentEval = null;
     hidePromotion();
 
     if (FX) {
       if (move.promo) FX.sound("promote");
       else if (move.captured) FX.sound("capture");
-      else if (move.castle) FX.after ? FX.after(function () { FX.sound("move"); }, 40) : FX.sound("move");
+      else if (move.castle && FX.after) FX.after(function () { FX.sound("move"); }, 40);
       else FX.sound("move");
     }
 
     const outcome = findOutcome();
-    render();
+    render({ animate: move });
 
     if (outcome) reportEnd(outcome);
     else maybeAi();
@@ -632,7 +1161,7 @@
     }
     const key = C.positionKey(state);
     if ((positionCounts.get(key) || 0) >= 3) {
-      return { reason: "repetition", winner: null, result: "½–½" };
+      return { reason: "repetition", winner: null, result: "1/2-1/2" };
     }
     return null;
   }
@@ -642,53 +1171,84 @@
     endReported = true;
     over = true;
     thinking = false;
-    cancelAI();
+    hintBusy = false;
+    cancelSearch();
+    stopHint();
+
+    const finalTurn = state.turn;
+    if (clock[finalTurn]) {
+      clock[finalTurn] = Math.max(0, clock[finalTurn] - (Date.now() - clockStartedAt));
+    }
 
     let title = "انتهت المباراة";
     let note = "";
-    let result = outcome.result || "½–½";
+    let result = "½–½";
     let icon = "♚";
 
     if (outcome.reason === "checkmate") {
       const winner = outcome.winner;
       title = "كش مات";
-      note = seatOf(winner).name + " (" + sideName(winner) + ") يفوز بالمباراة.";
+      note = playerLabel(winner) + " (" + sideName(winner) + ") يفوز بالمباراة.";
       result = winner === "w" ? "1–0" : "0–1";
       icon = "♚";
-      if (FX) FX.sound(outcome.winner && !isCpuSide(outcome.winner) ? "win" : "lose");
+      playEndSound(outcome.winner, "win");
     } else if (outcome.reason === "stalemate") {
       title = "تعادل بالجمود";
       note = "لا توجد حركة قانونية والملك ليس في كش.";
-      result = "½–½";
       icon = "½";
-      if (FX) FX.sound("draw");
+      playEndSound(null, "draw");
     } else if (outcome.reason === "fifty") {
       title = "تعادل بقاعدة الخمسين";
       note = "مضت 50 حركة دون تحريك بيدق أو أخذ قطعة.";
-      result = "½–½";
       icon = "½";
-      if (FX) FX.sound("draw");
+      playEndSound(null, "draw");
     } else if (outcome.reason === "material") {
       title = "تعادل بالقطع غير الكافية";
       note = "لم يتبقَّ ما يكفي من القطع لتنفيذ كش مات.";
-      result = "½–½";
       icon = "½";
-      if (FX) FX.sound("draw");
+      playEndSound(null, "draw");
     } else if (outcome.reason === "repetition") {
       title = "تعادل بتكرار الوضع";
       note = "تكرر الوضع نفسه ثلاث مرات.";
-      result = "½–½";
       icon = "½";
-      if (FX) FX.sound("draw");
+      playEndSound(null, "draw");
+    } else if (outcome.reason === "timeout") {
+      const winner = outcome.winner;
+      title = "انتهى الوقت";
+      note = playerLabel(other(winner)) + " نفد وقته. فاز " + playerLabel(winner) + ".";
+      result = winner === "w" ? "1–0" : "0–1";
+      icon = "⏱";
+      playEndSound(winner, "win");
+    } else if (outcome.reason === "resign") {
+      const winner = outcome.winner;
+      title = "استسلام";
+      note = playerLabel(other(winner)) + " استسلم. فاز " + playerLabel(winner) + ".";
+      result = winner === "w" ? "1–0" : "0–1";
+      icon = "⚑";
+      playEndSound(winner, "win");
     }
 
     endInfo = { title: title, note: note, result: result, icon: icon };
+    selected = -1;
+    selectedMoves = [];
+    pendingPromo = null;
+    hidePromotion();
     render();
 
     setTimeout(function () {
       if (!over || !apiRef) return;
       apiRef.gameOver({ title: title, text: note, icon: icon });
-    }, 420);
+    }, 480);
+  }
+
+  function playEndSound(winner, fallback) {
+    if (!FX) return;
+    if (!winner) {
+      FX.sound("draw");
+      return;
+    }
+    const local = online() ? localSide() : !isCpuSide(winner) ? winner : other(winner);
+    FX.sound(winner === local ? "win" : "lose");
   }
 
   function openPromotion(from, to) {
@@ -702,7 +1262,7 @@
       btn.type = "button";
       btn.className = "ch-promo-btn";
       btn.innerHTML =
-        '<span class="ch-piece is-' + color + '">' + GLYPH[type] + "</span>" +
+        '<img class="ch-piece" src="' + pieceSrc(color, type) + '" alt="" draggable="false" />' +
         "<small>" + PIECE_NAME[type] + "</small>";
       btn.addEventListener("click", function () {
         const target = pendingPromo;
@@ -729,114 +1289,548 @@
   /* ------------------------------------------------------------------ */
 
   function undoMove() {
-    if (!state || !history.length) {
+    if (!state) return;
+    if (online()) {
+      if (apiRef && apiRef.toast) apiRef.toast("التراجع غير متاح في المباريات الأونلاين.", "warn");
+      return;
+    }
+    if (!history.length) {
       if (apiRef && apiRef.toast) apiRef.toast("لا توجد حركة للتراجع عنها.", "warn");
       return;
     }
 
-    cancelAI();
-    if (hintTimer) clearTimeout(hintTimer);
+    cancelSearch();
+    stopHint();
+    if (aiTimer) {
+      clearTimeout(aiTimer);
+      aiTimer = null;
+    }
     hintSquares = null;
     pendingPromo = null;
     hidePromotion();
+    currentEval = null;
 
-    popHistory();
-    if (history.length && isCpuSide(state.turn)) popHistory();
+    let record = popHistory();
+    if (isCpuSide(state.turn) && history.length) record = popHistory();
 
     over = false;
     endReported = false;
     endInfo = null;
+    concluded = false;
     selected = -1;
     selectedMoves = [];
     lastMove = history.length
       ? { from: history[history.length - 1].move.from, to: history[history.length - 1].move.to }
       : null;
 
+    if (record && record.clockBefore) {
+      clock = { w: record.clockBefore.w, b: record.clockBefore.b };
+      clockStartedAt = Date.now();
+    }
+
+    if (apiRef) apiRef.finished = false;
     if (FX) FX.sound("recall");
     render();
+    maybeAi();
   }
 
   function popHistory() {
     const record = history.pop();
-    if (!record) return;
+    if (!record) return null;
     C.unmakeMove(state, record.undo);
-    const count = (positionCounts.get(record.key) || 1) - 1;
+    const count = (positionCounts.get(record.key) || 0) - 1;
     if (count <= 0) positionCounts.delete(record.key);
     else positionCounts.set(record.key, count);
+    return record;
   }
 
   function showHint() {
-    if (!state || over || thinking || pendingPromo) return;
-    if (!CAI || !CAI.bestMove) {
-      if (apiRef && apiRef.toast) apiRef.toast("محرك التلميح غير متاح.", "warn");
+    if (!state || over) return;
+    if (pendingPromo) return;
+    if (thinking || hintBusy) return;
+    if (!canPlayLocal()) {
+      if (apiRef && apiRef.toast) apiRef.toast("انتظر دورك للحصول على تلميح.", "warn");
       return;
     }
 
+    const token = ++searchToken;
+    hintBusy = true;
+    render();
+
+    engineSearch(C.toFEN(state), {
+      movetime: 480,
+      multipv: 2,
+      limit: false,
+      elo: 3600,
+      style: "best",
+    }, token)
+      .then(function (result) {
+        if (token !== searchToken) return null;
+        if (!result || result.cancelled || !result.best) throw new Error("no result");
+        const move = uciToMove(result.best);
+        if (!move) throw new Error("illegal");
+        hintBusy = false;
+        setHint(move);
+        return move;
+      })
+      .catch(function (err) {
+        if (token !== searchToken) return;
+        hintBusy = false;
+        localHint(token);
+        if (err && !err.cancelled) console.warn("Hint engine:", err);
+      });
+  }
+
+  function localHint(token) {
+    if (!state || over || token !== searchToken) return;
     let move = null;
     try {
-      move = CAI.bestMove(C.clone(state), {
-        depth: 4,
-        timeLimit: 400,
-        randomness: 0,
-        blunder: 0,
-      });
-    } catch (e) {
+      if (CAI && CAI.bestMove) {
+        move = CAI.bestMove(C.clone(state), { depth: 3, timeLimit: 300, randomness: 0, blunder: 0 });
+      }
+    } catch (err) {
       move = null;
     }
-
     if (!move || typeof move.from !== "number") {
-      if (apiRef && apiRef.toast) apiRef.toast("لا يوجد تلميح متاح.", "warn");
+      if (apiRef && apiRef.toast) apiRef.toast("محرك التلميح غير متاح.", "warn");
+      render();
       return;
     }
+    setHint(move);
+  }
 
+  function setHint(move) {
+    if (!state || over) return;
     hintSquares = { from: move.from, to: move.to };
     render();
     if (FX) FX.sound("point");
     if (apiRef && apiRef.toast) {
       apiRef.toast("تلميح: " + squareLabel(move.from) + " ← " + squareLabel(move.to), "good");
     }
-
-    if (hintTimer) clearTimeout(hintTimer);
+    stopHint(true);
     hintTimer = setTimeout(function () {
       hintSquares = null;
       hintTimer = null;
       render();
-    }, 2600);
+    }, 2800);
+  }
+
+  function stopHint(keepSquares) {
+    if (hintTimer) {
+      clearTimeout(hintTimer);
+      hintTimer = null;
+    }
+    if (!keepSquares) {
+      hintSquares = null;
+      hintBusy = false;
+    }
   }
 
   function resign() {
     if (!state || over) return;
-    over = true;
-    thinking = false;
-    cancelAI();
+    if (apiRef && apiRef.finished) return;
+    if (online() && (isSpectator() || localSide() == null)) {
+      if (apiRef && apiRef.toast) apiRef.toast("لا يمكن للمشاهدين الاستسلام.", "warn");
+      return;
+    }
 
-    const humanSide = !isCpuSide("w") ? "w" : "b";
-    const winner = other(humanSide);
-    endInfo = {
-      title: "استسلام",
-      note: seatOf(humanSide).name + " استسلم. فاز " + seatOf(winner).name + ".",
-      result: winner === "w" ? "1–0" : "0–1",
-      icon: "🏳️",
+    const doResign = function () {
+      if (!state || over) return;
+      cancelSearch();
+      stopHint();
+      const humanSide = online() ? localSide() : !isCpuSide("w") ? "w" : "b";
+      if (!humanSide) return;
+      const winner = other(humanSide);
+      reportEnd({ reason: "resign", winner: winner, result: winner === "w" ? "1-0" : "0-1" });
     };
-    render();
-    if (FX) FX.sound("lose");
 
-    if (apiRef) {
-      apiRef.gameOver({
-        title: "استسلام",
-        text: endInfo.note,
-        icon: "🏳️",
+    if (BG.confirm && history.length) {
+      BG.confirm("الاستسلام", "هل تريد الاستسلام وإنهاء المباراة؟", "نعم، أستسلم", "متابعة").then(function (ok) {
+        if (ok) doResign();
       });
+    } else {
+      doResign();
+    }
+  }
+
+  function restartGame() {
+    if (online()) {
+      if (apiRef && apiRef.newGame) apiRef.newGame();
+      return;
+    }
+    const reset = function () {
+      flip = isCpuSide("w") && !isCpuSide("b") ? true : flip;
+      newGame();
+      if (FX) FX.sound("shuffle");
+    };
+    if (history.length && !over && BG.confirm) {
+      BG.confirm("إعادة اللعبة", "ستبدأ مباراة جديدة من البداية. هل تريد المتابعة؟", "إعادة", "إلغاء").then(function (ok) {
+        if (ok) reset();
+      });
+    } else {
+      reset();
+    }
+  }
+
+  function copyMoves() {
+    if (!history.length) {
+      if (apiRef && apiRef.toast) apiRef.toast("لا توجد حركات لنسخها بعد.", "warn");
+      return;
+    }
+    let pgn = "";
+    for (let i = 0; i < history.length; i += 2) {
+      pgn += i / 2 + 1 + ". " + history[i].san;
+      if (history[i + 1]) pgn += " " + history[i + 1].san;
+      pgn += " ";
+    }
+    if (endInfo) pgn += endInfo.result.replace(/–/g, "-");
+    else pgn += "*";
+    copyText(pgn.trim()).then(function (ok) {
+      if (apiRef && apiRef.toast) {
+        apiRef.toast(ok ? "تم نسخ سجل الحركات." : "تعذّر النسخ من المتصفح.", ok ? "good" : "warn");
+      }
+    });
+  }
+
+  function copyText(text) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      return navigator.clipboard.writeText(text).then(function () {
+        return true;
+      }).catch(function () {
+        return fallbackCopy(text);
+      });
+    }
+    return Promise.resolve(fallbackCopy(text));
+  }
+
+  function fallbackCopy(text) {
+    try {
+      const area = document.createElement("textarea");
+      area.value = text;
+      area.setAttribute("readonly", "");
+      area.style.position = "fixed";
+      area.style.opacity = "0";
+      document.body.appendChild(area);
+      area.select();
+      const ok = document.execCommand("copy");
+      document.body.removeChild(area);
+      return ok;
+    } catch (err) {
+      return false;
     }
   }
 
   /* ------------------------------------------------------------------ */
-  /* الذكاء الاصطناعي                                                   */
+  /* الساعة                                                             */
   /* ------------------------------------------------------------------ */
+
+  function startClockLoop() {
+    if (clockTimer) clearInterval(clockTimer);
+    clockTimer = setInterval(tickClock, 200);
+  }
+
+  function tickClock() {
+    if (!state || !el) return;
+    paintClocks();
+    if (over) return;
+    if (!clock.w && !clock.b) return;
+    const side = state.turn;
+    if (remainingOf(side) > 0) return;
+    clock[side] = 0;
+    paintClocks();
+    if (online() && !apiRef.net.isHost) {
+      if (!endInfo && !flagWarned && apiRef && apiRef.toast) {
+        flagWarned = true;
+        apiRef.toast("انتهى وقتك — بانتظار احتساب النتيجة.", "warn");
+      }
+      return;
+    }
+    flagFall(side);
+  }
+
+  function flagFall(side) {
+    if (over || !state) return;
+    reportEnd({ reason: "timeout", winner: other(side), result: other(side) === "w" ? "1-0" : "0-1" });
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* محرك Stockfish                                                     */
+  /* ------------------------------------------------------------------ */
+
+  function ensureEngine() {
+    if (engine && !engineFailed) return engineInit || Promise.resolve();
+    if (engineFailed) return Promise.reject(new Error("engine unavailable"));
+    if (typeof window.Worker !== "function") {
+      engineFailed = true;
+      return Promise.reject(new Error("workers unavailable"));
+    }
+
+    engine = new window.Worker(ENGINE_URL);
+    engineInit = new Promise(function (resolve, reject) {
+      let done = false;
+      let initTimer = setTimeout(function () {
+        if (done) return;
+        done = true;
+        engineFailed = true;
+        try { engine.terminate(); } catch (err) { /* لا شيء */ }
+        engine = null;
+        engineInit = null;
+        reject(new Error("engine init timeout"));
+      }, 30000);
+
+      engine.onmessage = function (event) {
+        const text = typeof event.data === "string" ? event.data : event.data && event.data.data;
+        if (!text) return;
+        if (!done && text === "uciok") {
+          done = true;
+          clearTimeout(initTimer);
+          try {
+            engine.postMessage("setoption name Threads value 1");
+            engine.postMessage("setoption name Hash value 16");
+            engine.postMessage("setoption name Ponder value false");
+          } catch (err) { /* لا شيء */ }
+          resolve();
+          return;
+        }
+        onEngineLine(text);
+      };
+
+      engine.onerror = function (event) {
+        engineFailed = true;
+        if (!done) {
+          done = true;
+          clearTimeout(initTimer);
+          engineInit = null;
+          reject(new Error((event && event.message) || "engine error"));
+        }
+        if (pendingSearch) finishSearch({ cancelled: true, error: "engine error" });
+      };
+
+      try {
+        engine.postMessage("uci");
+      } catch (err) {
+        done = true;
+        clearTimeout(initTimer);
+        engineFailed = true;
+        engineInit = null;
+        reject(err);
+      }
+    });
+
+    return engineInit;
+  }
+
+  function onEngineLine(text) {
+    if (text === "uciok") return;
+
+    if (text === "readyok") {
+      if (pendingSearch) startPendingSearch();
+      return;
+    }
+
+    if (text.indexOf("info ") === 0) {
+      if (!pendingSearch) return;
+      const pending = pendingSearch;
+      const multi = /\bmultipv (\d+)\b/.exec(text);
+      const rank = multi ? Number(multi[1]) : 1;
+      const pv = /\bpv (\S+)/.exec(text);
+      if (pv) pending.lines.set(rank, pv[1]);
+      if (rank === 1) {
+        const mate = /\bscore mate (-?\d+)\b/.exec(text);
+        const cp = /\bscore cp (-?\d+)\b/.exec(text);
+        if (mate) pending.score = { mate: Number(mate[1]) };
+        else if (cp) pending.score = { cp: Number(cp[1]) };
+      }
+      return;
+    }
+
+    if (text.indexOf("bestmove") === 0) {
+      if (!pendingSearch) return;
+      const pending = pendingSearch;
+      const parts = text.split(/\s+/);
+      const best = parts[1] && parts[1] !== "(none)" ? parts[1] : null;
+      const moves = [];
+      pending.lines.forEach(function (uci, rank) {
+        moves.push({ rank: rank, uci: uci });
+      });
+      moves.sort(function (a, b) {
+        return a.rank - b.rank;
+      });
+      finishSearch({
+        best: best,
+        moves: moves.map(function (m) { return m.uci; }),
+        score: pending.score,
+        elapsed: Date.now() - pending.startedAt,
+      });
+    }
+  }
+
+  function engineSearch(fen, cfg, token) {
+    const task = engineQueue.then(function () {
+      return doEngineSearch(fen, cfg, token);
+    }, function () {
+      return doEngineSearch(fen, cfg, token);
+    });
+    engineQueue = task.catch(function () {});
+    return task;
+  }
+
+  function doEngineSearch(fen, cfg, token) {
+    if (token !== searchToken) return Promise.resolve({ cancelled: true });
+    return ensureEngine().then(function () {
+      if (token !== searchToken) return { cancelled: true };
+      return new Promise(function (resolve, reject) {
+        const pending = {
+          token: token,
+          fen: fen,
+          cfg: cfg,
+          lines: new Map(),
+          score: null,
+          started: false,
+          startedAt: 0,
+          resolve: resolve,
+          reject: reject,
+          timer: null,
+        };
+        pendingSearch = pending;
+        try {
+          engine.postMessage("setoption name UCI_LimitStrength value " + (cfg.limit ? "true" : "false"));
+          if (cfg.limit) engine.postMessage("setoption name UCI_Elo value " + Math.max(1320, Math.min(3190, cfg.elo || 1320)));
+          engine.postMessage("setoption name MultiPV value " + Math.max(1, cfg.multipv || 1));
+          engine.postMessage("isready");
+        } catch (err) {
+          pendingSearch = null;
+          engineFailed = true;
+          reject(err);
+          return;
+        }
+        pending.timer = setTimeout(function () {
+          if (pendingSearch !== pending) return;
+          try { engine.postMessage("stop"); } catch (err) { /* لا شيء */ }
+          finishSearch({ cancelled: true, error: "engine timeout" });
+        }, Math.max(9000, (cfg.movetime || 1000) + 8000));
+      });
+    });
+  }
+
+  function startPendingSearch() {
+    const pending = pendingSearch;
+    if (!pending || pending.started) return;
+    if (pending.token !== searchToken) {
+      pendingSearch = null;
+      pending.resolve({ cancelled: true });
+      return;
+    }
+    pending.started = true;
+    pending.startedAt = Date.now();
+    try {
+      engine.postMessage("position fen " + pending.fen);
+      engine.postMessage("go movetime " + Math.max(120, pending.cfg.movetime || 600));
+    } catch (err) {
+      finishSearch({ cancelled: true, error: "engine post failed" });
+    }
+  }
+
+  function finishSearch(result) {
+    const pending = pendingSearch;
+    if (!pending) return;
+    pendingSearch = null;
+    if (pending.timer) clearTimeout(pending.timer);
+    if (pending.token !== searchToken) {
+      pending.resolve({ cancelled: true });
+      return;
+    }
+    if (result && result.error && result.cancelled) {
+      pending.resolve(result);
+      return;
+    }
+    pending.resolve(result || { cancelled: true });
+  }
+
+  function cancelSearch() {
+    searchToken += 1;
+    thinking = false;
+    if (aiTimer) {
+      clearTimeout(aiTimer);
+      aiTimer = null;
+    }
+    const pending = pendingSearch;
+    if (pending) {
+      if (pending.started && engine) {
+        try { engine.postMessage("stop"); } catch (err) { /* لا شيء */ }
+      } else {
+        pendingSearch = null;
+        pending.resolve({ cancelled: true });
+      }
+    }
+  }
+
+  function uciToMove(uci) {
+    if (!uci || uci.length < 4) return null;
+    const from = C.parseSquare(uci.slice(0, 2));
+    const to = C.parseSquare(uci.slice(2, 4));
+    const promo = uci[4] ? uci[4].toUpperCase() : null;
+    if (from < 0 || to < 0) return null;
+    return C.parseMove(state, from, to, promo);
+  }
+
+  function chooseEngineMove(result, cfg) {
+    if (!state) return null;
+    const legal = C.legalMoves(state);
+    if (!legal.length) return null;
+    const legalKey = function (m) {
+      return C.squareName(m.from) + C.squareName(m.to) + (m.promo || "");
+    };
+    const allowed = new Set(legal.map(legalKey));
+    const options = [];
+    const seen = new Set();
+
+    if (result && result.best) {
+      const best = uciToMove(result.best);
+      if (best) {
+        options.push(best);
+        seen.add(legalKey(best));
+      }
+    }
+
+    (result && result.moves ? result.moves : []).forEach(function (uci) {
+      const move = uciToMove(uci);
+      if (!move) return;
+      const key = legalKey(move);
+      if (seen.has(key) || !allowed.has(key)) return;
+      seen.add(key);
+      options.push(move);
+    });
+
+    if (!options.length) {
+      const uciMove = result && result.best ? result.best.slice(0, 4) : "";
+      const fallback = C.parseMove(state, C.parseSquare(uciMove.slice(0, 2)), C.parseSquare(uciMove.slice(2, 4)), null);
+      return fallback || U.pick(legal);
+    }
+
+    if (cfg.style === "easy") {
+      if (Math.random() < 0.2) return U.pick(legal);
+      const pool = options.slice(1, 5);
+      if (!pool.length) return options[0];
+      return pool[Math.floor(Math.random() * pool.length)];
+    }
+
+    if (cfg.style === "normal") {
+      const roll = Math.random();
+      if (roll < 0.68) return options[0];
+      if (roll < 0.9 && options[1]) return options[1];
+      if (options[2]) return options[2];
+      return options[0];
+    }
+
+    return options[0];
+  }
 
   function maybeAi() {
     if (!state || over || pendingPromo) return;
     if (!isCpuSide(state.turn)) return;
+    if (!canRunCpu()) return;
+    if (thinking) return;
 
     thinking = true;
     render();
@@ -845,47 +1839,7 @@
     aiTimer = setTimeout(function () {
       aiTimer = null;
       runAI();
-    }, 260 + Math.random() * 220);
-  }
-
-  function ensureWorker() {
-    if (worker || workerFailed || typeof window.Worker !== "function") return;
-    try {
-      worker = new window.Worker("js/chess-ai-worker.js?v=1");
-      worker.onmessage = onWorkerMessage;
-      worker.onerror = function () {
-        workerFailed = true;
-        worker = null;
-        if (thinking) localAI(searchToken, null);
-      };
-    } catch (e) {
-      workerFailed = true;
-      worker = null;
-    }
-  }
-
-  function onWorkerMessage(event) {
-    const msg = event.data || {};
-    if (msg.type !== "result") return;
-    if (msg.id !== searchToken) return;
-
-    if (safetyTimer) {
-      clearTimeout(safetyTimer);
-      safetyTimer = null;
-    }
-    thinking = false;
-
-    if (!msg.ok || !msg.result) {
-      localAI(searchToken, null);
-      return;
-    }
-
-    const result = msg.result;
-    if (result && typeof result.from === "number") {
-      playMove(result.from, result.to, result.promo || null);
-    } else {
-      render();
-    }
+    }, 220 + Math.random() * 260);
   }
 
   function runAI() {
@@ -896,72 +1850,325 @@
     }
 
     const level = levelOf(state.turn);
-    const cfg = AI_CFG[level] || AI_CFG.normal;
+    const cfg = LEVEL_CFG[level] || LEVEL_CFG.normal;
     const token = ++searchToken;
 
-    ensureWorker();
-    if (worker) {
-      try {
-        worker.postMessage({
-          type: "search",
-          id: token,
-          fen: C.toFEN(state),
-          options: {
-            depth: cfg.depth,
-            timeLimit: cfg.timeLimit,
-            randomness: cfg.randomness,
-            blunder: cfg.blunder,
-          },
-        });
-
-        if (safetyTimer) clearTimeout(safetyTimer);
-        safetyTimer = setTimeout(function () {
-          safetyTimer = null;
-          if (token !== searchToken) return;
-          if (worker) {
-            try { worker.terminate(); } catch (e) { /* لا شيء */ }
-            worker = null;
-          }
-          workerFailed = true;
-          localAI(token, cfg);
-        }, cfg.timeLimit + 3500);
-        return;
-      } catch (e) {
-        worker = null;
-        workerFailed = true;
-      }
-    }
-
-    localAI(token, cfg);
+    engineSearch(C.toFEN(state), cfg, token)
+      .then(function (result) {
+        if (token !== searchToken) return;
+        if (!result || result.cancelled) throw cancelledError();
+        const move = chooseEngineMove(result, cfg);
+        if (!move) throw new Error("no engine move");
+        thinking = false;
+        if (result.score) currentEval = result.score;
+        playMove(move.from, move.to, move.promo || null);
+      })
+      .catch(function (err) {
+        if (token !== searchToken) return;
+        if (err && err.cancelled) {
+          thinking = false;
+          render();
+          return;
+        }
+        console.warn("Stockfish fallback:", err);
+        localAI(token, cfg);
+      });
   }
 
   function localAI(token, cfg) {
     if (!state || over || token !== searchToken) return;
-    const level = levelOf(state.turn);
-    const options = cfg || AI_CFG[level] || AI_CFG.normal;
-
+    const legal = C.legalMoves(state);
     let move = null;
     try {
       if (CAI && CAI.bestMove) {
         move = CAI.bestMove(C.clone(state), {
-          depth: options.depth,
-          timeLimit: Math.min(options.timeLimit || 1200, 1800),
-          randomness: options.randomness || 0,
-          blunder: options.blunder || 0,
+          depth: cfg && cfg.style === "easy" ? 2 : cfg && cfg.style === "normal" ? 4 : 7,
+          timeLimit: 1200,
+          randomness: cfg && cfg.style === "easy" ? 80 : cfg && cfg.style === "normal" ? 15 : 0,
+          blunder: cfg && cfg.style === "easy" ? 0.35 : cfg && cfg.style === "normal" ? 0.03 : 0,
         });
       }
-    } catch (e) {
+    } catch (err) {
       move = null;
     }
 
     if (token !== searchToken) return;
     thinking = false;
+    if (!move || typeof move.from !== "number") move = U.pick(legal);
+    if (move) playMove(move.from, move.to, move.promo || null);
+    else render();
+  }
 
-    if (move && typeof move.from === "number") {
-      playMove(move.from, move.to, move.promo || null);
-    } else {
-      render();
+  function terminateEngine() {
+    cancelSearch();
+    engineQueue = Promise.resolve();
+    if (engine) {
+      try { engine.terminate(); } catch (err) { /* لا شيء */ }
     }
+    engine = null;
+    engineInit = null;
+    engineFailed = false;
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* حركة القطع (FLIP خفيف)                                              */
+  /* ------------------------------------------------------------------ */
+
+  function animateMove(move) {
+    if (!el || !move || REDUCED) return;
+    const board = el.board;
+    const size = board.clientWidth / 8;
+    if (!size) return;
+    const fromPiece = move.piece || (state.board[move.to] || "");
+    const color = C.colorOf(fromPiece) || (state.turn === "w" ? "b" : "w");
+    const type = move.promo ? move.promo.toUpperCase() : C.typeOf(fromPiece) || "P";
+    flyPiece(move.from, move.to, color, type, size);
+
+    if (move.castle) {
+      const rook = castleRook(move.castle);
+      if (rook) flyPiece(rook.from, rook.to, color, "R", size);
+    }
+
+    const dest = viewOf(move.to);
+    const cell = cellAt(dest.r * 8 + dest.c);
+    if (cell && cell._piece) {
+      cell._piece.classList.add("is-arriving");
+      setTimeout(function () {
+        if (cell._piece) cell._piece.classList.remove("is-arriving");
+      }, 190);
+    }
+  }
+
+  function castleRook(code) {
+    if (code === "K") return { from: 119, to: 117 };
+    if (code === "Q") return { from: 112, to: 115 };
+    if (code === "k") return { from: 7, to: 5 };
+    if (code === "q") return { from: 0, to: 3 };
+    return null;
+  }
+
+  function flyPiece(from, to, color, type, size) {
+    if (!el || !el.board) return;
+    const a = viewOf(from);
+    const b = viewOf(to);
+    const img = document.createElement("img");
+    img.className = "ch-ghost is-fly";
+    img.src = pieceSrc(color, type);
+    img.alt = "";
+    img.draggable = false;
+    img.style.width = size * 0.92 + "px";
+    img.style.height = size * 0.92 + "px";
+    img.style.left = a.c * size + size * 0.04 + "px";
+    img.style.top = a.r * size + size * 0.04 + "px";
+    el.layout.appendChild(img);
+    const dx = (b.c - a.c) * size;
+    const dy = (b.r - a.r) * size;
+
+    if (img.animate) {
+      const anim = img.animate(
+        [
+          { transform: "translate3d(0,0,0) scale(1)" },
+          { transform: "translate3d(" + dx + "px," + dy + "px,0) scale(1.02)" },
+        ],
+        { duration: 185, easing: "cubic-bezier(.22,.75,.25,1)", fill: "both" }
+      );
+      anim.onfinish = function () {
+        if (img.parentNode) img.parentNode.removeChild(img);
+      };
+      setTimeout(function () {
+        if (img.parentNode) img.parentNode.removeChild(img);
+      }, 240);
+    } else {
+      setTimeout(function () {
+        if (img.parentNode) img.parentNode.removeChild(img);
+      }, 30);
+    }
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* الأونلاين                                                          */
+  /* ------------------------------------------------------------------ */
+
+  function moveToUci(move) {
+    return C.squareName(move.from) + C.squareName(move.to) + (move.promo ? move.promo.toLowerCase() : "");
+  }
+
+  function netSnapshot() {
+    if (!state) return null;
+    return BG.netCodec.encode({
+      v: 1,
+      start: initialFen,
+      fen: C.toFEN(state),
+      moves: history.map(function (record) {
+        return moveToUci(record.move);
+      }),
+      lastMove: lastMove,
+      clock: { w: clock.w, b: clock.b },
+      increment: increment,
+      startedAt: clockStartedAt,
+      over: over,
+      endInfo: endInfo,
+      eval: currentEval,
+      flip: flip,
+      players: ((apiRef && apiRef.players) || []).map(function (player) {
+        return {
+          name: player.name,
+          type: player.type,
+          level: player.level,
+          isCpu: !!player.isCpu,
+        };
+      }),
+    });
+  }
+
+  function netLoad(data) {
+    if (!data || !el) return;
+    const snap = BG.netCodec.decode(data);
+    if (!snap) return;
+    BG.closeDialogs();
+
+    cancelSearch();
+    stopHint();
+    if (aiTimer) {
+      clearTimeout(aiTimer);
+      aiTimer = null;
+    }
+
+    const startFen = typeof snap.start === "string" && snap.start ? snap.start : C.START_FEN;
+    const moves = Array.isArray(snap.moves) ? snap.moves : [];
+    let replay = C.fromFEN(startFen);
+    let hist = [];
+    let counts = new Map();
+    counts.set(C.positionKey(replay), 1);
+    let replayOk = true;
+    let last = null;
+
+    for (let i = 0; i < moves.length; i++) {
+      const uci = String(moves[i] || "");
+      const from = C.parseSquare(uci.slice(0, 2));
+      const to = C.parseSquare(uci.slice(2, 4));
+      const promo = uci[4] ? uci[4].toUpperCase() : null;
+      const move = C.parseMove(replay, from, to, promo);
+      if (!move) {
+        replayOk = false;
+        break;
+      }
+      const mover = replay.turn;
+      const san = C.moveToSAN(replay, move);
+      const undo = C.makeMove(replay, move);
+      const key = C.positionKey(replay);
+      counts.set(key, (counts.get(key) || 0) + 1);
+      hist.push({ move: move, undo: undo, san: san, key: key, mover: mover });
+      last = { from: move.from, to: move.to };
+    }
+
+    if (!replayOk) {
+      const fen = typeof snap.fen === "string" && snap.fen ? snap.fen : startFen;
+      replay = C.fromFEN(fen);
+      hist = [];
+      counts = new Map();
+      counts.set(C.positionKey(replay), 1);
+      last = null;
+    }
+
+    state = replay;
+    initialFen = startFen;
+    history = hist;
+    positionCounts = counts;
+    lastMove = last || (snap.lastMove && typeof snap.lastMove.from === "number" ? snap.lastMove : null);
+    selected = -1;
+    selectedMoves = [];
+    pendingPromo = null;
+    hintSquares = null;
+    thinking = false;
+    hintBusy = false;
+    lastCheckSound = false;
+    flagWarned = false;
+    hidePromotion();
+
+    over = !!snap.over;
+    endReported = over;
+    endInfo = over && snap.endInfo ? snap.endInfo : null;
+    concluded = false;
+    currentEval = snap.eval && (typeof snap.eval.cp === "number" || typeof snap.eval.mate === "number") ? snap.eval : null;
+
+    const spec = timeSpec();
+    const loadedClock = snap.clock || {};
+    clock = {
+      w: Number.isFinite(Number(loadedClock.w)) ? Math.max(0, Number(loadedClock.w)) : spec.base,
+      b: Number.isFinite(Number(loadedClock.b)) ? Math.max(0, Number(loadedClock.b)) : spec.base,
+    };
+    increment = Number.isFinite(Number(snap.increment)) ? Math.max(0, Number(snap.increment)) : spec.inc;
+    clockStartedAt = Number(snap.startedAt) || Date.now();
+    if (!online() || clockStartedAt > Date.now() + 2000 || Math.abs(Date.now() - clockStartedAt) > 12 * 3600 * 1000) {
+      clockStartedAt = Date.now();
+    }
+    if (!online() && typeof snap.flip === "boolean") flip = snap.flip;
+
+    startClockLoop();
+    render();
+    setTimeout(function () {
+      if (!state || !el) return;
+      render();
+      if (!over) maybeAi();
+    }, 0);
+  }
+
+  function netSeat() {
+    if (!state) return -1;
+    return state.turn === "w" ? 0 : 1;
+  }
+
+  function netOver() {
+    return !!over;
+  }
+
+  function netResume() {
+    if (!state || !el) return;
+    if (over) {
+      render();
+      return;
+    }
+    if (isSpectator()) {
+      render();
+      return;
+    }
+    cancelSearch();
+    thinking = false;
+    render();
+    maybeAi();
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* التدمير                                                            */
+  /* ------------------------------------------------------------------ */
+
+  function destroy() {
+    cancelSearch();
+    stopHint();
+    if (aiTimer) clearTimeout(aiTimer);
+    aiTimer = null;
+    if (clockTimer) clearInterval(clockTimer);
+    clockTimer = null;
+    terminateEngine();
+
+    window.removeEventListener("pointermove", onPointerMove);
+    window.removeEventListener("pointerup", onPointerUp);
+    window.removeEventListener("pointercancel", onPointerCancel);
+    window.removeEventListener("fullscreenchange", onFullscreenChange);
+
+    if (drag && drag.ghost && drag.ghost.parentNode) drag.ghost.parentNode.removeChild(drag.ghost);
+    drag = null;
+
+    el = null;
+    state = null;
+    rootRef = null;
+    apiRef = null;
+    history = [];
+    positionCounts = new Map();
+    pendingPromo = null;
+    hintSquares = null;
+    lastMove = null;
   }
 
   /* ------------------------------------------------------------------ */
@@ -975,24 +2182,51 @@
     icon: "♞",
     accent: "#b9a07e",
     cardClass: "card-chess",
-    tagline: "اللعبة الملكية الكلاسيكية — قواعد دولية كاملة.",
+    tagline: "اللعبة الملكية بمحرك Stockfish حقيقي، ساعة، وسجل حركات.",
     players: "1–2",
-    duration: "10–60 دقيقة",
+    duration: "5–60 دقيقة",
     complexity: "عالية",
     minPlayers: 1,
     maxPlayers: 2,
     defaultPlayers: 1,
+
+    options: {
+      hint: "اختر ساعة المباراة. تُضاف الزيادة بعد كل حركة، ويمكنك اللعب بلا ساعة.",
+      defaults: { clock: "10+0" },
+      fields: [
+        {
+          key: "clock",
+          label: "ساعة المباراة",
+          type: "seg",
+          wide: true,
+          choices: [
+            { value: "3+2", label: "3+2" },
+            { value: "5+0", label: "5 دقائق" },
+            { value: "10+0", label: "10 دقائق" },
+            { value: "15+10", label: "15+10" },
+            { value: "30+0", label: "30 دقيقة" },
+            { value: "none", label: "بلا ساعة" },
+          ],
+        },
+      ],
+      summary(options) {
+        const id = String((options && options.clock) || "10+0");
+        return "الساعة: " + (TIME_LABEL[id] || id);
+      },
+    },
+
     rules: {
-      goal: "إماتة ملك الخصم (كش مات)، أو إجباره على الاستسلام.",
+      goal: "إماتة ملك الخصم (كش مات)، أو إجباره على الاستسلام أو نفاد وقته.",
       facts: [
         ["الرقعة", "8×8 = 64 مربعًا"],
         ["القطع", "16 لكل لاعب"],
-        ["اللاعبون", "لاعب واحد ضد الحاسوب أو لاعبان"],
-        ["الهدف", "كش مات"],
+        ["المحرك", "Stockfish 17.1 WASM"],
+        ["اللاعبون", "لاعب ضد الحاسوب أو لاعبان"],
       ],
       components: [
         "رقعة شطرنج 8×8 باللونين الفاتح والداكن",
         "16 قطعة بيضاء و16 قطعة سوداء: 8 بيادق، رخان، حصانان، فيلان، وزير، ملك",
+        "ساعة إلكترونية لكل لاعب مع زيادة اختيارية بعد كل حركة",
       ],
       setup: [
         "صف الأبيض الأول من الأسفل: رخ، حصان، فيل، وزير، ملك، فيل، حصان، رخ.",
@@ -1015,13 +2249,15 @@
         "الجمود: لا توجد حركة قانونية والملك ليس في كش، فتكون النتيجة تعادلًا.",
       ],
       winning:
-        "يفوز من ينفذ كش مات على ملك الخصم. وتُحسم المباراة أيضًا بالاستسلام أو التعادل بالجمود أو بقاعدة الخمسين حركة أو تكرار الوضع ثلاث مرات أو القطع غير الكافية للإماتة.",
+        "يفوز من ينفذ كش مات على ملك الخصم. وتُحسم المباراة أيضًا بالاستسلام أو نفاد الوقت أو التعادل بالجمود أو بقاعدة الخمسين حركة أو تكرار الوضع ثلاث مرات أو القطع غير الكافية للإماتة.",
       notes: [
-        "هذه النسخة بلا ساعة توقيت؛ تُلعب المباراة حتى الحسم.",
-        "زر «تراجع» يعيد حركتك وحركة الحاسوب الأخيرة معًا.",
-        "يمكنك تغيير مستوى الحاسوب من شاشة الإعدادات قبل بدء اللعبة.",
+        "مستويات الحاسوب: سهل ~250، متوسط ~1000، صعب ~2000، خبير ~3600 إيلو، بمحرك Stockfish حقيقي.",
+        "اسحب القطعة بالماوس أو اللمس، أو انقر عليها ثم انقر على المربع الهدف.",
+        "زر «تراجع» يعيد حركتك وحركة الحاسوب الأخيرة معًا، وهو غير متاح في المباريات الأونلاين.",
+        "يمكنك عكس اتجاه الرقعة، ونسخ سجل الحركات، واستخدام ملء الشاشة من شريط اللعبة.",
       ],
     },
+
     create: create,
   };
 

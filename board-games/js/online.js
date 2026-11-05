@@ -344,6 +344,29 @@
     return Math.min(max, Math.max(min, Number(value) || min));
   }
 
+  /* فتح لوحة المضيف. إن لم تكن وحدة online-host.js محمّلة (نسخة قديمة مخزّنة، أو ملف لم يُرفع) نحمّلها الآن
+     بدل أن يبقى الزر بلا أثر بصمت. */
+  function openHostPanel() {
+    if (BG.onlineHost) {
+      BG.onlineHost.openPanel();
+      return;
+    }
+    if (state.hostModuleLoading) return;
+    state.hostModuleLoading = true;
+    const script = document.createElement("script");
+    script.src = "js/online-host.js?v=" + Date.now();
+    script.onload = () => {
+      state.hostModuleLoading = false;
+      if (BG.onlineHost) BG.onlineHost.openPanel();
+      else BG.toast("تعذّر تشغيل لوحة المضيف.", "warn");
+    };
+    script.onerror = () => {
+      state.hostModuleLoading = false;
+      BG.toast("ملف لوحة المضيف (js/online-host.js) غير موجود على الخادم — ارفعه ثم أعد تحميل الصفحة بقوة.", "warn");
+    };
+    document.head.appendChild(script);
+  }
+
   /* ترتيب مقاعد اللاعبين (يعدّله المضيف من لوحة التحكم) */
   function orderPeers(list) {
     return BG.onlineHost && BG.onlineHost.orderPeers ? BG.onlineHost.orderPeers(list) : list;
@@ -831,7 +854,7 @@
     const countSel = body.querySelector("[data-net-count]");
     const levelSel = body.querySelector("[data-net-level]");
     const hostPanelBtn = body.querySelector("[data-net-hostpanel]");
-    if (hostPanelBtn) hostPanelBtn.addEventListener("click", () => { if (BG.onlineHost) BG.onlineHost.openPanel(); });
+    if (hostPanelBtn) hostPanelBtn.addEventListener("click", openHostPanel);
 
     const lanBox = body.querySelector("[data-net-lan-urls]");
     if (lanBox) {
@@ -1361,9 +1384,9 @@
     hud.querySelector(".net-hud-leave").addEventListener("click", () => requestLeave("مغادرة الطاولة"));
     view.appendChild(hud);
     state.hud = hud;
-    if (state.isHost && BG.onlineHost) {
+    if (state.isHost) {
       const panelBtn = BG.el("button", { type: "button", class: "net-hud-hostpanel", "aria-label": "لوحة المضيف", text: "👑" });
-      panelBtn.addEventListener("click", () => BG.onlineHost.openPanel());
+      panelBtn.addEventListener("click", openHostPanel);
       hud.insertBefore(panelBtn, hud.querySelector(".net-hud-leave"));
     }
     updateHud();
