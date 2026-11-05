@@ -6,7 +6,7 @@
 "use strict";
 
 const VERSION = "1.3.0";
-const CACHE = "bg-shell-v" + VERSION + "-r1";
+const CACHE = "bg-shell-v" + VERSION + "-r2";
 const OFFLINE_URL = "index.html";
 
 const CORE = [
@@ -51,6 +51,13 @@ const CORE = [
   "css/wingspan.css",
   "css/dominion.css",
   "css/terraforming-mars.css",
+  "css/no-thanks.css",
+  "css/coup.css",
+  "css/for-sale.css",
+  "css/skull.css",
+  "css/king-of-tokyo.css",
+  "css/codenames.css",
+  "css/takenoko.css",
   "css/perf.css",
   "js/core.js",
   "js/fx.js",
@@ -66,6 +73,7 @@ const CORE = [
   "js/net.js",
   "js/app.js",
   "js/online.js",
+  "js/online-host.js",
   "js/site-extras.js",
   "js/pwa.js",
   "js/data/arabic-words.js",
@@ -102,6 +110,13 @@ const CORE = [
   "js/games/wingspan.js",
   "js/games/dominion.js",
   "js/games/terraforming-mars.js",
+  "js/games/no-thanks.js",
+  "js/games/coup.js",
+  "js/games/for-sale.js",
+  "js/games/skull.js",
+  "js/games/king-of-tokyo.js",
+  "js/games/codenames.js",
+  "js/games/takenoko.js",
   "vendor/peerjs/peerjs.min.js",
   "assets/brand/icon.svg",
   "assets/icons/icon-192.png",

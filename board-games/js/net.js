@@ -587,8 +587,9 @@
       return;
     }
     if (msg.t === "peer-joined") {
-      emit("peer-joined", msg.peer);
+      /* نُنشئ قناة الضيف قبل إطلاق الحدث حتى يستطيع المستمع إرسال رسائل فورًا (مثل بدء اللعبة للعائد) */
       if (role === "host" && msg.peer && msg.peer.id) ensureGuest(msg.peer.id);
+      emit("peer-joined", msg.peer);
       return;
     }
     if (msg.t === "peer-left") {

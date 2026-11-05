@@ -109,12 +109,17 @@ const required = [
   "js/core.js",
   "js/app.js",
   "js/library-art.js",
+  "js/library-art-expansion.js",
   "js/pwa.js",
   "js/games/chess.js",
   "js/games/kootbositta.js",
   "js/games/waraq.js",
   "js/games/mancala.js",
   "js/games/splendor.js",
+  "js/games/takenoko.js",
+  "js/games/expansion-common.js",
+  "css/expansion.css",
+  "css/takenoko.css",
   "vendor/peerjs/peerjs.min.js",
   "assets/icons/icon-192.png",
   "assets/icons/icon-512.png",
@@ -158,11 +163,15 @@ for (const game of [
   "monopoly", "catan", "ticket-to-ride", "carcassonne", "risk", "scrabble",
   "cluedo", "uno", "love-letter", "pandemic", "tavla", "waraq", "kootbositta",
   "domino", "ludo", "snakes", "checkers", "mancala", "chess", "splendor",
+  "yahtzee", "rummikub", "othello", "connect-four", "stratego", "parcheesi",
+  "sorry", "battleship", "seven-wonders", "azul", "wingspan", "dominion",
+  "terraforming-mars", "no-thanks", "coup", "for-sale", "skull", "king-of-tokyo",
+  "codenames", "takenoko",
 ]) {
   if (!index.includes("js/games/" + game + ".js")) fail("سكربت اللعبة غير مربوط: " + game);
 }
 
-for (const asset of ["css/library.css", "js/library-art.js"]) {
+for (const asset of ["css/library.css", "js/library-art.js", "js/library-art-expansion.js", "css/expansion.css"]) {
   if (!index.includes(asset)) fail("أصل المكتبة غير مربوط: " + asset);
 }
 

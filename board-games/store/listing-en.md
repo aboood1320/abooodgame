@@ -6,12 +6,12 @@
 | --- | --- |
 | Name | Board Games — Nubala |
 | Short name | Board Games |
-| Short description | 20 Arabic board games with full rules, AI, and worldwide online play. |
+| Short description | 40 Arabic board games with full rules, AI, and worldwide online play. |
 | Category | Games → Board |
 | Price | Free |
 | Language | Arabic (UI and content) |
 | Age rating | 3+ / Everyone |
-| Version | 1.2.2 |
+| Version | 1.3.0 |
 | Suggested package ID | `games.nubala.boardgames` |
 | Email | privacy@nubala.games *(confirm before publishing)* |
 | Website | https://nubala.games/board-games/ *(confirm before publishing)* |
@@ -21,14 +21,14 @@
 
 ## Full description
 
-**Twenty board games in one polished Arabic app.**
+**Forty board games in one polished Arabic app.**
 
-Monopoly, Catan, Ticket to Ride, Carcassonne, Risk, Scrabble, Cluedo, Uno, Pandemic, Backgammon, Waraq (Basra & Rummy), Dominoes, Ludo, Snakes & Ladders, Checkers, Mancala, Love Letter, Chess, Koot Bo Sitta, and Splendor. Every game is built from scratch with a clear Arabic interface, a detailed rules guide, and three AI levels.
+Twenty family classics plus twenty BGG picks: Monopoly, Catan, Ticket to Ride, Carcassonne, Risk, Scrabble, Cluedo, Uno, Pandemic, Backgammon, Waraq (Basra & Rummy), Dominoes, Ludo, Snakes & Ladders, Checkers, Mancala, Love Letter, Chess, Koot Bo Sitta, and Splendor — followed by Yahtzee, Rummikub, Othello, Connect Four, Stratego, Parcheesi, Sorry!, Battleship, 7 Wonders, Azul, Wingspan, Dominion, Terraforming Mars, No Thanks, Coup, For Sale, Skull, King of Tokyo, Codenames, and Takenoko. Every game is built from scratch with a clear Arabic interface, a detailed rules guide, and three AI levels.
 
 ### Highlights
 
 - **Complete Arabic rules for every game:** goal, components, setup, turn-by-turn play, and win conditions — inside the app.
-- **Hotseat play:** 2–6 players on one device, with secret information truly hidden until “Reveal” is pressed.
+- **Hotseat play:** 2–8 players on one device, with secret information truly hidden until “Reveal” is pressed.
 - **Worldwide online rooms:** create a room, share a code or invite link, or use quick match. Connections are peer-to-peer and require no account.
 - **Three AI levels:** easy, normal, and hard. Mix human and CPU players on the same table.
 - **Per-game options:** hand size, stone count, target score, jokers, forced captures, and more — applied consistently in local and online play.
@@ -38,7 +38,7 @@ Monopoly, Catan, Ticket to Ride, Carcassonne, Risk, Scrabble, Cluedo, Uno, Pande
 - **Live spectating:** anyone waiting for a seat watches the game update live, without seeing hidden hands.
 - **No accounts, no ads, no tracking.**
 
-### The twenty games
+### The twenty family classics
 
 | Game | Players | Idea |
 | --- | --- | --- |
@@ -63,6 +63,31 @@ Monopoly, Catan, Ticket to Ride, Carcassonne, Risk, Scrabble, Cluedo, Uno, Pande
 | Koot Bo Sitta | 4 or 6 | Two teams, bidding, trump, and nine tricks |
 | Splendor | 2–4 | Gems, development cards, and nobles to 15 points |
 
+### The twenty BGG picks
+
+| Game | Players | Idea |
+| --- | --- | --- |
+| Yahtzee | 2–4 | Five dice, three rolls, and thirteen categories |
+| Rummikub | 2–4 | Tiles, sets, runs, and a 30-point initial meld |
+| Othello | 2 | Flip the opponent’s discs on an 8×8 board |
+| Connect Four | 2 | Four in a row under gravity |
+| Stratego | 2 | Hidden ranks, flag, bombs, and attrition |
+| Parcheesi | 2–4 | Four pawns, a track, safe squares, and captures |
+| Sorry! | 2–4 | Movement cards, slides, and the famous Sorry card |
+| Battleship | 2 | A hidden fleet and hits on two grids |
+| 7 Wonders | 2–4 | Three ages, seven wonders, resources, military, and science |
+| Azul | 2–4 | Factories, tile drafting, wall patterns, and bonuses |
+| Wingspan | 2–4 | Birds, habitats, eggs, food, and round goals |
+| Dominion | 2–4 | Deck-building, sixteen kingdom cards, treasure, and victory |
+| Terraforming Mars | 2–4 | Heat, oxygen, oceans, projects, and production |
+| No Thanks | 2–5 | Cards, chips, pay or pass, and the lowest total wins |
+| Coup | 2–4 | Hidden roles, influence, challenges, and blocks |
+| For Sale | 3–6 | Auction properties, then sell them with secret cheques |
+| Skull | 3–6 | Discs, roses, skulls, bids, and lost discs |
+| King of Tokyo | 2–6 | Dice, Tokyo, health, victory points, and powers |
+| Codenames | 2–8 | Twenty-five words, 9/8 agents, neutrals, and an assassin |
+| Takenoko | 2–4 | Bamboo, panda, gardener, weather, and forty-five objectives |
+
 ### How online play works
 
 1. Open **Online play** and choose **Create room**.
@@ -80,9 +105,19 @@ No accounts, no ads, no analytics. Settings and progress are stored locally on y
 
 ## Keywords
 
-board games, Arabic games, monopoly, catan, ludo, dominoes, mancala, checkers, snakes and ladders, cards, basra, rummy, uno, scrabble, risk, cluedo, party games, online board games, family games, offline games
+board games, Arabic games, monopoly, catan, ludo, dominoes, mancala, checkers, snakes and ladders, cards, basra, rummy, uno, scrabble, risk, cluedo, yahtzee, rummikub, othello, connect four, stratego, parcheesi, sorry, battleship, 7 wonders, azul, wingspan, dominion, terraforming mars, no thanks, coup, for sale, skull, king of tokyo, codenames, takenoko, party games, online board games, family games, offline games
 
 ---
+
+## What’s new in 1.3.0
+
+- **Forty games in one library:** the family classics and BGG picks are complete, each with a card, description, and full Arabic rules.
+- **New family classics:** Yahtzee, Rummikub, Othello, Connect Four, Stratego, Parcheesi, Sorry!, and Battleship.
+- **BGG picks:** 7 Wonders, Azul, Wingspan, Dominion, Terraforming Mars, No Thanks, Coup, For Sale, Skull, King of Tokyo, Codenames, and Takenoko.
+- **Original Arabic rules:** components and play sequences documented inside every game, with original Arabic names and visual identities.
+- **Expanded library:** 40 original SVG scenes and 40 tones and cards while keeping the same warm design.
+- **Updated service worker:** every new game file is precached for offline play (`bg-shell-v1.3.0-r2`).
+- **Fixes:** steadier AI turns in the new games, better responsiveness down to 360px, and `prefers-reduced-motion` support.
 
 ## What’s new in 1.2.2
 
@@ -100,14 +135,13 @@ board games, Arabic games, monopoly, catan, ludo, dominoes, mancala, checkers, s
 - **Layout and display fixes:** Waraq, Scrabble, Dominoes, and Uno, with Uno table seating and a classic Scrabble board.
 - **Complete mobile experience down to 360px:** Cluedo, Uno, and Carcassonne fill the screen, while Ticket to Ride, Pandemic, and Catan maps scroll horizontally.
 - **Reduced motion:** `prefers-reduced-motion` support for all new route, piece, and seat animations.
-- **A new luxury library:** a warm, gold-accented landing page with larger cards and a live count of all twenty games.
+- **A new luxury library:** a warm, gold-accented landing page with larger cards and a live game count.
 - **Custom art for every game:** an original SVG scene that captures each game — the Scrabble owl, the Ticket to Ride ship, the Cluedo manor, the chess knight, the Mancala stones — with gentle motion that respects reduced-motion settings.
 - **Faster entry:** “Explore the library” and “Random game” hero actions, plus player count, duration, complexity, and an open button on every card.
 - **Improved responsiveness:** a layout from 360px to wide screens with no horizontal scrolling and comfortable touch targets.
 - **Live spectating:** players waiting for a seat watch the game unfold in real time, without exposing hands or hidden information.
 - **Richer audio:** layered per-event sounds (move, capture, promotion, outbreak, cure, trade) with wider pitch and intensity variation.
-- **Better piece motion:** smooth transitions, gloss, and realistic materials for pieces in all twenty games, with reduced-motion support.
-- Twenty complete games, from Monopoly to Splendor.
+- **Better piece motion:** smooth transitions, gloss, and realistic materials for pieces in all games, with reduced-motion support.
 - Worldwide online rooms with invite links, quick match, and mixed seats.
 - Three AI levels with per-game improvements.
 - Configurable rules shared by local and online play.
@@ -121,7 +155,7 @@ board games, Arabic games, monopoly, catan, ludo, dominoes, mancala, checkers, s
 
 | File | Size | Caption |
 | --- | --- | --- |
-| `assets/screenshots/library-wide.png` | 1440×950 | The twenty-game library in its new luxury design |
+| `assets/screenshots/library-wide.png` | 1440×950 | The forty-game library in its luxury design |
 | `assets/screenshots/waraq-wide.png` | 1440×950 | Waraq — Basra and Rummy |
 | `assets/screenshots/ludo-wide.png` | 1440×950 | Four-player Ludo |
 | `assets/screenshots/mancala-narrow.png` | 390×844 | Mancala on mobile |

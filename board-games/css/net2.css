@@ -62,6 +62,102 @@
   .net-modes { grid-template-columns: 1fr; }
 }
 
+/* ===== لوحة تحكم المضيف ===== */
+.net-hp { display: grid; gap: 14px; }
+.net-hp-sec {
+  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.03);
+}
+.net-hp-sec h3 { margin: 0 0 8px; font-size: 1rem; }
+.net-hp-note { margin: 0 0 10px; font-size: 0.82rem; opacity: 0.75; line-height: 1.7; }
+.net-hp-seg { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.net-hp-opt {
+  display: grid;
+  gap: 2px;
+  padding: 10px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(0, 0, 0, 0.2);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  text-align: center;
+}
+.net-hp-opt small { font-size: 0.74rem; opacity: 0.7; }
+.net-hp-opt.is-on { border-color: #e1b45c; background: rgba(225, 180, 92, 0.16); }
+.net-hp-row {
+  display: grid;
+  grid-template-columns: 28px 1fr auto;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+.net-hp-row:first-of-type { border-top: 0; }
+.net-hp-seat {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.12);
+  font-size: 0.8rem;
+}
+.net-hp-name { display: grid; line-height: 1.4; min-width: 0; overflow-wrap: anywhere; }
+.net-hp-name small { opacity: 0.7; font-size: 0.74rem; }
+.net-hp-btns { display: flex; flex-wrap: wrap; gap: 4px; justify-content: flex-end; }
+.net-hp-btns .bg-btn { min-height: 32px; padding: 2px 9px; }
+.net-hp-game { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 8px; }
+.net-hp-game select {
+  flex: 1 1 140px;
+  min-height: 40px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(0, 0, 0, 0.3);
+  color: inherit;
+  font: inherit;
+}
+.net-hp-game select option { color: #111; background: #fff; }
+.net-hp-check { display: inline-flex; gap: 6px; align-items: center; font-size: 0.85rem; }
+.net-hp-banned { display: flex; flex-wrap: wrap; gap: 6px; }
+.net-hp-banned span { padding: 4px 8px; border-radius: 10px; background: rgba(255, 90, 80, 0.14); font-size: 0.82rem; }
+.net-empty { opacity: 0.7; margin: 4px 0; }
+.net-hud-hostpanel {
+  min-width: 34px;
+  min-height: 34px;
+  border-radius: 10px;
+  border: 1px solid rgba(225, 180, 92, 0.6);
+  background: rgba(225, 180, 92, 0.18);
+  color: inherit;
+  cursor: pointer;
+  font-size: 1rem;
+}
+.net-hostpanel-btn { width: 100%; margin-bottom: 8px; }
+
+/* قائمة الغرف العامة */
+.net-public {
+  margin-top: 14px;
+  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.03);
+}
+.net-public-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.net-public-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+.net-public-item:first-child { border-top: 0; }
+.net-public-info { display: grid; line-height: 1.5; min-width: 0; }
+.net-public-info small { opacity: 0.72; font-size: 0.76rem; }
+
 /* جودة الاتصال في اللوبي وقائمة اللاعبين */
 .net-conn-line {
   display: flex;

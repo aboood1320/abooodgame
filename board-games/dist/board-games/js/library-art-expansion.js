@@ -197,4 +197,102 @@
     '<g filter="url(#tmSh)"><path d="M128 160a18 18 0 0 1 36 0z" fill="#d9e0d4" stroke="#6e7a68" stroke-width="2"/><path d="M174 164a16 16 0 0 1 32 0z" fill="#d9e0d4" stroke="#6e7a68" stroke-width="2"/><path d="M216 154a14 14 0 0 1 28 0z" fill="#d9e0d4" stroke="#6e7a68" stroke-width="2"/></g>' +
     '<g fill="#f4d99b"><path d="M300 46l2.4 7 7 2.4-7 2.4-2.4 7-2.4-7-7-2.4 7-2.4z"/><circle cx="62" cy="54" r="2"/><circle cx="300" cy="164" r="1.7"/></g>'
   );
+  /* ------------------------------ No Thanks ------------------------------ */
+  art["no-thanks"] = svg(
+    '<defs>' + halo("ntHalo", "#d7a45f") +
+    '<filter id="ntSh" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="6" stdDeviation="6" flood-color="#000" flood-opacity=".45"/></filter>' +
+    '</defs><circle cx="180" cy="104" r="96" fill="url(#ntHalo)"/>' +
+    '<g filter="url(#ntSh)" transform="rotate(-9 132 104)"><rect x="90" y="46" width="76" height="108" rx="9" fill="#f4e6c9" stroke="#8a6438" stroke-width="2"/><text x="128" y="86" text-anchor="middle" font-family="Georgia,serif" font-weight="700" font-size="27" fill="#8a4b3a">35</text><circle cx="128" cy="118" r="15" fill="#d6a94f" stroke="#7d5624" stroke-width="2"/><circle cx="128" cy="118" r="5" fill="#8a6438"/></g>' +
+    '<g filter="url(#ntSh)" transform="rotate(2 184 96)"><rect x="146" y="38" width="76" height="108" rx="9" fill="#f9edd0" stroke="#8a6438" stroke-width="2"/><text x="184" y="78" text-anchor="middle" font-family="Georgia,serif" font-weight="700" font-size="27" fill="#3e5f4c">12</text><circle cx="184" cy="110" r="15" fill="#d6a94f" stroke="#7d5624" stroke-width="2"/><circle cx="184" cy="110" r="5" fill="#8a6438"/></g>' +
+    '<g filter="url(#ntSh)" transform="rotate(11 240 106)"><rect x="202" y="46" width="76" height="108" rx="9" fill="#e8d3aa" stroke="#8a6438" stroke-width="2"/><text x="240" y="86" text-anchor="middle" font-family="Georgia,serif" font-weight="700" font-size="27" fill="#5a3b56">24</text><circle cx="240" cy="118" r="15" fill="#d6a94f" stroke="#7d5624" stroke-width="2"/><circle cx="240" cy="118" r="5" fill="#8a6438"/></g>' +
+    '<g filter="url(#ntSh)"><circle cx="108" cy="172" r="13" fill="#d6a94f" stroke="#7d5624" stroke-width="2"/><circle cx="132" cy="176" r="13" fill="#e2b866" stroke="#7d5624" stroke-width="2"/><circle cx="156" cy="172" r="13" fill="#d6a94f" stroke="#7d5624" stroke-width="2"/><circle cx="180" cy="177" r="13" fill="#e2b866" stroke="#7d5624" stroke-width="2"/></g>' +
+    '<g fill="#f4d99b"><path d="M300 52l2 6 6 2-6 2-2 6-2-6-6-2 6-2z"/><circle cx="60" cy="58" r="2"/></g>'
+  );
+
+  /* ------------------------------ Coup ------------------------------ */
+  art.coup = svg(
+    '<defs>' + halo("cpHalo", "#b9705f") +
+    '<linearGradient id="cpVelvet" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3a2023"/><stop offset="1" stop-color="#1a0f12"/></linearGradient>' +
+    '<filter id="cpSh" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="6" stdDeviation="6" flood-color="#000" flood-opacity=".5"/></filter>' +
+    '</defs><circle cx="180" cy="104" r="96" fill="url(#cpHalo)"/>' +
+    '<rect x="72" y="34" width="216" height="156" rx="18" fill="url(#cpVelvet)" stroke="#6b3b38" stroke-width="2" opacity=".9"/>' +
+    '<g filter="url(#cpSh)" transform="rotate(-8 132 112)"><rect x="92" y="55" width="72" height="104" rx="8" fill="#7d3c3a" stroke="#d8a86a" stroke-width="2"/><path d="M128 72l18 30-18 30-18-30z" fill="none" stroke="#e7c58c" stroke-width="2" opacity=".8"/><circle cx="128" cy="102" r="7" fill="#e7c58c"/></g>' +
+    '<g filter="url(#cpSh)" transform="rotate(6 232 112)"><rect x="196" y="52" width="72" height="104" rx="8" fill="#5b3540" stroke="#d8a86a" stroke-width="2"/><path d="M232 68l16 28-16 28-16-28z" fill="none" stroke="#e7c58c" stroke-width="2" opacity=".8"/><path d="M222 100h20M232 90v20" stroke="#e7c58c" stroke-width="3"/></g>' +
+    '<g filter="url(#cpSh)"><rect x="160" y="140" width="42" height="42" rx="6" fill="#e8d3aa" stroke="#826039" stroke-width="2"/><circle cx="181" cy="161" r="12" fill="#d6a94f" stroke="#7d5624" stroke-width="2"/><path d="M175 161h12M181 155v12" stroke="#7d5624" stroke-width="2.4"/></g>' +
+    '<path d="M92 62l9-14 2 16z" fill="#f3e6cc"/><path d="M266 160l8-13 2 15z" fill="#f3e6cc"/>' +
+    '<g fill="#f4d99b"><circle cx="60" cy="54" r="2"/><path d="M300 168l2 6 6 2-6 2-2 6-2-6-6-2 6-2z"/></g>'
+  );
+
+  /* ------------------------------ For Sale ------------------------------ */
+  art["for-sale"] = svg(
+    '<defs>' + halo("fsHalo", "#d9a463") +
+    '<filter id="fsSh" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="6" stdDeviation="6" flood-color="#000" flood-opacity=".44"/></filter>' +
+    '</defs><circle cx="180" cy="104" r="96" fill="url(#fsHalo)"/>' +
+    '<path d="M64 170h232" stroke="#8a6438" stroke-width="3" opacity=".6"/>' +
+    '<g filter="url(#fsSh)"><path d="M86 170v-70l26-22 26 22v70z" fill="#e8d3aa" stroke="#7a5730" stroke-width="2"/><path d="M112 78l-26 22h52z" fill="#b85d50"/><rect x="103" y="132" width="18" height="38" fill="#7d3c36"/><rect x="94" y="94" width="12" height="14" fill="#7fa0a8"/><rect x="118" y="94" width="12" height="14" fill="#7fa0a8"/></g>' +
+    '<g filter="url(#fsSh)"><path d="M152 170v-54l22-18 22 18v54z" fill="#f2e2c3" stroke="#7a5730" stroke-width="2"/><path d="M174 98l-22 18h44z" fill="#5d8e83"/><rect x="165" y="138" width="18" height="32" fill="#3f6b62"/><rect x="158" y="110" width="12" height="12" fill="#7fa0a8"/></g>' +
+    '<g filter="url(#fsSh)"><path d="M208 170v-86l30-26 30 26v86z" fill="#e8d3aa" stroke="#7a5730" stroke-width="2"/><path d="M238 58l-30 26h60z" fill="#c9a45c"/><rect x="228" y="126" width="20" height="44" fill="#7d3c36"/><rect x="216" y="94" width="14" height="16" fill="#7fa0a8"/><rect x="246" y="94" width="14" height="16" fill="#7fa0a8"/></g>' +
+    '<g filter="url(#fsSh)"><rect x="78" y="118" width="42" height="26" rx="5" fill="#f9edd0" stroke="#826039" stroke-width="2"/><text x="99" y="137" text-anchor="middle" font-family="Georgia,serif" font-weight="700" font-size="16" fill="#8a4b3a">18</text>' +
+    '<circle cx="286" cy="146" r="14" fill="#d6a94f" stroke="#7d5624" stroke-width="2"/><circle cx="286" cy="146" r="4.6" fill="#8a6438"/><circle cx="286" cy="120" r="14" fill="#e2b866" stroke="#7d5624" stroke-width="2"/><circle cx="286" cy="120" r="4.6" fill="#8a6438"/></g>' +
+    '<g fill="#f4d99b"><path d="M300 48l2 6 6 2-6 2-2 6-2-6-6-2 6-2z"/><circle cx="58" cy="56" r="2"/></g>'
+  );
+
+  /* ------------------------------ Skull ------------------------------ */
+  art.skull = svg(
+    '<defs>' + halo("skHalo", "#b08a6e") +
+    '<filter id="skSh" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="7" stdDeviation="7" flood-color="#000" flood-opacity=".48"/></filter>' +
+    '</defs><circle cx="180" cy="104" r="96" fill="url(#skHalo)"/>' +
+    '<g filter="url(#skSh)"><circle cx="130" cy="118" r="48" fill="#3d4a44" stroke="#17211f" stroke-width="3"/><circle cx="130" cy="118" r="38" fill="none" stroke="#7fa08c" stroke-width="2" opacity=".6"/>' +
+    '<g fill="#e7d9c4"><path d="M130 88c17 0 29 11 29 25 0 9-5 15-11 19l-2 12h-32l-2-12c-6-4-11-10-11-19 0-14 12-25 29-25z"/><circle cx="119" cy="112" r="6" fill="#3d4a44"/><circle cx="141" cy="112" r="6" fill="#3d4a44"/><path d="M126 126h8l-4 7z" fill="#3d4a44"/><path d="M121 136h18M123 142h14" stroke="#3d4a44" stroke-width="2"/></g></g>' +
+    '<g filter="url(#skSh)"><circle cx="232" cy="94" r="38" fill="#4a3b46" stroke="#221820" stroke-width="3"/><g fill="#e3b9c4"><circle cx="232" cy="94" r="8"/><circle cx="232" cy="76" r="7"/><circle cx="248" cy="86" r="7"/><circle cx="248" cy="103" r="7"/><circle cx="232" cy="112" r="7"/><circle cx="216" cy="103" r="7"/><circle cx="216" cy="86" r="7"/></g><circle cx="232" cy="94" r="4" fill="#8a5f3d"/></g>' +
+    '<g filter="url(#skSh)"><circle cx="204" cy="168" r="22" fill="#5b4a3d" stroke="#241a16" stroke-width="2"/><circle cx="204" cy="168" r="14" fill="none" stroke="#c9a45c" stroke-width="2" opacity=".7"/><path d="M198 168h12M204 162v12" stroke="#c9a45c" stroke-width="2.4"/></g>' +
+    '<g fill="#f4d99b"><circle cx="62" cy="52" r="2"/><path d="M302 46l2 6 6 2-6 2-2 6-2-6-6-2 6-2z"/></g>'
+  );
+
+  /* ------------------------------ King of Tokyo ------------------------------ */
+  art["king-of-tokyo"] = svg(
+    '<defs>' + halo("ktHalo", "#d06a58") +
+    '<linearGradient id="ktSky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#402832"/><stop offset="1" stop-color="#150f19"/></linearGradient>' +
+    '<filter id="ktSh" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="6" stdDeviation="6" flood-color="#000" flood-opacity=".5"/></filter>' +
+    '</defs><circle cx="180" cy="104" r="96" fill="url(#ktHalo)"/>' +
+    '<rect x="58" y="34" width="244" height="168" rx="16" fill="url(#ktSky)" stroke="#6e3a3a" stroke-width="2"/>' +
+    '<g fill="#2c2333" stroke="#4a3a4d" stroke-width="1.4"><rect x="74" y="92" width="34" height="110"/><rect x="116" y="66" width="28" height="136"/><rect x="152" y="104" width="40" height="98"/><rect x="200" y="76" width="32" height="126"/><rect x="240" y="96" width="42" height="106"/></g>' +
+    '<g fill="#e7c58c" opacity=".8"><rect x="82" y="102" width="6" height="6"/><rect x="94" y="114" width="6" height="6"/><rect x="124" y="78" width="6" height="6"/><rect x="134" y="94" width="6" height="6"/><rect x="210" y="88" width="6" height="6"/><rect x="220" y="106" width="6" height="6"/><rect x="250" y="110" width="6" height="6"/><rect x="262" y="126" width="6" height="6"/></g>' +
+    '<g filter="url(#ktSh)"><path d="M138 196c-4-22 4-42 20-50 4-12 10-20 18-24 2 10 6 16 12 20 10 4 18 14 20 28 2 10 2 18 0 26z" fill="#6f9b6e" stroke="#2f4a38" stroke-width="2"/><path d="M156 146l-8-16 16 8M176 130l14-12-2 18" fill="#6f9b6e" stroke="#2f4a38" stroke-width="2"/><circle cx="164" cy="160" r="4" fill="#ffe08a"/><circle cx="184" cy="156" r="4" fill="#ffe08a"/><path d="M164 176c6 5 14 5 20 0" stroke="#2f4a38" stroke-width="2.4" fill="none"/></g>' +
+    '<g filter="url(#ktSh)" transform="rotate(-10 236 174)"><rect x="222" y="158" width="32" height="32" rx="7" fill="#f4e6c9" stroke="#826039" stroke-width="2"/><circle cx="238" cy="174" r="3.2" fill="#8a4b3a"/><circle cx="230" cy="166" r="3.2" fill="#8a4b3a"/><circle cx="246" cy="182" r="3.2" fill="#8a4b3a"/></g>' +
+    '<path d="M92 56l6-16 4 18 8-14 2 18" stroke="#ffe08a" stroke-width="3" fill="none" stroke-linecap="round"/>' +
+    '<g fill="#f4d99b"><circle cx="300" cy="52" r="2"/><path d="M58 166l2 6 6 2-6 2-2 6-2-6-6-2 6-2z"/></g>'
+  );
+
+  /* ------------------------------ Codenames ------------------------------ */
+  art.codenames = svg(
+    '<defs>' + halo("cnHalo", "#d08a72") +
+    '<filter id="cnSh" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="6" stdDeviation="6" flood-color="#000" flood-opacity=".45"/></filter>' +
+    '</defs><circle cx="180" cy="104" r="96" fill="url(#cnHalo)"/>' +
+    '<g transform="rotate(-3 180 110)" filter="url(#cnSh)"><rect x="70" y="26" width="220" height="184" rx="14" fill="#25343a" stroke="#101c21" stroke-width="3"/>' +
+    '<g stroke="#0f1a1f" stroke-width="2">' +
+    '<rect x="82" y="38" width="38" height="30" rx="4" fill="#c77c64"/><rect x="126" y="38" width="38" height="30" rx="4" fill="#e7e2d1"/><rect x="170" y="38" width="38" height="30" rx="4" fill="#5d8e83"/><rect x="214" y="38" width="38" height="30" rx="4" fill="#e7e2d1"/><rect x="258" y="38" width="26" height="30" rx="4" fill="#25343a"/>' +
+    '<rect x="82" y="74" width="38" height="30" rx="4" fill="#5d8e83"/><rect x="126" y="74" width="38" height="30" rx="4" fill="#25343a"/><rect x="170" y="74" width="38" height="30" rx="4" fill="#1a141f"/><rect x="214" y="74" width="38" height="30" rx="4" fill="#c77c64"/><rect x="258" y="74" width="26" height="30" rx="4" fill="#e7e2d1"/>' +
+    '<rect x="82" y="110" width="38" height="30" rx="4" fill="#e7e2d1"/><rect x="126" y="110" width="38" height="30" rx="4" fill="#c77c64"/><rect x="170" y="110" width="38" height="30" rx="4" fill="#e7e2d1"/><rect x="214" y="110" width="38" height="30" rx="4" fill="#5d8e83"/><rect x="258" y="110" width="26" height="30" rx="4" fill="#c77c64"/>' +
+    '<rect x="82" y="146" width="38" height="30" rx="4" fill="#25343a"/><rect x="126" y="146" width="38" height="30" rx="4" fill="#5d8e83"/><rect x="170" y="146" width="38" height="30" rx="4" fill="#c77c64"/><rect x="214" y="146" width="38" height="30" rx="4" fill="#e7e2d1"/><rect x="258" y="146" width="26" height="30" rx="4" fill="#5d8e83"/>' +
+    '<rect x="82" y="182" width="38" height="20" rx="4" fill="#c77c64"/><rect x="126" y="182" width="38" height="20" rx="4" fill="#e7e2d1"/><rect x="170" y="182" width="38" height="20" rx="4" fill="#25343a"/><rect x="214" y="182" width="38" height="20" rx="4" fill="#5d8e83"/><rect x="258" y="182" width="26" height="20" rx="4" fill="#e7e2d1"/></g>' +
+    '<g stroke="#b9aa8d" stroke-width="2.2" stroke-linecap="round" opacity=".55"><path d="M90 53h22M134 53h22M178 53h22M222 53h22M90 89h22M178 89h22M222 89h22M90 125h22M134 125h22M178 125h22M222 125h22M134 161h22M178 161h22M90 197h22M134 197h22M178 197h22M222 197h22"/></g></g>' +
+    '<g filter="url(#cnSh)"><rect x="250" y="158" width="54" height="38" rx="7" fill="#f4e6c9" stroke="#826039" stroke-width="2"/><text x="277" y="176" text-anchor="middle" font-family="Georgia,serif" font-weight="700" font-size="15" fill="#8a4b3a">3</text><path d="M262 186h30" stroke="#b59b78" stroke-width="2.4"/></g>' +
+    '<g fill="#f4d99b"><circle cx="56" cy="52" r="2"/><path d="M302 62l2 6 6 2-6 2-2 6-2-6-6-2 6-2z"/></g>'
+  );
+
+  /* ------------------------------ Takenoko ------------------------------ */
+  art.takenoko = svg(
+    '<defs>' + halo("tkHalo", "#7ca878") +
+    '<filter id="tkSh" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="6" stdDeviation="6" flood-color="#000" flood-opacity=".44"/></filter>' +
+    '</defs><circle cx="180" cy="104" r="96" fill="url(#tkHalo)"/>' +
+    '<g transform="rotate(-4 180 118)" filter="url(#tkSh)">' +
+    '<path d="M96 152l18-31h36l18 31-18 31h-36z" fill="#7fa56f" stroke="#3f5c39" stroke-width="2"/>' +
+    '<path d="M168 152l18-31h36l18 31-18 31h-36z" fill="#d2b46c" stroke="#6e5830" stroke-width="2"/>' +
+    '<path d="M132 100l18-31h36l18 31-18 31h-36z" fill="#d18b72" stroke="#6b3f33" stroke-width="2"/>' +
+    '<path d="M222 100l18-31h36l18 31-18 31h-36z" fill="#7fa56f" stroke="#3f5c39" stroke-width="2"/></g>' +
+    '<g stroke-linecap="round" filter="url(#tkSh)"><path d="M148 141v-42" stroke="#4f7d45" stroke-width="6"/><path d="M169 141v-30" stroke="#5d9151" stroke-width="6"/><path d="M126 147v-26" stroke="#6ba05c" stroke-width="6"/><path d="M148 120h12M148 132h-12M169 124h11M126 132h-10" stroke="#7fb46c" stroke-width="4"/></g>' +
+    '<g filter="url(#tkSh)"><circle cx="252" cy="112" r="30" fill="#f0ece0" stroke="#9a8a72" stroke-width="2"/><circle cx="242" cy="107" r="7" fill="#2a2622"/><circle cx="262" cy="107" r="7" fill="#2a2622"/><circle cx="252" cy="120" r="4" fill="#2a2622"/><circle cx="238" cy="122" r="5" fill="#c98d7a" opacity=".55"/><circle cx="266" cy="122" r="5" fill="#c98d7a" opacity=".55"/><path d="M246 130c4 4 8 4 12 0" stroke="#2a2622" stroke-width="2.2" fill="none"/></g>' +
+    '<g fill="#f4d99b"><path d="M64 54l2.4 7 7 2.4-7 2.4-2.4 7-2.4-7-7-2.4 7-2.4z"/><circle cx="300" cy="166" r="2"/></g>'
+  );
 })();

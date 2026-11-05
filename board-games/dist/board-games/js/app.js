@@ -53,6 +53,13 @@
     wingspan: "g-cards",
     dominion: "g-cards",
     "terraforming-mars": "g-pandemic",
+    "no-thanks": "g-cards",
+    coup: "g-cluedo",
+    "for-sale": "g-monopoly",
+    skull: "g-cards",
+    "king-of-tokyo": "g-risk",
+    codenames: "g-scrabble",
+    takenoko: "g-carcassonne",
   };
 
   // ألوان دافئة موحّدة تحفظ هوية كل بطاقة داخل المكتبة الفاخرة.
@@ -90,6 +97,13 @@
     wingspan: "#9a8a58",
     dominion: "#b88a58",
     "terraforming-mars": "#c96f4d",
+    "no-thanks": "#b98a5c",
+    coup: "#a86a63",
+    "for-sale": "#c9915e",
+    skull: "#8f7b6d",
+    "king-of-tokyo": "#c45f52",
+    codenames: "#c77c64",
+    takenoko: "#6f9b6e",
   };
 
   function icon(id, cls) {
@@ -1315,7 +1329,76 @@
     return els.gameLog ? els.gameLog.children.length : 0;
   }
 
+  /* تبديل متحكّم مقعد أثناء اللعب (بشري ↔ كمبيوتر): نعدّل لقطة الحالة نفسها، فيعمل مع كل الألعاب
+     لأنها تخزّن players[i].isCpu/type/level/name في حالتها. */
+  function netPatchPlayer(index, patch) {
+    if (!instance || typeof instance.netSnapshot !== "function" || typeof instance.netLoad !== "function") return false;
+    let snap = null;
+    try { snap = instance.netSnapshot(); } catch (err) { return false; }
+    if (!snap || !Array.isArray(snap.players) || !snap.players[index]) return false;
+    const p = snap.players[index];
+    if (patch.cpu !== undefined) {
+      p.isCpu = !!patch.cpu;
+      p.type = patch.cpu ? "cpu" : "human";
+    }
+    if (patch.level) p.level = patch.level;
+    if (patch.name) p.name = patch.name;
+    try {
+      BG.closeDialogs();
+      instance.netLoad(snap);
+      if (typeof instance.netResume === "function" && !(currentNet && currentNet.spectate)) instance.netResume();
+    } catch (err) {
+      console.warn(err);
+      return false;
+    }
+    if (currentApi && currentApi.players && currentApi.players[index]) {
+      const roster = currentApi.players[index];
+      if (patch.cpu !== undefined) { roster.isCpu = !!patch.cpu; roster.type = patch.cpu ? "cpu" : "human"; }
+      if (patch.level) roster.level = patch.level;
+      if (patch.name) roster.name = patch.name;
+    }
+    return true;
+  }
+
+  /* إعادة بناء نسخة اللعبة لمقعد محلي جديد (تبديل مواقع اللاعبين أثناء اللعب) */
+  function netRebuild(newSeat) {
+    if (!currentGame || !currentNet) return false;
+    const snap = netSnapshot();
+    currentNet.seat = newSeat;
+    if (currentApi && currentApi.net) currentApi.net.seat = newSeat;
+    if (!snap) return false;
+    return !!createInstance(currentGame, currentNet, snap);
+  }
+
+  /* ترقية هذا الجهاز إلى مضيف أثناء اللعب (نقل الاستضافة) من آخر حالة معروفة */
+  function netPromoteToHost(snapshot) {
+    if (!currentGame || !currentNet) return false;
+    currentNet.isHost = true;
+    currentNet.spectate = false;
+    if (currentApi && currentApi.net) currentApi.net.isHost = true;
+    if (gameMount) gameMount.removeAttribute("data-spectate");
+    const state = snapshot || netSnapshot();
+    const created = createInstance(currentGame, currentNet, state);
+    if (!created) return false;
+    if (gameMount) gameMount.hidden = false;
+    return true;
+  }
+
+  function netSetRole(isHost, seat) {
+    if (!currentNet) return;
+    currentNet.isHost = !!isHost;
+    if (Number.isInteger(seat)) currentNet.seat = seat;
+    if (currentApi && currentApi.net) {
+      currentApi.net.isHost = !!isHost;
+      if (Number.isInteger(seat)) currentApi.net.seat = seat;
+    }
+  }
+
   BG.app = {
+    netPatchPlayer,
+    netRebuild,
+    netPromoteToHost,
+    netSetRole,
     showGameOver,
     startNetworkGame,
     netBeginHost,

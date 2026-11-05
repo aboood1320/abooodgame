@@ -344,10 +344,15 @@
     return Math.min(max, Math.max(min, Number(value) || min));
   }
 
+  /* ترتيب مقاعد اللاعبين (يعدّله المضيف من لوحة التحكم) */
+  function orderPeers(list) {
+    return BG.onlineHost && BG.onlineHost.orderPeers ? BG.onlineHost.orderPeers(list) : list;
+  }
+
   function buildSeats(gameId, count, level) {
     const game = gameDef(gameId);
     if (!game) return [];
-    const humans = lobbyHumanPeers().slice(0, game.maxPlayers);
+    const humans = orderPeers(lobbyHumanPeers()).slice(0, game.maxPlayers);
     const total = clampSeatCount(game, count);
     const seats = humans.map((peer, index) => ({
       name: peer.name || "لاعب " + (index + 1),
@@ -385,6 +390,7 @@
     if (!state.inRoom) {
       body.innerHTML = lobbyFormHTML();
       bindLobbyForm(body);
+      if (BG.onlineHost) BG.onlineHost.decorateForm(body);
       return;
     }
     body.innerHTML = lobbyRoomHTML();
@@ -759,6 +765,7 @@
           seats.map((seat, index) => '<span class="net-seat-chip ' + (seat.type === "cpu" ? "cpu" : "human") + '">' + (index + 1) + " · " + esc(seat.name) + (seat.type === "cpu" ? " 🤖" : " 👤") + "</span>").join("") +
           "</div></div>" +
           '<div class="net-options" data-net-options>' + optionsPanelHTML(game) + "</div>" +
+          '<button type="button" class="bg-btn net-hostpanel-btn" data-net-hostpanel>👑 لوحة تحكم المضيف (خاصة/عامة · طرد · تبديل مواقع)</button>' +
           '<button type="button" class="bg-btn primary big net-start" data-net-start' + (disabledReason ? " disabled" : "") + ">🚀 ابدأ اللعبة</button>" +
           (disabledReason ? '<p class="net-disabled">' + esc(disabledReason) + "</p>" : "") +
           "</div>"
@@ -806,6 +813,7 @@
     state.config = { gameId: state.lobbyGame, seatCount: state.seatCount, level: state.level, seats, options };
     BG.net.broadcast({
       t: "config",
+      owner: state.owner || "",
       gameId: state.lobbyGame,
       seatCount: state.seatCount,
       level: state.level,
@@ -822,6 +830,8 @@
     const gameSel = body.querySelector("[data-net-game]");
     const countSel = body.querySelector("[data-net-count]");
     const levelSel = body.querySelector("[data-net-level]");
+    const hostPanelBtn = body.querySelector("[data-net-hostpanel]");
+    if (hostPanelBtn) hostPanelBtn.addEventListener("click", () => { if (BG.onlineHost) BG.onlineHost.openPanel(); });
 
     const lanBox = body.querySelector("[data-net-lan-urls]");
     if (lanBox) {
@@ -931,6 +941,7 @@
       level: state.level,
       options,
       roomCode: BG.net.roomCode,
+      owner: state.owner || "",
     };
     state.pendingReady = new Set(
       seats.filter((seat) => seat.type === "human" && seat.peerId && seat.peerId !== BG.net.selfId).map((seat) => seat.peerId)
@@ -964,6 +975,7 @@
   }
 
   function guestStarted(payload) {
+    if (payload && payload.owner) state.owner = payload.owner;
     if (state.inGame) return;
     state.starting = false;
     if (BG.app) BG.app.startNetworkGame(payload);
@@ -1349,6 +1361,11 @@
     hud.querySelector(".net-hud-leave").addEventListener("click", () => requestLeave("مغادرة الطاولة"));
     view.appendChild(hud);
     state.hud = hud;
+    if (state.isHost && BG.onlineHost) {
+      const panelBtn = BG.el("button", { type: "button", class: "net-hud-hostpanel", "aria-label": "لوحة المضيف", text: "👑" });
+      panelBtn.addEventListener("click", () => BG.onlineHost.openPanel());
+      hud.insertBefore(panelBtn, hud.querySelector(".net-hud-leave"));
+    }
     updateHud();
     updateHudPing();
   }
@@ -1476,6 +1493,7 @@
   }
 
   function onHostMessage(from, data) {
+    if (BG.onlineHost && BG.onlineHost.onHostMessage(from, data)) return;
     if (data.t === "log") {
       BG.app.appendLog(data.message, data.kind);
       BG.net.broadcast({ t: "log", message: data.message, kind: data.kind }, from);
@@ -1549,7 +1567,9 @@
   }
 
   function onGuestMessage(from, data) {
+    if (BG.onlineHost && BG.onlineHost.onGuestMessage(from, data)) return;
     if (data.t === "config") {
+      if (data.owner) state.owner = data.owner;
       state.config = data;
       if (data.gameId) state.lobbyGame = data.gameId;
       if (data.seatCount) state.seatCount = data.seatCount;
@@ -1902,6 +1922,8 @@
   }
 
   function shutdown(silent) {
+    if (BG.onlineHost) BG.onlineHost.onShutdown();
+    state.owner = "";
     clearInterval(state.hostTimer);
     clearTimeout(state.titleTimer);
     if (state.baseTitle) document.title = state.baseTitle;
@@ -1952,6 +1974,7 @@
 
   /** لاعب بشري انقطع اتصاله: نمنحه مهلة للعودة بدل إنهاء الجلسة للجميع (الجوال يقطع كثيرًا لثوانٍ) */
   function markAway(seat) {
+    if (BG.onlineHost && BG.onlineHost.onSeatLost(seat)) return;
     const def = state.seats[seat];
     if (!def || def.type !== "human" || state.away[seat]) return;
     const name = def.name || "أحد اللاعبين";
@@ -1968,6 +1991,7 @@
 
   /** انضمام أثناء اللعب: إما عودة لاعب منقطع (نفس الاسم) أو مشاهد جديد. */
   function lateJoin(peer) {
+    if (BG.onlineHost && BG.onlineHost.onLateJoin(peer)) return;
     if (!state.inGame || !state.isHost || !state.hostReady || !state.game || !peer || !peer.id) return;
     const wanted = String(peer.name || "").trim().toLowerCase();
     const back = Object.keys(state.away).map(Number).find((i) =>
@@ -2012,6 +2036,7 @@
     BG.net.on("room", () => {
       state.inRoom = true;
       state.name = state.name || savedName() || "اللاعب";
+      if (BG.net.isHost && !state.owner) state.owner = state.name;
       if (BG.net.isHost) {
         if (!state.lobbyGame) state.lobbyGame = (BG.games[0] && BG.games[0].id) || "";
         state.seatCount = clampSeatCount(currentGameDef(), state.seatCount);
@@ -2020,6 +2045,7 @@
       renderLobby();
     });
     BG.net.on("peers", () => {
+      if (BG.onlineHost) BG.onlineHost.onPeers();
       if (state.inRoom) {
         if (BG.net.isHost) {
           state.seatCount = clampSeatCount(currentGameDef(), state.seatCount);
@@ -2030,6 +2056,7 @@
     });
     BG.net.on("peer-joined", (peer) => {
       if (BG.fx) BG.fx.sound("join");
+      if (BG.onlineHost && BG.onlineHost.onPeerJoined(peer)) return;
       if (state.inRoom && BG.net.isHost) {
         BG.net.ensureHostConnections();
         if (state.inGame) {
@@ -2057,6 +2084,7 @@
       }
     });
     BG.net.on("room-closed", (info) => {
+      if (BG.onlineHost && BG.onlineHost.onRoomClosed(info)) return;
       const reason = (info && info.reason) || "أغلقت الغرفة.";
       const rejoin = state.lastJoin && !BG.net.isHost && /انقطع/.test(reason) ? state.lastJoin : null;
       state.inRoom = false;
@@ -2078,6 +2106,7 @@
       });
     });
     BG.net.on("close", () => {
+      if (BG.onlineHost && BG.onlineHost.onTransportClosed()) return;
       if (state.inRoom) {
         state.inRoom = false;
         const wasGame = state.inGame;
@@ -2147,6 +2176,39 @@
     get seats() { return state.seats.slice(); },
     get isHost() { return state.isHost; },
     get debug() { return state; },
+  };
+
+  /* جسر داخلي لوحدة المضيف (online-host.js): لوحة التحكم واستبدال اللاعبين ونقل المضيف */
+  BG.online._core = {
+    state,
+    esc,
+    gameDef,
+    optionsFor,
+    clampSeatCount,
+    buildSeats,
+    lobbyHumanPeers,
+    renderLobby,
+    broadcastConfig,
+    startAsHost,
+    abortGame,
+    returnToLobbyLocal,
+    shutdown,
+    showOverlay,
+    hideOverlay,
+    showWaiting,
+    showWatchChip,
+    hostStarted,
+    hostTick,
+    buildHud,
+    removeHud,
+    sendSync,
+    pushSpectate,
+    broadcastTurn,
+    turnMessage,
+    updateHud,
+    clearAway,
+    acquireWake,
+    savedName,
   };
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", initOnline);

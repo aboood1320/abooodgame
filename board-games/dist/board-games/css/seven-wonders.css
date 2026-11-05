@@ -1,0 +1,104 @@
+/* عجائب الدنيا السبع */
+.sw { --accent: #c9a45c; }
+.sw-layout { display: grid; grid-template-columns: minmax(0, 1fr) 310px; gap: 12px; align-items: start; }
+.sw-main { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.sw-side { display: flex; flex-direction: column; gap: 10px; }
+.sw-hand { display: flex; flex-wrap: wrap; gap: 7px; }
+.sw-card {
+  appearance: none;
+  cursor: pointer;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: 118px;
+  min-height: 128px;
+  padding: 8px;
+  border-radius: 11px;
+  border: 1px solid rgba(0, 0, 0, 0.45);
+  background: linear-gradient(165deg, #263b42, #142328);
+  color: #f6f2e8;
+  font: inherit;
+  text-align: right;
+  transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.sw-card::before {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  top: 0;
+  height: 5px;
+  border-radius: 11px 11px 0 0;
+  background: var(--swc, #8a8f87);
+}
+.sw-card.is-raw { --swc: #8f6d4a; }
+.sw-card.is-manufactured { --swc: #9aa3a8; }
+.sw-card.is-civilian { --swc: #5c8fd6; }
+.sw-card.is-military { --swc: #c65f52; }
+.sw-card.is-science { --swc: #5cb07c; }
+.sw-card.is-commercial { --swc: #d6a24c; }
+.sw-card.is-guild { --swc: #9a7fbb; }
+.sw-card:hover { transform: translateY(-3px); border-color: var(--swc, #8a8f87); }
+.sw-card.is-selected { outline: 3px solid #ffe08a; outline-offset: 1px; transform: translateY(-5px); box-shadow: 0 12px 22px -16px #000; }
+.sw-card.is-locked { opacity: 0.72; }
+.sw-card.is-locked .sw-card-cost { color: #ffcabb; }
+.sw-card:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+.sw-card-type { font-size: 0.56rem; font-weight: 800; color: var(--swc, #b9bdb6); letter-spacing: 0.02em; }
+.sw-card-name { font-size: 0.78rem; font-weight: 800; line-height: 1.35; }
+.sw-card-meta { font-size: 0.58rem; color: var(--muted, #9fb0ac); line-height: 1.45; flex: 1 1 auto; }
+.sw-card-cost { font-size: 0.62rem; font-weight: 800; color: #ffe9ae; border-top: 1px solid rgba(246, 242, 232, 0.1); padding-top: 4px; }
+.sw-actions { display: flex; flex-direction: column; gap: 8px; }
+.sw-wonders { display: flex; flex-direction: column; gap: 8px; }
+.sw-wonder-row { display: grid; grid-template-columns: 90px minmax(0, 1fr); gap: 8px; align-items: center; padding: 6px; border-radius: 10px; border: 1px solid rgba(246, 242, 232, 0.07); }
+.sw-wonder-row.is-current { border-color: rgba(201, 164, 92, 0.5); background: rgba(201, 164, 92, 0.07); }
+.sw-wonder-owner { font-size: 0.66rem; font-weight: 800; overflow: hidden; text-overflow: ellipsis; }
+.sw-wonder { min-width: 0; }
+.sw-wonder-name { font-size: 0.66rem; font-weight: 700; }
+.sw-wonder-stages { display: flex; gap: 4px; margin: 4px 0; }
+.sw-wonder-stage {
+  display: grid;
+  place-items: center;
+  width: 21px;
+  height: 21px;
+  border-radius: 5px;
+  font-size: 0.6rem;
+  font-weight: 800;
+  border: 1px dashed rgba(201, 164, 92, 0.45);
+  color: var(--muted, #9fb0ac);
+}
+.sw-wonder-stage.is-built { border-style: solid; border-color: #c9a45c; background: rgba(201, 164, 92, 0.22); color: #ffe9ae; }
+.sw-wonder-cost { margin: 0; font-size: 0.58rem; color: var(--muted, #9fb0ac); }
+.sw-players { display: flex; flex-direction: column; gap: 8px; }
+.sw-player { padding: 8px; border-radius: 11px; border: 1px solid rgba(246, 242, 232, 0.09); background: rgba(255, 255, 255, 0.025); }
+.sw-player.is-current { border-color: color-mix(in srgb, var(--pc, #c9a45c) 62%, transparent); background: color-mix(in srgb, var(--pc, #c9a45c) 9%, transparent); }
+.sw-player-name { display: flex; align-items: center; gap: 6px; font-size: 0.7rem; font-weight: 800; min-width: 0; }
+.sw-total { font-size: 1.05rem; color: #ffe9ae; }
+.sw-player-wonder { display: flex; align-items: center; justify-content: space-between; gap: 6px; font-size: 0.58rem; color: var(--muted, #9fb0ac); margin: 4px 0; }
+.sw-dots { display: flex; gap: 3px; }
+.sw-dot { width: 7px; height: 7px; border-radius: 50%; background: rgba(255, 255, 255, 0.12); }
+.sw-dot.is-on { background: #ffe08a; }
+.sw-player-stats { display: flex; flex-wrap: wrap; gap: 7px; font-size: 0.6rem; color: #e7e2d1; }
+.sw-player-sci { font-size: 0.58rem; color: var(--muted, #9fb0ac); margin-top: 3px; }
+.sw-own-list { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 5px; }
+.sw-own { font-size: 0.54rem; font-weight: 700; padding: 2px 6px; border-radius: 5px; background: rgba(255, 255, 255, 0.06); color: var(--muted, #9fb0ac); }
+.sw-own.is-raw { color: #d8b48c; }
+.sw-own.is-manufactured { color: #c9d0d3; }
+.sw-own.is-civilian { color: #a8c8f5; }
+.sw-own.is-military { color: #f0a89c; }
+.sw-own.is-science { color: #a8e0bd; }
+.sw-own.is-commercial { color: #f2d59a; }
+.sw-own.is-guild { color: #cbb3e8; }
+.sw-last { margin: 4px 0 0; font-size: 0.66rem; color: #b9ecd3; line-height: 1.6; }
+
+@media (max-width: 900px) {
+  .sw-layout { grid-template-columns: minmax(0, 1fr); }
+  .sw-side { order: 2; }
+}
+@media (max-width: 480px) {
+  .sw-card { width: calc(50% - 4px); min-height: 120px; }
+  .sw-wonder-row { grid-template-columns: 70px minmax(0, 1fr); }
+  .sw-player { padding: 6px; }
+}
+@media (max-width: 370px) {
+  .sw-card { width: 100%; }
+}

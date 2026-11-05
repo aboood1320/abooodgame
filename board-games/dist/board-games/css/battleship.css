@@ -1,0 +1,50 @@
+/* معارك السفن */
+.bs { --accent: #7391a8; }
+.bs-setup-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; }
+.bs-setup { display: flex; flex-direction: column; gap: 9px; }
+.bs-arena { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-items: start; }
+.bs-side { display: flex; flex-direction: column; gap: 9px; }
+.bs-grid {
+  display: grid;
+  grid-template-columns: repeat(10, minmax(0, 1fr));
+  gap: 2px;
+  padding: 6px;
+  border-radius: 12px;
+  background: #0c2634;
+  border: 1px solid #173c50;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+}
+.bs-cell {
+  appearance: none;
+  aspect-ratio: 1;
+  min-width: 0;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 3px;
+  background: #16445a;
+  color: #dceaf1;
+  font-size: 0.62rem;
+  font-weight: 800;
+  cursor: default;
+}
+.bs-cell:disabled { opacity: 1; }
+.bs-cell.is-target { cursor: crosshair; background: #1d5a73; }
+.bs-cell.is-target:hover { background: #2d7d92; box-shadow: inset 0 0 0 2px #9fd6e8; }
+.bs-cell.is-target:focus-visible { outline: 2px solid #fff; outline-offset: -1px; }
+.bs-cell.has-ship { background: #5d87a0; color: #0b1c25; }
+.bs-cell.has-ship.is-sunk { background: #713b36; color: #ffd2bd; }
+.bs-cell.is-hit { background: #c65f52; color: #2a0d09; }
+.bs-cell.is-miss { background: #0a1d28; color: #6f93a5; }
+.bs-fleet { display: flex; flex-wrap: wrap; gap: 5px; }
+.bs-ship { display: inline-flex; align-items: center; gap: 6px; padding: 3px 8px; border-radius: 999px; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(246, 242, 232, 0.08); font-size: 0.62rem; }
+.bs-ship span:last-child { color: #b9ecd3; font-weight: 800; }
+.bs-ship.is-sunk { opacity: 0.6; text-decoration: line-through; }
+.bs-ship.is-sunk span:last-child { color: #ffd2bd; }
+.bs-note { margin: 0; text-align: center; font-size: 0.76rem; color: var(--muted, #9fb0ac); }
+@media (max-width: 720px) {
+  .bs-arena { grid-template-columns: minmax(0, 1fr); }
+  .bs-grid { gap: 1px; padding: 4px; }
+  .bs-cell { font-size: 0.52rem; }
+}
