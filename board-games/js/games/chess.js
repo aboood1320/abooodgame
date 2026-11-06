@@ -1311,7 +1311,8 @@
     currentEval = null;
 
     let record = popHistory();
-    if (isCpuSide(state.turn) && history.length) record = popHistory();
+    /* في مباراة ضد الحاسوب نتراجع عن نقلته ونقلتنا معًا لنعود إلى دورنا. */
+    if (record && isCpuSide(record.mover) && history.length) record = popHistory();
 
     over = false;
     endReported = false;

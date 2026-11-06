@@ -5,8 +5,8 @@
    ========================================================================== */
 "use strict";
 
-const VERSION = "1.3.0";
-const CACHE = "bg-shell-v" + VERSION + "-r3";
+const VERSION = "1.4.0";
+const CACHE = "bg-shell-v" + VERSION + "-r4";
 const OFFLINE_URL = "index.html";
 
 const CORE = [
@@ -35,6 +35,18 @@ const CORE = [
   "css/splendor.css",
   "css/kootbositta.css",
   "css/chess.css",
+  "vendor/chess/pieces/wK.svg",
+  "vendor/chess/pieces/wQ.svg",
+  "vendor/chess/pieces/wR.svg",
+  "vendor/chess/pieces/wB.svg",
+  "vendor/chess/pieces/wN.svg",
+  "vendor/chess/pieces/wP.svg",
+  "vendor/chess/pieces/bK.svg",
+  "vendor/chess/pieces/bQ.svg",
+  "vendor/chess/pieces/bR.svg",
+  "vendor/chess/pieces/bB.svg",
+  "vendor/chess/pieces/bN.svg",
+  "vendor/chess/pieces/bP.svg",
   "css/net2.css",
   "css/ludo.css",
   "css/expansion.css",
@@ -128,6 +140,11 @@ const CORE = [
 ];
 
 const VENDOR = [
+  "vendor/stockfish/README.txt",
+  "vendor/stockfish/LICENSE.txt",
+  "vendor/stockfish/stockfish-17.1-lite-single.js",
+  "vendor/stockfish/stockfish-17.1-lite-single.wasm",
+  "vendor/chess/LICENSE.txt",
   "vendor/kenney/LICENSE.txt",
   "vendor/kenney/licenses/boardgame-pack-CC0.txt",
   "vendor/kenney/licenses/casino-audio-CC0.txt",
