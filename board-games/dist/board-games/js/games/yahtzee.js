@@ -132,9 +132,10 @@
     settle();
   }
 
-  function roll() {
+  /* byAi: حركات الكمبيوتر تمرّ من هذه الدوال نفسها فلا تُفحص ب«هل يستطيع البشري التصرف» (كان يرفضها فلا يلعب الكمبيوتر) */
+  function roll(byAi) {
     if (!state || state.over || state.busy) return null;
-    if (!XG.canAct(apiRef, state, state.current, state.over)) return null;
+    if (!byAi && !XG.canAct(apiRef, state, state.current, state.over)) return null;
     if (state.rolls >= 3) return null;
     for (let i = 0; i < 5; i++) {
       if (state.rolls === 0 || !state.held[i]) state.dice[i] = U.roll(6);
@@ -153,9 +154,9 @@
     render();
   }
 
-  function score(key) {
+  function score(key, byAi) {
     if (!state || state.over || state.busy) return false;
-    if (!XG.canAct(apiRef, state, state.current, state.over)) return false;
+    if (!byAi && !XG.canAct(apiRef, state, state.current, state.over)) return false;
     if (state.rolls === 0) {
       apiRef.toast("ارمِ النرد أولًا.", "warn");
       return false;
@@ -245,7 +246,7 @@
     if (!XG.cpuTurn(apiRef, state, state.current)) return;
     const player = cur();
     if (state.rolls === 0) {
-      roll();
+      roll(true);
       aiRunner.later(aiStep, AI.delay(player.level, 0.7));
       return;
     }
@@ -255,12 +256,12 @@
       const any = holds.some(Boolean);
       state.held = any ? holds : holds.map((_, index) => index < 2);
       render();
-      aiRunner.later(() => { if (state && !state.over) { roll(); aiRunner.later(aiStep, AI.delay(player.level, 0.7)); } }, AI.delay(player.level, 0.5));
+      aiRunner.later(() => { if (state && !state.over) { roll(true); aiRunner.later(aiStep, AI.delay(player.level, 0.7)); } }, AI.delay(player.level, 0.5));
       return;
     }
     const target = bestTarget(state.dice, player.card);
     if (!target) return;
-    aiRunner.later(() => { if (state && !state.over) score(target.cat.key); }, AI.delay(player.level, 0.6));
+    aiRunner.later(() => { if (state && !state.over) score(target.cat.key, true); }, AI.delay(player.level, 0.6));
   }
 
   function settle() {

@@ -1,0 +1,13 @@
+قطع الشطرنج — Cburnett
+========================
+
+الملفات في هذا المجلد (wK.svg … bP.svg) مأخوذة من مجموعة Cburnett
+الكلاسيكية لقطع الشطرنج، عبر مستودع Lichess (lila):
+https://github.com/lichess-org/lila/tree/master/public/piece/cburnett
+
+المؤلف: Colin M.L. Burnett
+الترخيص: Creative Commons Attribution-ShareAlike 3.0 Unported (CC BY-SA 3.0)
+https://creativecommons.org/licenses/by-sa/3.0/
+
+الملفات المستخدمة هنا لم تُعدّل من حيث الرسم، واستُخدمت كما هي داخل لعبة الشطرنج.
+أي تعديل مستقبلي على هذه الملفات يجب أن يبقى تحت الترخيص نفسه.

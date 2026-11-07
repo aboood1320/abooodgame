@@ -802,7 +802,10 @@
           !(project.key === "greenery" && state.oxygen >= MAX_OXYGEN);
         return '<button type="button" class="xg-btn tm-standard-btn" data-tm-standard="' + project.key + '" ' + (!usable ? "disabled" : "") + ">" +
           esc(project.name) + ' <b>' + ar(project.cost) + "◆</b><span>" + esc(project.desc) + "</span></button>";
-      }).join("") + "</div><p class=\"xg-note\">" + esc(state.notice) + "</p>" +
+      }).join("") + "</div>" +
+      /* زر تمرير الجيل: كان مفقودًا من واجهة اللاعب البشري فيعلق إن لم تكفه الموارد لأي فعل */
+      '<div class="xg-row tm-pass-row"><button type="button" class="xg-btn tm-pass-btn" data-tm-pass ' + (!can || state.phase !== "action" ? "disabled" : "") + ">⏭ تمرير بقية الجيل (انتهاء أفعالي)</button></div>" +
+      "<p class=\"xg-note\">" + esc(state.notice) + "</p>" +
       (state.last ? '<p class="tm-last">' + esc(state.last.text) + "</p>" : "") + "</div>" +
       "</div>" +
       '<aside class="tm-side"><div class="xg-panel"><h3>لوح المريخ</h3><div class="tm-board">' + boardCells + "</div>" +
@@ -834,6 +837,10 @@
     if (event.target.closest("[data-tm-cancel]")) {
       state.selected = null;
       render();
+      return;
+    }
+    if (event.target.closest("[data-tm-pass]")) {
+      passTurn();
       return;
     }
     const standardBtn = event.target.closest("[data-tm-standard]");

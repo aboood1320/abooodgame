@@ -6,7 +6,7 @@
 "use strict";
 
 const VERSION = "1.4.0";
-const CACHE = "bg-shell-v" + VERSION + "-r4";
+const CACHE = "bg-shell-v" + VERSION + "-r5";
 const OFFLINE_URL = "index.html";
 
 const CORE = [

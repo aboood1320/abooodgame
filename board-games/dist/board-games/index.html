@@ -47,7 +47,7 @@
 <link rel="stylesheet" href="css/love-letter.css?v=1" media="print" onload="this.media='all'" />
 <link rel="stylesheet" href="css/splendor.css?v=2" media="print" onload="this.media='all'" />
 <link rel="stylesheet" href="css/kootbositta.css?v=2" media="print" onload="this.media='all'" />
-<link rel="stylesheet" href="css/chess.css?v=1" media="print" onload="this.media='all'" />
+<link rel="stylesheet" href="css/chess.css?v=7" media="print" onload="this.media='all'" />
 <link rel="stylesheet" href="css/pandemic.css?v=32" media="print" onload="this.media='all'" />
 <link rel="stylesheet" href="css/tavla.css?v=30" media="print" onload="this.media='all'" />
 <link rel="stylesheet" href="css/cards.css?v=32" media="print" onload="this.media='all'" />
@@ -83,7 +83,7 @@
 <link rel="stylesheet" href="css/takenoko.css?v=1" media="print" onload="this.media='all'" />
 <link rel="stylesheet" href="css/perf.css?v=1" />
 <noscript>
-<link rel="stylesheet" href="css/ttr.css?v=32" /><link rel="stylesheet" href="css/carcassonne.css?v=32" /><link rel="stylesheet" href="css/risk.css?v=32" /><link rel="stylesheet" href="css/scrabble.css?v=31" /><link rel="stylesheet" href="css/cluedo.css?v=34" /><link rel="stylesheet" href="css/uno.css?v=32" /><link rel="stylesheet" href="css/love-letter.css?v=1" /><link rel="stylesheet" href="css/splendor.css?v=2" /><link rel="stylesheet" href="css/kootbositta.css?v=2" /><link rel="stylesheet" href="css/chess.css?v=1" /><link rel="stylesheet" href="css/pandemic.css?v=32" /><link rel="stylesheet" href="css/tavla.css?v=30" /><link rel="stylesheet" href="css/cards.css?v=32" /><link rel="stylesheet" href="css/classic.css?v=33" /><link rel="stylesheet" href="css/ludo.css?v=1" /><link rel="stylesheet" href="css/expansion.css?v=1" /><link rel="stylesheet" href="css/yahtzee.css?v=1" /><link rel="stylesheet" href="css/rummikub.css?v=1" /><link rel="stylesheet" href="css/othello.css?v=1" /><link rel="stylesheet" href="css/connect-four.css?v=1" /><link rel="stylesheet" href="css/stratego.css?v=1" /><link rel="stylesheet" href="css/parcheesi.css?v=1" /><link rel="stylesheet" href="css/sorry.css?v=1" /><link rel="stylesheet" href="css/battleship.css?v=1" /><link rel="stylesheet" href="css/seven-wonders.css?v=1" /><link rel="stylesheet" href="css/azul.css?v=1" /><link rel="stylesheet" href="css/wingspan.css?v=1" /><link rel="stylesheet" href="css/dominion.css?v=1" /><link rel="stylesheet" href="css/terraforming-mars.css?v=1" />
+<link rel="stylesheet" href="css/ttr.css?v=32" /><link rel="stylesheet" href="css/carcassonne.css?v=32" /><link rel="stylesheet" href="css/risk.css?v=32" /><link rel="stylesheet" href="css/scrabble.css?v=31" /><link rel="stylesheet" href="css/cluedo.css?v=34" /><link rel="stylesheet" href="css/uno.css?v=32" /><link rel="stylesheet" href="css/love-letter.css?v=1" /><link rel="stylesheet" href="css/splendor.css?v=2" /><link rel="stylesheet" href="css/kootbositta.css?v=2" /><link rel="stylesheet" href="css/chess.css?v=7" /><link rel="stylesheet" href="css/pandemic.css?v=32" /><link rel="stylesheet" href="css/tavla.css?v=30" /><link rel="stylesheet" href="css/cards.css?v=32" /><link rel="stylesheet" href="css/classic.css?v=33" /><link rel="stylesheet" href="css/ludo.css?v=1" /><link rel="stylesheet" href="css/expansion.css?v=1" /><link rel="stylesheet" href="css/yahtzee.css?v=1" /><link rel="stylesheet" href="css/rummikub.css?v=1" /><link rel="stylesheet" href="css/othello.css?v=1" /><link rel="stylesheet" href="css/connect-four.css?v=1" /><link rel="stylesheet" href="css/stratego.css?v=1" /><link rel="stylesheet" href="css/parcheesi.css?v=1" /><link rel="stylesheet" href="css/sorry.css?v=1" /><link rel="stylesheet" href="css/battleship.css?v=1" /><link rel="stylesheet" href="css/seven-wonders.css?v=1" /><link rel="stylesheet" href="css/azul.css?v=1" /><link rel="stylesheet" href="css/wingspan.css?v=1" /><link rel="stylesheet" href="css/dominion.css?v=1" /><link rel="stylesheet" href="css/terraforming-mars.css?v=1" />
 </noscript>
 </head>
 <body class="library-mode">
@@ -142,8 +142,8 @@
     </a>
 
     <nav class="bg-nav" aria-label="التنقل">
-      <button class="bg-btn ghost" type="button" id="btnLibraryTop" onclick="location.hash=''"><svg class="ic" aria-hidden="true"><use href="#i-dice"/></svg><span>المكتبة</span></button>
-      <button class="bg-btn ghost" type="button" id="btnOnline"><svg class="ic" aria-hidden="true"><use href="#i-users"/></svg><span>لعب جماعي</span></button>
+      <button class="bg-btn ghost" type="button" id="btnLibraryTop" aria-label="المكتبة" onclick="location.hash=''"><svg class="ic" aria-hidden="true"><use href="#i-dice"/></svg><span>المكتبة</span></button>
+      <button class="bg-btn ghost" type="button" id="btnOnline" aria-label="لعب جماعي"><svg class="ic" aria-hidden="true"><use href="#i-users"/></svg><span>لعب جماعي</span></button>
       <button class="bg-btn ghost" type="button" id="btnSettings" aria-label="الإعدادات والمؤثرات"><svg class="ic" aria-hidden="true"><use href="#i-gear"/></svg><span>الإعدادات</span></button>
       <button class="bg-btn ghost" type="button" id="btnInstall" aria-label="تثبيت التطبيق" hidden><svg class="ic" aria-hidden="true"><use href="#i-install"/></svg><span>تثبيت</span></button>
     </nav>
@@ -359,9 +359,9 @@
         </div>
         <span class="game-status" id="gameStatus">الإعداد</span>
         <div class="game-toolbar-actions">
-          <button class="bg-btn small" type="button" id="btnGameRules"><svg class="ic" aria-hidden="true"><use href="#i-book"/></svg><span>القواعد</span></button>
-          <button class="bg-btn small" type="button" id="btnGameFullscreen"><svg class="ic" aria-hidden="true"><use href="#i-motion"/></svg><span>ملء الشاشة</span></button>
-          <button class="bg-btn small primary" type="button" id="btnGameNew" hidden><svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg><span>لعبة جديدة</span></button>
+          <button class="bg-btn small" type="button" id="btnGameRules" aria-label="القواعد"><svg class="ic" aria-hidden="true"><use href="#i-book"/></svg><span>القواعد</span></button>
+          <button class="bg-btn small" type="button" id="btnGameFullscreen" aria-label="ملء الشاشة"><svg class="ic" aria-hidden="true"><use href="#i-motion"/></svg><span>ملء الشاشة</span></button>
+          <button class="bg-btn small primary" type="button" id="btnGameNew" aria-label="لعبة جديدة" hidden><svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg><span>لعبة جديدة</span></button>
         </div>
       </div>
 
@@ -391,7 +391,7 @@
 <script defer src="js/data/arabic-words.js?v=30"></script>
 <script defer src="js/engine.js?v=1"></script>
 <script defer src="js/chess-ai.js?v=1"></script>
-<script defer src="js/games/chess.js?v=36"></script>
+<script defer src="js/games/chess.js?v=38"></script>
 <script defer src="js/games/monopoly.js?v=31"></script>
 <script defer src="js/games/catan.js?v=32"></script>
 <script defer src="js/games/ticket-to-ride.js?v=33"></script>
@@ -437,7 +437,7 @@
 <script defer src="js/library-art.js?v=1"></script>
 <script defer src="js/library-art-expansion.js?v=1"></script>
 <script defer src="js/app.js?v=36"></script>
-<script defer src="js/online.js?v=34"></script>
+<script defer src="js/online.js?v=38"></script>
 <script defer src="js/online-host.js?v=1"></script>
 <script defer src="js/site-extras.js?v=1"></script>
 <script defer src="js/pwa.js?v=30"></script>

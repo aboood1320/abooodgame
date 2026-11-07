@@ -344,6 +344,29 @@
     return Math.min(max, Math.max(min, Number(value) || min));
   }
 
+  /* فتح لوحة المضيف. إن لم تكن وحدة online-host.js محمّلة (نسخة قديمة مخزّنة، أو ملف لم يُرفع) نحمّلها الآن
+     بدل أن يبقى الزر بلا أثر بصمت. */
+  function openHostPanel() {
+    if (BG.onlineHost) {
+      BG.onlineHost.openPanel();
+      return;
+    }
+    if (state.hostModuleLoading) return;
+    state.hostModuleLoading = true;
+    const script = document.createElement("script");
+    script.src = "js/online-host.js?v=" + Date.now();
+    script.onload = () => {
+      state.hostModuleLoading = false;
+      if (BG.onlineHost) BG.onlineHost.openPanel();
+      else BG.toast("تعذّر تشغيل لوحة المضيف.", "warn");
+    };
+    script.onerror = () => {
+      state.hostModuleLoading = false;
+      BG.toast("ملف لوحة المضيف (js/online-host.js) غير موجود على الخادم — ارفعه ثم أعد تحميل الصفحة بقوة.", "warn");
+    };
+    document.head.appendChild(script);
+  }
+
   /* ترتيب مقاعد اللاعبين (يعدّله المضيف من لوحة التحكم) */
   function orderPeers(list) {
     return BG.onlineHost && BG.onlineHost.orderPeers ? BG.onlineHost.orderPeers(list) : list;
@@ -786,7 +809,8 @@
       '<div class="net-player-list">' +
       peers.map((peer) => {
         const seatIndex = (seats || []).findIndex((seat) => seat.peerId === peer.id);
-        const open = openPeers.has(peer.id) || peer.host;
+        /* اللاعب نفسه متصل دائمًا؛ قائمة connectedPeers تضم الأقران البعيدين فقط. */
+        const open = peer.id === (BG.net && BG.net.selfId) || openPeers.has(peer.id) || peer.host;
         const ms = BG.net && BG.net.latencyOf ? BG.net.latencyOf(peer.id) : null;
         const quality = BG.net && BG.net.latencyQuality ? BG.net.latencyQuality(ms) : "unknown";
         return (
@@ -831,7 +855,7 @@
     const countSel = body.querySelector("[data-net-count]");
     const levelSel = body.querySelector("[data-net-level]");
     const hostPanelBtn = body.querySelector("[data-net-hostpanel]");
-    if (hostPanelBtn) hostPanelBtn.addEventListener("click", () => { if (BG.onlineHost) BG.onlineHost.openPanel(); });
+    if (hostPanelBtn) hostPanelBtn.addEventListener("click", openHostPanel);
 
     const lanBox = body.querySelector("[data-net-lan-urls]");
     if (lanBox) {
@@ -1093,7 +1117,9 @@
     } else {
       // المضيف يرى لوحته دائمًا، واللاعبون الآخرون يشاهدون النسخة الحيّة نفسها.
       if (BG.app) BG.app.setMountVisible(true);
-      showWatchChip(seat, over);
+      /* شريط «تشاهد الآن» مخصّص للمشاهدين فقط؛ اللاعب الجالس يبقى أمام اللوحة. */
+      if (state.localSeat < 0) showWatchChip(seat, over);
+      else showWaiting(false);
       if (seatChanged && seat >= 0 && !isCpuSeat(seat)) sendSync(seat, snap, true);
     }
     pushSpectate(snap, seat, over);
@@ -1132,7 +1158,8 @@
   function enterSpectate(seat) {
     if (state.spectating) {
       state.spectateSeat = Number.isInteger(seat) ? seat : state.spectateSeat;
-      showWatchChip(seat);
+      if (state.localSeat < 0) showWatchChip(seat);
+      else hideWatchChip();
       updateHud();
       return;
     }
@@ -1142,7 +1169,9 @@
       state.activeGuest = false;
       if (BG.app) BG.app.netSetSpectate(true);
     }
-    showWatchChip(seat);
+    /* اللاعب الجالس لا يرى شريط المشاهدة؛ لوحة اللعبة كافية لإظهار دور الخصم. */
+    if (state.localSeat < 0) showWatchChip(seat);
+    else hideWatchChip();
     updateHud();
   }
 
@@ -1168,7 +1197,8 @@
     state.spectating = true;
     state.spectateSeat = Number.isInteger(data.activeSeat) ? data.activeSeat : -1;
     state.lastSeat = state.spectateSeat;
-    showWatchChip(state.spectateSeat, data.over);
+    if (state.localSeat < 0) showWatchChip(state.spectateSeat, data.over);
+    else hideWatchChip();
     updateHud();
   }
 
@@ -1204,7 +1234,8 @@
     }
     if (data.activeSeat !== state.localSeat) {
       if (state.activeGuest || state.spectating) deactivateGuest(data.activeSeat);
-      else showWaiting(true, data.activeSeat);
+      else if (state.localSeat < 0) showWaiting(true, data.activeSeat);
+      else showWaiting(false);
       state.lastSeat = data.activeSeat;
       trackTurn(data.activeSeat, false);
       updateHud();
@@ -1323,6 +1354,15 @@
     }
   }
 
+  /** إخفاء شريط «تشاهد الآن» عن اللاعب الجالس (يبقى للمشاهدين فقط). */
+  function hideWatchChip() {
+    const panel = state.waiting;
+    if (!panel || !panel.classList.contains("is-watch")) return;
+    panel.classList.remove("is-watch");
+    panel.hidden = true;
+    state.chipKey = "";
+  }
+
   function updateWaiting() {
     if (!state.waiting || state.waiting.hidden) return;
     showWaiting(true, state.lastSeat);
@@ -1361,9 +1401,9 @@
     hud.querySelector(".net-hud-leave").addEventListener("click", () => requestLeave("مغادرة الطاولة"));
     view.appendChild(hud);
     state.hud = hud;
-    if (state.isHost && BG.onlineHost) {
+    if (state.isHost) {
       const panelBtn = BG.el("button", { type: "button", class: "net-hud-hostpanel", "aria-label": "لوحة المضيف", text: "👑" });
-      panelBtn.addEventListener("click", () => BG.onlineHost.openPanel());
+      panelBtn.addEventListener("click", openHostPanel);
       hud.insertBefore(panelBtn, hud.querySelector(".net-hud-leave"));
     }
     updateHud();
@@ -1470,8 +1510,8 @@
     if (!role) return;
     const me = state.localSeat >= 0 ? seatName(state.localSeat) : "مشاهد";
     const icon = BG.net && BG.net.mode === "cloud" ? "🌍" : BG.net && BG.net.mode === "web" ? "🏫" : "📶";
-    const mode = state.spectating ? "👁 مشاهد" : (state.isHost ? "المضيف" : "لاعب");
     const myTurn = state.inGame && !state.spectating && state.localSeat >= 0 && state.lastSeat === state.localSeat;
+    const mode = state.localSeat >= 0 ? (state.isHost ? "المضيف" : "لاعب") : "مشاهدة";
     role.textContent = icon + " " + mode + " · " + me + (myTurn ? " · دورك" : "");
     state.hud.classList.toggle("is-my-turn", myTurn);
   }
@@ -2002,7 +2042,10 @@
       state.seats[back] = Object.assign({}, state.seats[back], { peerId: peer.id });
       state.synced[peer.id] = false;
       BG.toast((state.seats[back].name || "اللاعب") + " عاد إلى الطاولة.", "good");
-      if (state.lastSeat !== state.localSeat) { state.chipKey = ""; showWatchChip(state.lastSeat); }
+      if (state.lastSeat !== state.localSeat) {
+        state.chipKey = "";
+        if (state.localSeat < 0) showWatchChip(state.lastSeat);
+      }
     }
     BG.net.sendTo(peer.id, {
       t: "start",
@@ -2051,7 +2094,12 @@
           state.seatCount = clampSeatCount(currentGameDef(), state.seatCount);
           BG.net.ensureHostConnections();
         }
-        if (!state.inGame) renderLobby();
+        if (!state.inGame) {
+          renderLobby();
+          /* تحديث توزيع المقاعد عند وصول لاعب جديد: رسالة config السابقة قد تكون
+             سبقت اكتمال قناة الاتصال، فيبقى الضيف يرى نفسه «مشاهدًا». */
+          if (BG.net.isHost) broadcastConfig();
+        }
       }
     });
     BG.net.on("peer-joined", (peer) => {

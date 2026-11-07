@@ -85,9 +85,10 @@
     return [];
   }
 
-  function drop(col) {
+  /* byAi: حركة الكمبيوتر تمرّ من هذه الدالة نفسها، لذا لا تنطبق عليها فحص «هل يستطيع البشري التصرف» (كان يرفضها فلا يتحرك الكمبيوتر أبدًا) */
+  function drop(col, byAi) {
     if (!state || state.over) return false;
-    if (!XG.canAct(apiRef, state, state.current, state.over)) return false;
+    if (!byAi && !XG.canAct(apiRef, state, state.current, state.over)) return false;
     const row = dropRow(state.board, col);
     if (row < 0) {
       apiRef.toast("العمود ممتلئ.", "warn");
@@ -221,7 +222,7 @@
     if (!XG.cpuTurn(apiRef, state, state.current)) return;
     const col = bestMove(state.current, cur().level);
     if (col == null) return;
-    drop(col);
+    drop(col, true);
   }
 
   function settle() {

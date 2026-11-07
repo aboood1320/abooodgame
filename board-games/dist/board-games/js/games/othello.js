@@ -102,9 +102,10 @@
 
   function cur() { return state.players[state.current]; }
 
-  function play(index) {
+  /* byAi: حركة الكمبيوتر تمرّ من هذه الدالة نفسها فلا تُفحص ب«هل يستطيع البشري التصرف» (كان يرفضها فلا يتحرك الكمبيوتر) */
+  function play(index, byAi) {
     if (!state || state.over) return false;
-    if (!XG.canAct(apiRef, state, state.current, state.over)) return false;
+    if (!byAi && !XG.canAct(apiRef, state, state.current, state.over)) return false;
     const flips = flipsFor(state.board, state.current, index);
     if (!flips.length) {
       apiRef.toast("هذه الخانة غير قانونية.", "warn");
@@ -236,7 +237,7 @@
     if (!XG.cpuTurn(apiRef, state, state.current)) return;
     const move = bestMove(state.current);
     if (!move) { afterMove(state.current); return; }
-    play(move.index);
+    play(move.index, true);
   }
 
   function settle() {

@@ -5,8 +5,8 @@
    ========================================================================== */
 "use strict";
 
-const VERSION = "1.3.0";
-const CACHE = "bg-shell-v" + VERSION + "-r2";
+const VERSION = "1.4.0";
+const CACHE = "bg-shell-v" + VERSION + "-r5";
 const OFFLINE_URL = "index.html";
 
 const CORE = [
@@ -35,6 +35,18 @@ const CORE = [
   "css/splendor.css",
   "css/kootbositta.css",
   "css/chess.css",
+  "vendor/chess/pieces/wK.svg",
+  "vendor/chess/pieces/wQ.svg",
+  "vendor/chess/pieces/wR.svg",
+  "vendor/chess/pieces/wB.svg",
+  "vendor/chess/pieces/wN.svg",
+  "vendor/chess/pieces/wP.svg",
+  "vendor/chess/pieces/bK.svg",
+  "vendor/chess/pieces/bQ.svg",
+  "vendor/chess/pieces/bR.svg",
+  "vendor/chess/pieces/bB.svg",
+  "vendor/chess/pieces/bN.svg",
+  "vendor/chess/pieces/bP.svg",
   "css/net2.css",
   "css/ludo.css",
   "css/expansion.css",
@@ -128,6 +140,11 @@ const CORE = [
 ];
 
 const VENDOR = [
+  "vendor/stockfish/README.txt",
+  "vendor/stockfish/LICENSE.txt",
+  "vendor/stockfish/stockfish-17.1-lite-single.js",
+  "vendor/stockfish/stockfish-17.1-lite-single.wasm",
+  "vendor/chess/LICENSE.txt",
   "vendor/kenney/LICENSE.txt",
   "vendor/kenney/licenses/boardgame-pack-CC0.txt",
   "vendor/kenney/licenses/casino-audio-CC0.txt",
@@ -339,26 +356,39 @@ self.addEventListener("fetch", (event) => {
 
   event.respondWith((async () => {
     const cache = await caches.open(CACHE);
-    const cached = await cache.match(request, { ignoreSearch: true });
-    /* الوسائط ثابتة: من المخزن مباشرة بلا أي طلب شبكة */
-    if (cached && isMedia) return cached;
-    /* الكود: نتحقق من الشبكة مرة واحدة فقط لكل ملف في الجلسة */
-    if (cached && revalidated.has(key)) return cached;
-    const network = fetch(request)
-      .then((response) => {
-        /* 206 (طلبات Range للصوت) لا يمكن تخزينها */
-        if (response && response.status === 200 && response.type === "basic") {
-          revalidated.add(key);
-          cache.put(cacheKey(request), response.clone()).catch(() => {});
-        }
-        return response;
-      })
-      .catch(() => null);
-    if (cached) {
-      event.waitUntil(network);
-      return cached;
+    /* الرابط نفسه بما فيه من ?v= : نسخة محددة لا تتغيّر، نعيدها مباشرة.
+       (كان عامل الخدمة يتجاهل ?v= فيُعيد ملفات قديمة بعد كل نشر فتختلط النسخ وتضيع الميزات الجديدة.) */
+    const exact = await cache.match(request);
+    if (exact) {
+      if (!url.search && !isMedia && !revalidated.has(key)) {
+        /* ملف بلا رقم نسخة: نحتفظ بالنسخة ونحدّثها في الخلفية مرة في الجلسة */
+        revalidated.add(key);
+        event.waitUntil(fetch(request).then((response) => {
+          if (response && response.status === 200 && response.type === "basic") return cache.put(request, response.clone());
+          return undefined;
+        }).catch(() => {}));
+      }
+      return exact;
     }
-    const fresh = await network;
-    return fresh || new Response("", { status: 504, statusText: "Offline" });
+    /* الوسائط ثابتة: نسخة مخزّنة من أي رابط تكفي */
+    if (isMedia) {
+      const media = await cache.match(request, { ignoreSearch: true });
+      if (media) return media;
+    }
+    let fresh = null;
+    try {
+      fresh = await fetch(request);
+    } catch (err) {
+      fresh = null;
+    }
+    /* 206 (طلبات Range للصوت) لا يمكن تخزينها */
+    if (fresh && fresh.status === 200 && fresh.type === "basic") {
+      revalidated.add(key);
+      cache.put(request, fresh.clone()).catch(() => {});
+    }
+    if (fresh) return fresh;
+    /* لا شبكة: أي نسخة مخزّنة أفضل من لا شيء */
+    const fallback = await cache.match(request, { ignoreSearch: true });
+    return fallback || new Response("", { status: 504, statusText: "Offline" });
   })());
 });
