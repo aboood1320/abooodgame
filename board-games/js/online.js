@@ -1712,6 +1712,7 @@
         actions: [{ label: "لا أملك بطاقة مطابقة", value: "skip" }],
         className: "cluedo-refute-dialog",
       });
+      dlg.dialog.setAttribute("data-sync-keep", "1");
       wrap.querySelector(".cluedo-locked button").addEventListener("click", () => {
         wrap.innerHTML =
           "<p>لديك " + cards.length + " بطاقة مطابقة. اختر <strong>واحدة</strong> لتعرضها على " + esc(suggesterName) + ":</p>" +

@@ -271,6 +271,42 @@ body.fullscreen-game .game-mount > * {
   margin-inline: auto;
 }
 
+/* زر إنهاء ملء الشاشة: ضروري على iPhone/Safari حيث لا يعمل طلب ملء الشاشة
+   ولا توجد لوحة مفاتيح لإنهائه بمفتاح Escape. */
+.fs-exit {
+  position: fixed;
+  top: max(10px, env(safe-area-inset-top));
+  inset-inline-end: max(10px, env(safe-area-inset-right));
+  z-index: 2147483000;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 15px;
+  border: 1px solid rgba(118, 224, 188, 0.5);
+  border-radius: 999px;
+  background: rgba(7, 19, 21, 0.88);
+  color: #e9fff7;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 800;
+  cursor: pointer;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 8px 26px rgba(0, 0, 0, 0.45);
+}
+.fs-exit[hidden] {
+  display: none;
+}
+.fs-exit .ic {
+  width: 16px;
+  height: 16px;
+}
+.fs-exit:hover,
+.fs-exit:focus-visible {
+  border-color: rgba(118, 224, 188, 0.9);
+  outline: none;
+}
+
 @media (max-width: 720px) {
   .game-toolbar {
     grid-template-columns: auto 1fr auto;

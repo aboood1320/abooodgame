@@ -525,8 +525,10 @@
     },
   });
 
-  BG.closeDialogs = function () {
+  BG.closeDialogs = function (opts) {
+    const keep = opts && typeof opts === "object" ? String(opts.keep || "") : "";
     document.querySelectorAll("dialog[open]").forEach((dialog) => {
+      if (keep && dialog.matches(keep)) return;
       try { dialog.close(""); } catch (err) { /* ignore */ }
       try { dialog.remove(); } catch (err) { /* ignore */ }
     });

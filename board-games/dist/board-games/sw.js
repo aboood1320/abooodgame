@@ -5,7 +5,7 @@
    ========================================================================== */
 "use strict";
 
-const VERSION = "1.4.0";
+const VERSION = "1.5.0";
 const CACHE = "bg-shell-v" + VERSION + "-r5";
 const OFFLINE_URL = "index.html";
 
@@ -95,6 +95,7 @@ const CORE = [
   "js/games/carcassonne.js",
   "js/games/risk.js",
   "js/games/scrabble.js",
+  "js/games/cluedo-art.js",
   "js/games/cluedo.js",
   "js/games/uno.js",
   "js/games/love-letter.js",

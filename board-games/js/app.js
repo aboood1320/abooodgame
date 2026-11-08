@@ -136,6 +136,7 @@
     els.btnBack = document.getElementById("btnGameBack");
     els.btnSettings = document.getElementById("btnSettings");
     els.btnFullscreen = document.getElementById("btnGameFullscreen");
+    els.btnExitFullscreen = document.getElementById("btnExitFullscreen");
     els.heroBrowse = document.getElementById("heroBrowse");
     els.heroRandom = document.getElementById("heroRandom");
 
@@ -157,6 +158,7 @@
 
     els.btnRules.addEventListener("click", () => { if (currentGame) BG.openRules(currentGame, currentOptions); });
     if (els.btnFullscreen) els.btnFullscreen.addEventListener("click", toggleGameFullscreen);
+    if (els.btnExitFullscreen) els.btnExitFullscreen.addEventListener("click", exitGameFullscreen);
     els.btnNew.addEventListener("click", () => {
       if (!currentGame) return;
       if (isOnlineGame()) {
@@ -413,6 +415,31 @@
     return true;
   }
 
+  function syncFullscreenUi() {
+    const active = document.body.classList.contains("fullscreen-game");
+    if (els.btnFullscreen) {
+      els.btnFullscreen.setAttribute("aria-pressed", active ? "true" : "false");
+      const span = els.btnFullscreen.querySelector("span");
+      if (span) span.textContent = active ? "إنهاء ملء الشاشة" : "ملء الشاشة";
+    }
+    if (els.btnExitFullscreen) els.btnExitFullscreen.hidden = !active;
+    applyGameScale();
+  }
+
+  function toggleFullscreenClass() {
+    document.body.classList.toggle("fullscreen-game");
+    syncFullscreenUi();
+  }
+
+  function exitGameFullscreen() {
+    if (document.fullscreenElement && document.exitFullscreen) {
+      document.exitFullscreen().catch(() => {});
+      return;
+    }
+    document.body.classList.remove("fullscreen-game");
+    syncFullscreenUi();
+  }
+
   function toggleGameFullscreen() {
     try {
       if (document.fullscreenElement) {
@@ -422,24 +449,19 @@
       const target = document.documentElement;
       if (target.requestFullscreen) {
         target.requestFullscreen().catch(() => {
-          document.body.classList.toggle("fullscreen-game");
+          toggleFullscreenClass();
         });
       } else {
-        document.body.classList.toggle("fullscreen-game");
+        toggleFullscreenClass();
       }
     } catch (err) {
-      document.body.classList.toggle("fullscreen-game");
+      toggleFullscreenClass();
     }
   }
 
   document.addEventListener("fullscreenchange", () => {
     document.body.classList.toggle("fullscreen-game", !!document.fullscreenElement);
-    if (els.btnFullscreen) {
-      els.btnFullscreen.setAttribute("aria-pressed", document.fullscreenElement ? "true" : "false");
-      const span = els.btnFullscreen.querySelector("span");
-      if (span) span.textContent = document.fullscreenElement ? "إنهاء ملء الشاشة" : "ملء الشاشة";
-    }
-    applyGameScale();
+    syncFullscreenUi();
   });
 
   /* ------------------------------ التنقل ------------------------------ */
@@ -1061,7 +1083,7 @@
     // تحريك القطع في الألعاب التي لا تدير حركتها بنفسها.
     if (stopPieceObserver) { stopPieceObserver(); stopPieceObserver = null; }
     if (BG.fx && BG.fx.observePieces) {
-      const own = { ludo: 1, snakes: 1, checkers: 1, mancala: 1, monopoly: 1 };
+      const own = { ludo: 1, snakes: 1, checkers: 1, mancala: 1, monopoly: 1, cluedo: 1 };
       stopPieceObserver = BG.fx.observePieces(gameMount, { skip: !!own[game.id] });
     }
 
@@ -1238,7 +1260,7 @@
       const created = createInstance(currentGame, currentNet, state);
       if (!created) return false;
     } else {
-      BG.closeDialogs();
+      BG.closeDialogs({ keep: "[data-sync-keep]" });
       if (typeof instance.netLoad !== "function") return false;
       instance.netLoad(state);
       if (typeof instance.netResume === "function") instance.netResume();
@@ -1256,7 +1278,7 @@
     if (!currentGame || !currentNet) return false;
     if (!state) return false;
     currentNet.spectate = true;
-    BG.closeDialogs();
+    BG.closeDialogs({ keep: "[data-sync-keep]" });
     if (!instance) {
       const created = createInstance(currentGame, currentNet, state);
       if (!created) return false;
@@ -1297,7 +1319,7 @@
   function netReceiveState(payload) {
     if (!instance || !payload || !payload.state) return false;
     if (typeof instance.netLoad !== "function") return false;
-    BG.closeDialogs();
+    BG.closeDialogs({ keep: "[data-sync-keep]" });
     instance.netLoad(payload.state);
     return true;
   }
@@ -1344,7 +1366,7 @@
     if (patch.level) p.level = patch.level;
     if (patch.name) p.name = patch.name;
     try {
-      BG.closeDialogs();
+      BG.closeDialogs({ keep: "[data-sync-keep]" });
       instance.netLoad(snap);
       if (typeof instance.netResume === "function" && !(currentNet && currentNet.spectate)) instance.netResume();
     } catch (err) {
