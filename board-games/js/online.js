@@ -1122,7 +1122,7 @@
       else showWaiting(false);
       if (seatChanged && seat >= 0 && !isCpuSeat(seat)) sendSync(seat, snap, true);
     }
-    pushSpectate(snap, seat, over);
+    if (!over) pushSpectate(snap, seat, over);
     updateHud();
   }
 
@@ -1190,6 +1190,7 @@
 
   function onSpectate(data) {
     if (!state.inGame || state.isHost || !data || !data.state) return;
+    if (state.overShown) return;
     if (state.activeGuest) return;
     if (data.activeSeat === state.localSeat && state.localSeat >= 0) return;
     const ok = BG.app && BG.app.netSpectate(data.state);
@@ -1205,6 +1206,7 @@
   function onSync(data) {
     if (!state.inGame || state.isHost) return;
     if (!data || !data.state) return;
+    if (state.overShown) return;
     if (data.activeSeat !== state.localSeat) return;
     const ok = BG.app && BG.app.netActivate(data.state);
     if (!ok) {
@@ -1551,7 +1553,7 @@
       return;
     }
     if (data.t === "state") {
-      if (!state.inGame) return;
+      if (!state.inGame || state.overShown) return;
       const senderSeat = state.seats.findIndex((seat) => seat && seat.peerId === from);
       if (senderSeat < 0 || !state.seats[senderSeat] || state.seats[senderSeat].type !== "human") return;
       const seatIndex = Number.isInteger(data.activeSeat) ? data.activeSeat : state.lastSeat;
@@ -1567,7 +1569,7 @@
     if (data.t === "over") {
       if (!state.overShown) {
         state.overShown = true;
-        BG.net.broadcast({ t: "over", payload: data.payload || {} }, from);
+        BG.net.broadcast(overMessage(data.payload, data.state), from);
         BG.app.showGameOver(data.payload || {}, true);
       }
       return;
@@ -1645,6 +1647,9 @@
     if (data.t === "over") {
       if (!state.overShown) {
         state.overShown = true;
+        if (data.state) {
+          try { BG.app.netReceiveState({ state: data.state }); } catch (err) { /* ignore */ }
+        }
         BG.app.showGameOver(data.payload || {}, true);
       }
       return;
@@ -1839,14 +1844,22 @@
     else BG.net.send({ t: "log", message, kind });
   }
 
+  function overMessage(payload, fallbackState) {
+    const snap = BG.app && BG.app.netSnapshot ? BG.app.netSnapshot() : null;
+    const msg = { t: "over", payload: payload || {} };
+    const encoded = snap || fallbackState;
+    if (encoded) msg.state = encoded;
+    return msg;
+  }
+
   function gameOver(payload) {
     if (!state.inGame || state.overShown) return;
     state.overShown = true;
     if (state.isHost) {
-      BG.net.broadcast({ t: "over", payload });
+      BG.net.broadcast(overMessage(payload));
       BG.app.showGameOver(payload, true);
     } else {
-      BG.net.send({ t: "over", payload });
+      BG.net.send(overMessage(payload));
       BG.app.showGameOver(payload, true);
     }
   }

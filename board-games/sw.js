@@ -5,8 +5,8 @@
    ========================================================================== */
 "use strict";
 
-const VERSION = "1.5.0";
-const CACHE = "bg-shell-v" + VERSION + "-r5";
+const VERSION = "1.6.0";
+const CACHE = "bg-shell-v" + VERSION + "-r1";
 const OFFLINE_URL = "index.html";
 
 const CORE = [
@@ -91,6 +91,8 @@ const CORE = [
   "js/data/arabic-words.js",
   "js/games/monopoly.js",
   "js/games/catan.js",
+  "js/games/ttr-art.js",
+  "js/games/ttr-board.js",
   "js/games/ticket-to-ride.js",
   "js/games/carcassonne.js",
   "js/games/risk.js",

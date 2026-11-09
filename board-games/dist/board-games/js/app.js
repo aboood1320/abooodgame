@@ -1022,8 +1022,10 @@
     applyGameScale();
 
     // في وضع المشاهدة تبقى اللوحة مرئية لكن بلا أي تفاعل.
+    // بعد نهاية اللعبة نسمح بالتفاعل مع أزرار النتيجة (مثل تفاصيل الحساب).
     const guardSpectate = (event) => {
       if (!currentNet || !currentNet.spectate) return;
+      if (netOver()) return;
       event.stopPropagation();
       if (event.cancelable && event.type !== "pointerdown" && event.type !== "wheel" && event.type !== "touchstart" && event.type !== "touchmove") {
         event.preventDefault();
