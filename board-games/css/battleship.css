@@ -1,20 +1,94 @@
-/* معارك السفن */
+/* معارك السفن v3 — رسومات: بحر متحرك، سفن SVG، انفجارات وتموّجات، إحداثيات وإطار معدني */
 .bs { --accent: #7391a8; }
 .bs-setup-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; }
 .bs-setup { display: flex; flex-direction: column; gap: 9px; }
 .bs-arena { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-items: start; }
 .bs-side { display: flex; flex-direction: column; gap: 9px; }
-.bs-grid {
+
+/* إطار الشبكة المعدني مع الإحداثيات */
+.bs-grid.bs-board {
+  display: grid;
+  grid-template-columns: 1.5em minmax(0, 1fr);
+  grid-template-rows: 1.5em auto;
+  gap: 3px;
+  padding: 8px;
+  border-radius: 14px;
+  direction: ltr;
+  background: linear-gradient(145deg, #2d4658, #16303f);
+  border: 1px solid #3f6379;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+.bs-cols { display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); }
+.bs-rows { display: grid; grid-template-rows: repeat(10, minmax(0, 1fr)); }
+.bs-cols span,
+.bs-rows span {
+  display: grid;
+  place-items: center;
+  font-size: 0.56rem;
+  font-weight: 800;
+  color: #8fb3c6;
+  user-select: none;
+}
+
+/* البحر */
+.bs-sea {
+  position: relative;
   display: grid;
   grid-template-columns: repeat(10, minmax(0, 1fr));
-  gap: 2px;
-  padding: 6px;
-  border-radius: 12px;
-  background: #0c2634;
-  border: 1px solid #173c50;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+  aspect-ratio: 1;
+  border-radius: 9px;
+  overflow: hidden;
+  background:
+    radial-gradient(120% 90% at 25% 8%, rgba(125, 205, 240, 0.28), transparent 55%),
+    linear-gradient(180deg, #17607c 0%, #0e3f58 55%, #082c42 100%);
+  box-shadow: inset 0 0 0 2px #1f7292, inset 0 0 26px rgba(0, 0, 0, 0.5);
 }
+.bs-sea::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(180deg, rgba(255, 255, 255, 0.055) 0 1.5px, transparent 1.5px 12px);
+  animation: bsWaves 6s linear infinite;
+}
+@keyframes bsWaves { from { background-position: 0 0; } to { background-position: 0 24px; } }
+
+/* رادار مسح في مياه العدو */
+.bs-sea.is-enemy::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  border-radius: inherit;
+  background: conic-gradient(from 0deg, rgba(120, 255, 190, 0.18), transparent 22%);
+  animation: bsRadar 7s linear infinite;
+}
+@keyframes bsRadar { to { transform: rotate(360deg); } }
+
+/* السفن (SVG) */
+.bs-ships {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+  pointer-events: none;
+  filter: drop-shadow(0 0.8px 1px rgba(0, 0, 0, 0.45));
+}
+.bs-hull.is-sunk { filter: grayscale(0.75) brightness(0.62); }
+.bs-flame {
+  animation: bsFlame 0.9s ease-in-out infinite alternate;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+@keyframes bsFlame { from { opacity: 0.45; transform: scale(0.85); } to { opacity: 0.85; transform: scale(1.15); } }
+
+/* الخانات */
 .bs-cell {
+  position: relative;
+  z-index: 2;
   appearance: none;
   aspect-ratio: 1;
   min-width: 0;
@@ -22,29 +96,79 @@
   display: grid;
   place-items: center;
   border: 0;
-  border-radius: 3px;
-  background: #16445a;
-  color: #dceaf1;
-  font-size: 0.62rem;
-  font-weight: 800;
+  background: transparent;
+  box-shadow: inset 0 0 0 0.5px rgba(170, 215, 238, 0.16);
   cursor: default;
+  color: inherit;
 }
 .bs-cell:disabled { opacity: 1; }
-.bs-cell.is-target { cursor: crosshair; background: #1d5a73; }
-.bs-cell.is-target:hover { background: #2d7d92; box-shadow: inset 0 0 0 2px #9fd6e8; }
-.bs-cell.is-target:focus-visible { outline: 2px solid #fff; outline-offset: -1px; }
-.bs-cell.has-ship { background: #5d87a0; color: #0b1c25; }
-.bs-cell.has-ship.is-sunk { background: #713b36; color: #ffd2bd; }
-.bs-cell.is-hit { background: #c65f52; color: #2a0d09; }
-.bs-cell.is-miss { background: #0a1d28; color: #6f93a5; }
+.bs-boom { width: 86%; height: 86%; filter: drop-shadow(0 0 3px rgba(255, 140, 40, 0.9)); }
+.bs-splash { width: 90%; height: 90%; }
+.bs-cell.bs-last { box-shadow: inset 0 0 0 2px #ffe08a, 0 0 8px rgba(255, 224, 138, 0.6); }
+.bs-last .bs-boom { animation: bsBoom 0.55s ease-out; }
+.bs-last .bs-splash { animation: bsSplash 0.8s ease-out; }
+@keyframes bsBoom {
+  0% { transform: scale(0.2); opacity: 0; }
+  60% { transform: scale(1.25); opacity: 1; }
+  100% { transform: scale(1); }
+}
+@keyframes bsSplash { from { transform: scale(0.3); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+/* التصويب */
+.bs-cell.is-target { cursor: crosshair; }
+.bs-cell.is-target:hover { background: rgba(159, 214, 232, 0.22); box-shadow: inset 0 0 0 1.5px #9fd6e8; }
+.bs-cell.is-target:hover::after {
+  content: "";
+  position: absolute;
+  inset: 18%;
+  border: 1.5px solid #ff6b57;
+  border-radius: 50%;
+  background:
+    linear-gradient(#ff6b57, #ff6b57) center / 1.5px 100% no-repeat,
+    linear-gradient(#ff6b57, #ff6b57) center / 100% 1.5px no-repeat;
+}
+.bs-cell.is-target:focus-visible,
+.bs-cell.is-place:focus-visible { outline: 2px solid #fff; outline-offset: -1px; }
+
+/* التوزيع */
+.bs-cell.is-place { cursor: pointer; }
+.bs-cell.is-place:hover { background: rgba(159, 214, 232, 0.2); box-shadow: inset 0 0 0 2px #9fd6e8; }
+.bs-cell.is-pick.has-ship:hover { background: rgba(255, 224, 138, 0.25); }
+.bs-cell.is-prev { background: rgba(120, 230, 170, 0.38); box-shadow: inset 0 0 0 1.5px #78e6aa; }
+.bs-cell.is-prev-bad { background: rgba(255, 100, 90, 0.38); box-shadow: inset 0 0 0 1.5px #ff7467; }
+
+/* الأسطول والملاحظات وشاشة التمرير */
 .bs-fleet { display: flex; flex-wrap: wrap; gap: 5px; }
-.bs-ship { display: inline-flex; align-items: center; gap: 6px; padding: 3px 8px; border-radius: 999px; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(246, 242, 232, 0.08); font-size: 0.62rem; }
+.bs-ship {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(246, 242, 232, 0.08);
+  font-size: 0.62rem;
+}
 .bs-ship span:last-child { color: #b9ecd3; font-weight: 800; }
 .bs-ship.is-sunk { opacity: 0.6; text-decoration: line-through; }
 .bs-ship.is-sunk span:last-child { color: #ffd2bd; }
+.bs-ship.is-held { border-color: #ffe08a; background: rgba(255, 224, 138, 0.12); }
+.bs-ship.is-held span:last-child { color: #ffe08a; }
 .bs-note { margin: 0; text-align: center; font-size: 0.76rem; color: var(--muted, #9fb0ac); }
+.bs-curtain { display: grid; gap: 12px; justify-items: center; text-align: center; padding: 28px 14px; }
+.bs-curtain h3 { margin: 0; font-size: 1.3rem; }
+.bs-curtain p { margin: 0; max-width: 34em; line-height: 1.8; }
+
+/* أجهزة ضعيفة / تقليل الحركة */
+html.lite .bs-sea::before,
+html.lite .bs-sea.is-enemy::after,
+html.lite .bs-flame { animation: none; }
+@media (prefers-reduced-motion: reduce) {
+  .bs-sea::before,
+  .bs-sea.is-enemy::after,
+  .bs-flame { animation: none; }
+}
 @media (max-width: 720px) {
   .bs-arena { grid-template-columns: minmax(0, 1fr); }
-  .bs-grid { gap: 1px; padding: 4px; }
-  .bs-cell { font-size: 0.52rem; }
+  .bs-grid.bs-board { padding: 5px; gap: 2px; }
 }

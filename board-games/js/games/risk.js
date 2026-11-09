@@ -1,6 +1,7 @@
 /* ==========================================================================
-   ريسك — السيطرة على العالم (نسخة رقمية كاملة)
-   خرائط متعددة، قوانين أصلية قابلة للضبط، وواجهة عربية متجاوبة.
+   ريسك — السيطرة على العالم (إعادة بناء كاملة)
+   خريطة عالم حقيقية من Natural Earth، قواعد Classic Risk، مهمات سرية،
+   بطاقات أراضٍ، ذكاء استراتيجي، وأونلاين متوافق مع غرفة الألعاب.
    ========================================================================== */
 (function () {
   "use strict";
@@ -9,264 +10,296 @@
   const U = BG.util;
   const FX = BG.fx;
   const AI = BG.ai;
+  const GEO = window.RISK_GEO || null;
 
-  const PCOLORS = ["#e57373", "#64b5f6", "#ffd54f", "#81c784", "#ba68c8", "#ffb74d"];
+  const PCOLORS = ["#e07a5f", "#5b9bd5", "#f2c14e", "#67b99a", "#b07cc6", "#ef9f4f"];
+  const PLAYER_NAMES = ["القائد الأحمر", "القائد الأزرق", "القائد الذهبي", "القائد الأخضر", "القائد البنفسجي", "القائد البرتقالي"];
 
   const RULE_DEFAULTS = {
     map: "classic",
-    victory: "elimination",
+    victory: "both",
     cards: "classic",
     fortify: "connected",
     reinforce: "classic",
     setup: "random",
-    setupArmies: "quick",
+    setupArmies: "classic",
   };
 
-  /* ------------------------------ بيانات الخرائط ------------------------------ */
+  /* ------------------------------ القارات والأقاليم ------------------------------ */
 
-  const MAPS = {
-    classic: {
-      id: "classic",
-      name: "العالم الكلاسيكي",
-      short: "كلاسيكي",
-      desc: "42 إقليمًا · 6 قارات · خريطة ريسك الأصلية",
-      viewBox: "0 0 960 560",
-      continents: {
-        na: { name: "أمريكا الشمالية", bonus: 5, color: "#d98b5f", blob: "M48 152 Q54 74 146 52 Q252 26 336 66 Q390 96 372 158 Q360 216 304 250 Q262 278 216 302 Q154 320 108 278 Q58 232 48 152Z" },
-        sa: { name: "أمريكا الجنوبية", bonus: 2, color: "#c7a04d", blob: "M238 312 Q308 292 362 332 Q398 386 380 452 Q362 520 308 540 Q252 548 236 484 Q222 398 238 312Z" },
-        eu: { name: "أوروبا", bonus: 5, color: "#6fa9c9", blob: "M400 140 Q404 76 478 58 Q556 38 614 70 Q640 106 622 158 Q606 210 552 232 Q496 250 448 224 Q404 198 400 140Z" },
-        af: { name: "أفريقيا", bonus: 3, color: "#c47f68", blob: "M452 330 Q466 258 534 246 Q612 232 654 286 Q684 340 666 404 Q648 486 596 526 Q542 556 502 500 Q464 442 456 386 Q452 354 452 330Z" },
-        as: { name: "آسيا", bonus: 7, color: "#9d86c6", blob: "M626 150 Q646 58 740 40 Q856 18 922 74 Q952 132 928 204 Q906 272 846 312 Q780 348 714 320 Q652 292 634 226 Q626 186 626 150Z" },
-        au: { name: "أوقيانوسيا", bonus: 2, color: "#65b394", blob: "M758 372 Q812 340 878 350 Q932 366 944 420 Q956 482 912 522 Q866 552 820 530 Q774 506 762 450 Q756 406 758 372Z" },
-      },
-      labels: { na: [70, 38], sa: [250, 300], eu: [416, 40], af: [472, 240], as: [648, 34], au: [772, 342] },
-      territories: [
-        { id: "alaska", name: "ألاسكا", c: "na", x: 95, y: 120 },
-        { id: "nwt", name: "الشمال الغربي", c: "na", x: 175, y: 88 },
-        { id: "greenland", name: "غرينلاند", c: "na", x: 345, y: 62 },
-        { id: "alberta", name: "ألبرتا", c: "na", x: 168, y: 155 },
-        { id: "ontario", name: "أونتاريو", c: "na", x: 240, y: 145 },
-        { id: "quebec", name: "كيبيك", c: "na", x: 305, y: 130 },
-        { id: "wus", name: "غرب الولايات المتحدة", c: "na", x: 168, y: 215 },
-        { id: "eus", name: "شرق الولايات المتحدة", c: "na", x: 242, y: 205 },
-        { id: "central", name: "أمريكا الوسطى", c: "na", x: 202, y: 272 },
-
-        { id: "venezuela", name: "فنزويلا", c: "sa", x: 285, y: 325 },
-        { id: "peru", name: "بيرو", c: "sa", x: 272, y: 378 },
-        { id: "brazil", name: "البرازيل", c: "sa", x: 338, y: 382 },
-        { id: "argentina", name: "الأرجنتين", c: "sa", x: 308, y: 455 },
-
-        { id: "iceland", name: "آيسلندا", c: "eu", x: 430, y: 85 },
-        { id: "britain", name: "بريطانيا", c: "eu", x: 447, y: 140 },
-        { id: "scandinavia", name: "إسكندنافيا", c: "eu", x: 528, y: 95 },
-        { id: "neurope", name: "شمال أوروبا", c: "eu", x: 520, y: 152 },
-        { id: "weurope", name: "غرب أوروبا", c: "eu", x: 468, y: 188 },
-        { id: "seurope", name: "جنوب أوروبا", c: "eu", x: 527, y: 208 },
-        { id: "ukraine", name: "أوكرانيا", c: "eu", x: 590, y: 160 },
-
-        { id: "nafrica", name: "شمال أفريقيا", c: "af", x: 492, y: 265 },
-        { id: "egypt", name: "مصر", c: "af", x: 558, y: 270 },
-        { id: "eafrica", name: "شرق أفريقيا", c: "af", x: 590, y: 335 },
-        { id: "congo", name: "الكونغو", c: "af", x: 530, y: 358 },
-        { id: "safrica", name: "جنوب أفريقيا", c: "af", x: 558, y: 432 },
-        { id: "madagascar", name: "مدغشقر", c: "af", x: 628, y: 420 },
-
-        { id: "mideast", name: "الشرق الأوسط", c: "as", x: 648, y: 258 },
-        { id: "ural", name: "الأورال", c: "as", x: 652, y: 130 },
-        { id: "siberia", name: "سيبيريا", c: "as", x: 712, y: 92 },
-        { id: "yakutsk", name: "ياقوتيا", c: "as", x: 782, y: 65 },
-        { id: "irkutsk", name: "إيركوتسك", c: "as", x: 775, y: 138 },
-        { id: "mongolia", name: "منغوليا", c: "as", x: 792, y: 188 },
-        { id: "china", name: "الصين", c: "as", x: 822, y: 228 },
-        { id: "japan", name: "اليابان", c: "as", x: 900, y: 205 },
-        { id: "india", name: "الهند", c: "as", x: 762, y: 288 },
-        { id: "afghanistan", name: "أفغانستان", c: "as", x: 692, y: 218 },
-        { id: "siam", name: "سيام", c: "as", x: 802, y: 302 },
-        { id: "kamchatka", name: "كامتشاتكا", c: "as", x: 888, y: 102 },
-
-        { id: "indonesia", name: "إندونيسيا", c: "au", x: 795, y: 360 },
-        { id: "newguinea", name: "غينيا الجديدة", c: "au", x: 872, y: 372 },
-        { id: "waustralia", name: "غرب أستراليا", c: "au", x: 832, y: 442 },
-        { id: "eaustralia", name: "شرق أستراليا", c: "au", x: 892, y: 458 },
-      ],
-      edges: [
-        ["alaska", "nwt"], ["alaska", "alberta"], ["alaska", "kamchatka"],
-        ["nwt", "alberta"], ["nwt", "ontario"], ["nwt", "greenland"],
-        ["greenland", "ontario"], ["greenland", "quebec"], ["greenland", "iceland"],
-        ["alberta", "ontario"], ["alberta", "wus"],
-        ["ontario", "quebec"], ["ontario", "eus"], ["ontario", "wus"],
-        ["quebec", "eus"], ["wus", "eus"], ["wus", "central"], ["eus", "central"],
-        ["central", "venezuela"],
-        ["venezuela", "peru"], ["venezuela", "brazil"], ["peru", "brazil"],
-        ["peru", "argentina"], ["brazil", "argentina"], ["brazil", "nafrica"],
-        ["iceland", "britain"], ["iceland", "scandinavia"],
-        ["britain", "scandinavia"], ["britain", "neurope"], ["britain", "weurope"],
-        ["scandinavia", "neurope"], ["scandinavia", "ukraine"],
-        ["neurope", "weurope"], ["neurope", "seurope"], ["neurope", "ukraine"],
-        ["weurope", "seurope"], ["weurope", "nafrica"],
-        ["seurope", "ukraine"], ["seurope", "mideast"], ["seurope", "egypt"], ["seurope", "nafrica"],
-        ["ukraine", "mideast"], ["ukraine", "afghanistan"], ["ukraine", "ural"],
-        ["nafrica", "egypt"], ["nafrica", "eafrica"], ["nafrica", "congo"],
-        ["egypt", "mideast"], ["egypt", "eafrica"],
-        ["eafrica", "congo"], ["eafrica", "safrica"], ["eafrica", "madagascar"], ["eafrica", "mideast"],
-        ["congo", "safrica"], ["safrica", "madagascar"],
-        ["mideast", "afghanistan"], ["mideast", "india"],
-        ["ural", "afghanistan"], ["ural", "siberia"], ["ural", "china"],
-        ["siberia", "yakutsk"], ["siberia", "irkutsk"], ["siberia", "mongolia"], ["siberia", "china"],
-        ["yakutsk", "irkutsk"], ["yakutsk", "kamchatka"],
-        ["irkutsk", "mongolia"], ["irkutsk", "kamchatka"],
-        ["kamchatka", "mongolia"], ["kamchatka", "japan"],
-        ["mongolia", "japan"], ["mongolia", "china"], ["japan", "china"],
-        ["china", "siam"], ["china", "india"], ["china", "afghanistan"],
-        ["afghanistan", "india"], ["india", "siam"], ["siam", "indonesia"],
-        ["indonesia", "newguinea"], ["indonesia", "waustralia"],
-        ["newguinea", "waustralia"], ["newguinea", "eaustralia"], ["waustralia", "eaustralia"],
-      ],
-    },
-
-    compact: {
-      id: "compact",
-      name: "عالم مصغّر",
-      short: "مصغّر",
-      desc: "24 إقليمًا · 6 قارات · مباراة أسرع",
-      viewBox: "0 0 960 560",
-      continents: {
-        na: { name: "أمريكا الشمالية", bonus: 3, color: "#d98b5f", blob: "M48 64 Q142 18 278 52 Q372 74 378 126 Q384 192 304 224 Q248 248 246 292 Q190 332 128 296 Q66 258 52 188 Q38 118 48 64Z" },
-        sa: { name: "أمريكا الجنوبية", bonus: 2, color: "#c7a04d", blob: "M238 314 Q306 292 356 328 Q398 374 376 448 Q356 518 304 538 Q248 548 232 482 Q220 400 238 314Z" },
-        eu: { name: "أوروبا", bonus: 3, color: "#6fa9c9", blob: "M406 72 Q488 32 574 52 Q634 66 628 130 Q624 192 570 220 Q514 246 466 224 Q404 202 400 148 Q398 106 406 72Z" },
-        af: { name: "أفريقيا", bonus: 2, color: "#c47f68", blob: "M486 266 Q568 242 654 276 Q706 314 690 394 Q674 496 612 540 Q546 564 506 496 Q466 424 476 344 Q480 292 486 266Z" },
-        as: { name: "آسيا", bonus: 4, color: "#9d86c6", blob: "M670 42 Q812 12 914 52 Q966 90 938 174 Q918 260 850 312 Q780 352 708 326 Q648 292 644 216 Q642 120 670 42Z" },
-        au: { name: "أوقيانوسيا", bonus: 1, color: "#65b394", blob: "M782 352 Q866 332 934 376 Q970 424 942 490 Q906 550 840 546 Q784 538 768 476 Q752 412 782 352Z" },
-      },
-      labels: { na: [78, 44], sa: [258, 318], eu: [432, 52], af: [506, 274], as: [846, 52], au: [806, 382] },
-      territories: [
-        { id: "alaska", name: "ألاسكا", c: "na", x: 100, y: 112 },
-        { id: "northwest", name: "الشمال الغربي", c: "na", x: 218, y: 92 },
-        { id: "greenland", name: "غرينلاند", c: "na", x: 348, y: 78 },
-        { id: "usa", name: "الولايات المتحدة", c: "na", x: 232, y: 188 },
-        { id: "mexico", name: "المكسيك", c: "na", x: 180, y: 266 },
-        { id: "peru", name: "بيرو", c: "sa", x: 276, y: 352 },
-        { id: "brazil", name: "البرازيل", c: "sa", x: 350, y: 392 },
-        { id: "argentina", name: "الأرجنتين", c: "sa", x: 312, y: 482 },
-        { id: "britain", name: "بريطانيا", c: "eu", x: 456, y: 132 },
-        { id: "scandinavia", name: "إسكندنافيا", c: "eu", x: 556, y: 86 },
-        { id: "germany", name: "ألمانيا", c: "eu", x: 580, y: 166 },
-        { id: "france", name: "فرنسا", c: "eu", x: 502, y: 188 },
-        { id: "spain", name: "إسبانيا", c: "eu", x: 462, y: 246 },
-        { id: "sahara", name: "الصحراء", c: "af", x: 536, y: 302 },
-        { id: "egypt", name: "مصر", c: "af", x: 620, y: 300 },
-        { id: "congo", name: "الكونغو", c: "af", x: 590, y: 392 },
-        { id: "southafrica", name: "جنوب أفريقيا", c: "af", x: 622, y: 482 },
-        { id: "middleeast", name: "الشرق الأوسط", c: "as", x: 706, y: 284 },
-        { id: "siberia", name: "سيبيريا", c: "as", x: 744, y: 100 },
-        { id: "china", name: "الصين", c: "as", x: 816, y: 206 },
-        { id: "india", name: "الهند", c: "as", x: 770, y: 306 },
-        { id: "japan", name: "اليابان", c: "as", x: 900, y: 214 },
-        { id: "indonesia", name: "إندونيسيا", c: "au", x: 814, y: 376 },
-        { id: "australia", name: "أستراليا", c: "au", x: 890, y: 456 },
-      ],
-      edges: [
-        ["alaska", "northwest"], ["alaska", "usa"], ["alaska", "siberia"],
-        ["northwest", "greenland"], ["northwest", "usa"], ["greenland", "usa"], ["greenland", "britain"],
-        ["usa", "mexico"], ["mexico", "peru"],
-        ["peru", "brazil"], ["peru", "argentina"], ["brazil", "argentina"],
-        ["britain", "france"], ["britain", "scandinavia"], ["scandinavia", "germany"],
-        ["germany", "france"], ["france", "spain"], ["spain", "sahara"],
-        ["sahara", "egypt"], ["sahara", "congo"], ["sahara", "brazil"],
-        ["egypt", "congo"], ["egypt", "middleeast"],
-        ["congo", "southafrica"], ["southafrica", "indonesia"],
-        ["middleeast", "india"], ["middleeast", "china"],
-        ["siberia", "china"], ["china", "india"], ["china", "japan"], ["india", "indonesia"],
-        ["indonesia", "australia"],
-      ],
-    },
-
-    islands: {
-      id: "islands",
-      name: "أرخبيل النخبة",
-      short: "أرخبيل",
-      desc: "18 جزيرة · 3 أحزمة بحرية · مباراة سريعة",
-      viewBox: "0 0 960 560",
-      continents: {
-        north: { name: "الأرخبيل الشمالي", bonus: 3, color: "#6fa9c9", blob: "M70 96 Q182 34 332 46 Q482 28 612 54 Q762 42 902 74 Q950 112 908 154 Q822 188 702 180 Q562 198 432 186 Q302 202 182 178 Q92 162 70 122Z" },
-        center: { name: "البحر الداخلي", bonus: 4, color: "#d98b5f", blob: "M60 300 Q170 248 320 262 Q470 240 620 264 Q760 250 900 276 Q948 312 908 352 Q810 388 680 376 Q540 396 400 384 Q260 400 150 376 Q76 360 60 330Z" },
-        south: { name: "الأرخبيل الجنوبي", bonus: 3, color: "#9d86c6", blob: "M90 470 Q200 412 340 428 Q490 408 630 432 Q770 414 894 442 Q944 478 906 518 Q810 552 680 540 Q540 560 400 548 Q260 562 160 536 Q94 514 90 490Z" },
-      },
-      labels: { north: [92, 68], center: [86, 276], south: [112, 448] },
-      territories: [
-        { id: "n1", name: "جزيرة الجليد", c: "north", x: 150, y: 105 },
-        { id: "n2", name: "المرجان", c: "north", x: 300, y: 85 },
-        { id: "n3", name: "الصخور", c: "north", x: 450, y: 115 },
-        { id: "n4", name: "الفيروز", c: "north", x: 610, y: 85 },
-        { id: "n5", name: "الضباب", c: "north", x: 760, y: 110 },
-        { id: "n6", name: "الرياح", c: "north", x: 880, y: 150 },
-        { id: "c1", name: "اللؤلؤة", c: "center", x: 140, y: 272 },
-        { id: "c2", name: "المرسى", c: "center", x: 290, y: 322 },
-        { id: "c3", name: "النخيل", c: "center", x: 440, y: 270 },
-        { id: "c4", name: "الشعاب", c: "center", x: 600, y: 325 },
-        { id: "c5", name: "البركان", c: "center", x: 750, y: 282 },
-        { id: "c6", name: "الواحة", c: "center", x: 880, y: 322 },
-        { id: "s1", name: "الرمال", c: "south", x: 170, y: 450 },
-        { id: "s2", name: "الغروب", c: "south", x: 320, y: 492 },
-        { id: "s3", name: "الجنوب", c: "south", x: 470, y: 446 },
-        { id: "s4", name: "الظلال", c: "south", x: 620, y: 486 },
-        { id: "s5", name: "العاصفة", c: "south", x: 760, y: 446 },
-        { id: "s6", name: "الأعشاب", c: "south", x: 880, y: 492 },
-      ],
-      edges: [
-        ["n1", "n2"], ["n2", "n3"], ["n3", "n4"], ["n4", "n5"], ["n5", "n6"],
-        ["n2", "n4"], ["n3", "n5"], ["n4", "n6"],
-        ["c1", "c2"], ["c2", "c3"], ["c3", "c4"], ["c4", "c5"], ["c5", "c6"],
-        ["c2", "c4"], ["c3", "c5"], ["c4", "c6"],
-        ["s1", "s2"], ["s2", "s3"], ["s3", "s4"], ["s4", "s5"], ["s5", "s6"],
-        ["s2", "s4"], ["s3", "s5"], ["s4", "s6"],
-        ["n1", "c1"], ["n2", "c2"], ["n3", "c3"], ["n4", "c4"], ["n5", "c5"], ["n6", "c6"],
-        ["c1", "s1"], ["c2", "s2"], ["c3", "s3"], ["c4", "s4"], ["c5", "s5"], ["c6", "s6"],
-      ],
-    },
+  const CONTINENTS = {
+    na: { name: "أمريكا الشمالية", short: "أمريكا الشمالية", bonus: 5, color: "#d98b63" },
+    sa: { name: "أمريكا الجنوبية", short: "أمريكا الجنوبية", bonus: 2, color: "#d3b45c" },
+    eu: { name: "أوروبا", short: "أوروبا", bonus: 5, color: "#69a7c9" },
+    af: { name: "أفريقيا", short: "أفريقيا", bonus: 3, color: "#c77e68" },
+    as: { name: "آسيا", short: "آسيا", bonus: 7, color: "#9c86c9" },
+    au: { name: "أوقيانوسيا", short: "أوقيانوسيا", bonus: 2, color: "#65b394" },
   };
+
+  const TERRITORIES = [
+    { id: "alaska", name: "ألاسكا", short: "ألاسكا", c: "na" },
+    { id: "nwt", name: "الشمال الغربي", short: "الشمال الغربي", c: "na" },
+    { id: "greenland", name: "غرينلاند", short: "غرينلاند", c: "na" },
+    { id: "alberta", name: "ألبرتا", short: "ألبرتا", c: "na" },
+    { id: "ontario", name: "أونتاريو", short: "أونتاريو", c: "na" },
+    { id: "quebec", name: "كيبيك", short: "كيبيك", c: "na" },
+    { id: "wus", name: "غرب الولايات المتحدة", short: "غرب أمريكا", c: "na" },
+    { id: "eus", name: "شرق الولايات المتحدة", short: "شرق أمريكا", c: "na" },
+    { id: "central", name: "أمريكا الوسطى", short: "أمريكا الوسطى", c: "na" },
+    { id: "venezuela", name: "فنزويلا", short: "فنزويلا", c: "sa" },
+    { id: "peru", name: "بيرو", short: "بيرو", c: "sa" },
+    { id: "brazil", name: "البرازيل", short: "البرازيل", c: "sa" },
+    { id: "argentina", name: "الأرجنتين", short: "الأرجنتين", c: "sa" },
+    { id: "iceland", name: "آيسلندا", short: "آيسلندا", c: "eu" },
+    { id: "britain", name: "بريطانيا", short: "بريطانيا", c: "eu" },
+    { id: "scandinavia", name: "إسكندنافيا", short: "إسكندنافيا", c: "eu" },
+    { id: "neurope", name: "شمال أوروبا", short: "شمال أوروبا", c: "eu" },
+    { id: "weurope", name: "غرب أوروبا", short: "غرب أوروبا", c: "eu" },
+    { id: "seurope", name: "جنوب أوروبا", short: "جنوب أوروبا", c: "eu" },
+    { id: "ukraine", name: "أوكرانيا", short: "أوكرانيا", c: "eu" },
+    { id: "nafrica", name: "شمال أفريقيا", short: "شمال أفريقيا", c: "af" },
+    { id: "egypt", name: "مصر", short: "مصر", c: "af" },
+    { id: "eafrica", name: "شرق أفريقيا", short: "شرق أفريقيا", c: "af" },
+    { id: "congo", name: "الكونغو", short: "الكونغو", c: "af" },
+    { id: "safrica", name: "جنوب أفريقيا", short: "جنوب أفريقيا", c: "af" },
+    { id: "madagascar", name: "مدغشقر", short: "مدغشقر", c: "af" },
+    { id: "mideast", name: "الشرق الأوسط", short: "الشرق الأوسط", c: "as" },
+    { id: "ural", name: "الأورال", short: "الأورال", c: "as" },
+    { id: "siberia", name: "سيبيريا", short: "سيبيريا", c: "as" },
+    { id: "yakutsk", name: "ياقوتيا", short: "ياقوتيا", c: "as" },
+    { id: "irkutsk", name: "إيركوتسك", short: "إيركوتسك", c: "as" },
+    { id: "mongolia", name: "منغوليا", short: "منغوليا", c: "as" },
+    { id: "china", name: "الصين", short: "الصين", c: "as" },
+    { id: "japan", name: "اليابان", short: "اليابان", c: "as" },
+    { id: "india", name: "الهند", short: "الهند", c: "as" },
+    { id: "afghanistan", name: "أفغانستان", short: "أفغانستان", c: "as" },
+    { id: "siam", name: "سيام", short: "سيام", c: "as" },
+    { id: "kamchatka", name: "كامتشاتكا", short: "كامتشاتكا", c: "as" },
+    { id: "indonesia", name: "إندونيسيا", short: "إندونيسيا", c: "au" },
+    { id: "newguinea", name: "غينيا الجديدة", short: "غينيا الجديدة", c: "au" },
+    { id: "waustralia", name: "غرب أستراليا", short: "غرب أستراليا", c: "au" },
+    { id: "eaustralia", name: "شرق أستراليا", short: "شرق أستراليا", c: "au" },
+  ];
+
+  const EDGES = [
+    ["alaska", "nwt"], ["alaska", "alberta"], ["alaska", "kamchatka"],
+    ["nwt", "alberta"], ["nwt", "ontario"], ["nwt", "greenland"],
+    ["greenland", "ontario"], ["greenland", "quebec"], ["greenland", "iceland"],
+    ["alberta", "ontario"], ["alberta", "wus"],
+    ["ontario", "quebec"], ["ontario", "eus"], ["ontario", "wus"],
+    ["quebec", "eus"], ["wus", "eus"], ["wus", "central"], ["eus", "central"],
+    ["central", "venezuela"],
+    ["venezuela", "peru"], ["venezuela", "brazil"], ["peru", "brazil"],
+    ["peru", "argentina"], ["brazil", "argentina"], ["brazil", "nafrica"],
+    ["iceland", "britain"], ["iceland", "scandinavia"],
+    ["britain", "scandinavia"], ["britain", "neurope"], ["britain", "weurope"],
+    ["scandinavia", "neurope"], ["scandinavia", "ukraine"],
+    ["neurope", "weurope"], ["neurope", "seurope"], ["neurope", "ukraine"],
+    ["weurope", "seurope"], ["weurope", "nafrica"],
+    ["seurope", "ukraine"], ["seurope", "mideast"], ["seurope", "egypt"], ["seurope", "nafrica"],
+    ["ukraine", "mideast"], ["ukraine", "afghanistan"], ["ukraine", "ural"],
+    ["nafrica", "egypt"], ["nafrica", "eafrica"], ["nafrica", "congo"],
+    ["egypt", "mideast"], ["egypt", "eafrica"],
+    ["eafrica", "congo"], ["eafrica", "safrica"], ["eafrica", "madagascar"], ["eafrica", "mideast"],
+    ["congo", "safrica"], ["safrica", "madagascar"],
+    ["mideast", "afghanistan"], ["mideast", "india"],
+    ["ural", "afghanistan"], ["ural", "siberia"], ["ural", "china"],
+    ["siberia", "yakutsk"], ["siberia", "irkutsk"], ["siberia", "mongolia"], ["siberia", "china"],
+    ["yakutsk", "irkutsk"], ["yakutsk", "kamchatka"],
+    ["irkutsk", "mongolia"], ["irkutsk", "kamchatka"],
+    ["kamchatka", "mongolia"], ["kamchatka", "japan"],
+    ["mongolia", "japan"], ["mongolia", "china"], ["japan", "china"],
+    ["china", "siam"], ["china", "india"], ["china", "afghanistan"],
+    ["afghanistan", "india"], ["india", "siam"], ["siam", "indonesia"],
+    ["indonesia", "newguinea"], ["indonesia", "waustralia"],
+    ["newguinea", "waustralia"], ["newguinea", "eaustralia"], ["waustralia", "eaustralia"],
+  ];
+
+  /* ------------------------------ بطاقات القيادة ------------------------------ */
 
   const CARD_TYPES = {
-    infantry: { name: "مشاة", icon: "⚔️" },
-    cavalry: { name: "فرسان", icon: "🐎" },
-    artillery: { name: "مدفعية", icon: "💥" },
-    wild: { name: "جوكر", icon: "🃏" },
+    infantry: { name: "مشاة", icon: "⚔️", color: "#e07a5f" },
+    cavalry: { name: "فرسان", icon: "🐎", color: "#f2c14e" },
+    artillery: { name: "مدفعية", icon: "💥", color: "#67b99a" },
+    wild: { name: "جوكر", icon: "🃏", color: "#b07cc6" },
   };
   const CARD_KEYS = ["infantry", "cavalry", "artillery"];
   const CLASSIC_TRADE = [4, 6, 8, 10, 12, 15, 20, 25, 30, 35, 40, 45, 50];
 
-  let MAP = MAPS.classic;
-  let CONTINENTS = MAP.continents;
-  let TERRITORIES = MAP.territories;
-  let TERR_BY_ID = {};
-  let EDGES = MAP.edges;
-  let ADJ = {};
+  /* ------------------------------ المهمات السرية ------------------------------ */
 
-  function applyMap(id) {
-    MAP = MAPS[id] || MAPS.classic;
-    CONTINENTS = MAP.continents;
-    TERRITORIES = MAP.territories;
-    EDGES = MAP.edges;
-    TERR_BY_ID = {};
-    ADJ = {};
-    TERRITORIES.forEach((t) => {
-      TERR_BY_ID[t.id] = t;
-      ADJ[t.id] = [];
-    });
-    EDGES.forEach(([a, b]) => {
-      if (!ADJ[a] || !ADJ[b]) return;
-      if (!ADJ[a].includes(b)) ADJ[a].push(b);
-      if (!ADJ[b].includes(a)) ADJ[b].push(a);
-    });
-  }
-  applyMap("classic");
+  const MISSION_LIBRARY = [
+    {
+      id: "conquer24",
+      icon: "🌍",
+      title: "السيطرة على 24 إقليمًا",
+      detail: "امتلك 24 إقليمًا على الأقل في نهاية أي هجوم.",
+      progress(p) {
+        return { have: countTerritories(p.index), need: 24, text: countTerritories(p.index) + " / 24 إقليم" };
+      },
+      check(p) { return countTerritories(p.index) >= 24; },
+    },
+    {
+      id: "defend18",
+      icon: "🛡️",
+      title: "18 إقليمًا محصّنًا",
+      detail: "امتلك 18 إقليمًا على الأقل، وفي كل منها جيشان أو أكثر.",
+      progress(p) {
+        const have = territoriesOf(p.index).filter((id) => state.troops[id] >= 2).length;
+        return { have, need: 18, text: have + " / 18 إقليم محصّن" };
+      },
+      check(p) {
+        return territoriesOf(p.index).filter((id) => state.troops[id] >= 2).length >= 18;
+      },
+    },
+    {
+      id: "continents3",
+      icon: "🧭",
+      title: "السيطرة على ثلاث قارات",
+      detail: "املأ ثلاث قارات كاملة بجيوشك.",
+      progress(p) {
+        const have = continentsOf(p.index).length;
+        return { have, need: 3, text: have + " / 3 قارات" };
+      },
+      check(p) { return continentsOf(p.index).length >= 3; },
+    },
+    {
+      id: "nafrica",
+      icon: "🌎",
+      title: "أمريكا الشمالية وأفريقيا",
+      detail: "سيطر على قارتي أمريكا الشمالية وأفريقيا بالكامل.",
+      progress(p) {
+        const c = continentsOf(p.index);
+        const have = (c.includes("na") ? 1 : 0) + (c.includes("af") ? 1 : 0);
+        return { have, need: 2, text: (c.includes("na") ? "✔ أمريكا الشمالية" : "— أمريكا الشمالية") + " · " + (c.includes("af") ? "✔ أفريقيا" : "— أفريقيا") };
+      },
+      check(p) {
+        const c = continentsOf(p.index);
+        return c.includes("na") && c.includes("af");
+      },
+    },
+    {
+      id: "eu_sa_asia",
+      icon: "🗺️",
+      title: "أوروبا وأمريكا الجنوبية و4 آسيوية",
+      detail: "سيطر على أوروبا وأمريكا الجنوبية، وامتلك 4 أقاليم في آسيا.",
+      progress(p) {
+        const c = continentsOf(p.index);
+        const asia = territoriesOf(p.index).filter((id) => TERR_BY_ID[id].c === "as").length;
+        const parts = [
+          c.includes("eu") ? "✔ أوروبا" : "— أوروبا",
+          c.includes("sa") ? "✔ أمريكا الجنوبية" : "— أمريكا الجنوبية",
+          asia + " / 4 آسيا",
+        ];
+        return { have: (c.includes("eu") ? 1 : 0) + (c.includes("sa") ? 1 : 0) + Math.min(1, Math.floor(asia / 4)), need: 3, text: parts.join(" · ") };
+      },
+      check(p) {
+        const c = continentsOf(p.index);
+        const asia = territoriesOf(p.index).filter((id) => TERR_BY_ID[id].c === "as").length;
+        return c.includes("eu") && c.includes("sa") && asia >= 4;
+      },
+    },
+    {
+      id: "eliminate",
+      icon: "🎯",
+      title: "إقصاء قائد محدد",
+      detail: "أقصِ القائد المستهدف من الخريطة، سواء بنفسك أو بضربة من حليف!",
+      target: true,
+      progress(p) {
+        const target = p.mission && p.mission.target != null ? state.players[p.mission.target] : null;
+        if (!target) return { have: 0, need: 1, text: "—" };
+        return { have: target.eliminated ? 1 : 0, need: 1, text: target.eliminated ? "✔ " + target.name : "استهدف: " + target.name };
+      },
+      check(p) {
+        const target = p.mission && p.mission.target != null ? state.players[p.mission.target] : null;
+        return !!(target && target.eliminated);
+      },
+    },
+    {
+      id: "asia_africa",
+      icon: "🐘",
+      title: "آسيا وأفريقيا",
+      detail: "سيطر على قارتي آسيا وأفريقيا بالكامل.",
+      progress(p) {
+        const c = continentsOf(p.index);
+        return { have: (c.includes("as") ? 1 : 0) + (c.includes("af") ? 1 : 0), need: 2, text: (c.includes("as") ? "✔ آسيا" : "— آسيا") + " · " + (c.includes("af") ? "✔ أفريقيا" : "— أفريقيا") };
+      },
+      check(p) {
+        const c = continentsOf(p.index);
+        return c.includes("as") && c.includes("af");
+      },
+    },
+    {
+      id: "continents4",
+      icon: "👑",
+      title: "السيطرة على أربع قارات",
+      detail: "املأ أربع قارات كاملة بجيوشك.",
+      progress(p) {
+        const have = continentsOf(p.index).length;
+        return { have, need: 4, text: have + " / 4 قارات" };
+      },
+      check(p) { return continentsOf(p.index).length >= 4; },
+    },
+    {
+      id: "two_plus15",
+      icon: "🏰",
+      title: "قارتان و15 إقليمًا",
+      detail: "سيطر على قارتين كاملتين وامتلك 15 إقليمًا على الأقل.",
+      progress(p) {
+        const c = continentsOf(p.index).length;
+        const t = countTerritories(p.index);
+        return { have: (c >= 2 ? 1 : 0) + (t >= 15 ? 1 : 0), need: 2, text: c + " قارات · " + t + " / 15 إقليم" };
+      },
+      check(p) {
+        return continentsOf(p.index).length >= 2 && countTerritories(p.index) >= 15;
+      },
+    },
+  ];
+
+  /* ------------------------------ الحالة العامة ------------------------------ */
 
   let rootRef = null;
   let apiRef = null;
   let state = null;
   let aiRunner = null;
-  let cpuAttacks = 0;
-  let zoom = 1;
+  let aiAttackCount = 0;
+  let mapSvg = null;
+  let mapShell = null;
+  let sideEl = null;
+  let secret = null;
+  let camera = null;
+  let cameraAnim = null;
+  let lastMapId = null;
+  let lastViewer = -1;
+  let tradeSel = [];
+  let tradeOwner = -1;
+  let lastTradeTurn = -1;
+  let suppressClick = false;
+  let ready = false;
+
+  const TERR_BY_ID = {};
+  const ADJ = {};
+  const CONTINENT_TERRITORIES = {};
+  TERRITORIES.forEach((t) => { TERR_BY_ID[t.id] = t; ADJ[t.id] = []; });
+  EDGES.forEach(([a, b]) => {
+    if (!ADJ[a] || !ADJ[b]) return;
+    if (!ADJ[a].includes(b)) ADJ[a].push(b);
+    if (!ADJ[b].includes(a)) ADJ[b].push(a);
+  });
+  TERRITORIES.forEach((t) => {
+    if (!CONTINENT_TERRITORIES[t.c]) CONTINENT_TERRITORIES[t.c] = [];
+    CONTINENT_TERRITORIES[t.c].push(t.id);
+  });
+
+  const SEA_ROUTES = [
+    ["alaska", "kamchatka"], ["brazil", "nafrica"], ["greenland", "iceland"],
+    ["iceland", "britain"], ["iceland", "scandinavia"], ["britain", "neurope"],
+    ["britain", "weurope"], ["britain", "scandinavia"], ["japan", "china"],
+    ["japan", "mongolia"], ["indonesia", "waustralia"], ["newguinea", "waustralia"],
+    ["newguinea", "eaustralia"], ["eafrica", "mideast"], ["madagascar", "eafrica"],
+    ["madagascar", "safrica"],
+  ];
+  const SEA_KEY = new Set(SEA_ROUTES.map(([a, b]) => [a, b].sort().join("|")));
 
   /* ------------------------------ تعريف اللعبة ------------------------------ */
 
@@ -275,52 +308,43 @@
     name: "ريسك",
     en: "RISK",
     icon: "🌍",
-    accent: "#d96b5f",
+    accent: "#e8836f",
     cardClass: "card-risk",
     tagline: "جيش، حصّن، واهجم — القارات تحتاج قادة لا يترددون.",
     players: "2–6",
-    duration: "45–120 دقيقة",
+    duration: "60–150 دقيقة",
     complexity: "متوسطة",
     minPlayers: 2,
     maxPlayers: 6,
     defaultPlayers: 3,
 
     options: {
-      hint: "اختر الخريطة وشروط النصر والقوانين قبل بدء الحملة.",
+      hint: "خريطة العالم الكلاسيكية (42 إقليمًا) وقواعد ريسك الأصلية، مع مهمات سرية اختيارية.",
       defaults: Object.assign({}, RULE_DEFAULTS),
       fields: [
         {
-          key: "map",
-          label: "الخريطة",
+          key: "victory",
+          label: "شرط الفوز",
           type: "select",
           wide: true,
           choices: [
-            { value: "classic", label: "العالم الكلاسيكي — 42 إقليمًا (الأصلية)" },
-            { value: "compact", label: "عالم مصغّر — 24 إقليمًا (أسرع)" },
-            { value: "islands", label: "أرخبيل النخبة — 18 جزيرة (سريعة)" },
+            { value: "both", label: "السيطرة على العالم + المهمة السرية" },
+            { value: "elimination", label: "الكلاسيكي: إقصاء الجميع" },
+            { value: "domination", label: "السيطرة على 60% من الأراضي" },
+            { value: "mission", label: "المهمة السرية فقط" },
           ],
-          hint: "الخريطة الكلاسيكية تعيد تجربة ريسك الأصلية بقاراتها الست ومكافآتها الحقيقية.",
-        },
-        {
-          key: "victory",
-          label: "شرط الفوز",
-          type: "seg",
-          choices: [
-            { value: "elimination", label: "إقصاء الجميع" },
-            { value: "domination", label: "السيطرة على 60%" },
-          ],
-          hint: "«إقصاء الجميع» هو شرط ريسك الأصلي. «السيطرة على 60%» ينهي المباراة عند بلوغ العتبة.",
+          hint: "«السيطرة + المهمة» تجعل لكل قائد هدفًا خفيًا، مع بقاء السيطرة العسكرية طريقًا للفوز.",
         },
         {
           key: "cards",
           label: "بطاقات القيادة",
           type: "select",
           choices: [
-            { value: "classic", label: "كلاسيكية: أراضٍ + جوكر + تصاعد" },
-            { value: "simple", label: "مبسّطة: 4 ثم 6 ثم 8…" },
+            { value: "classic", label: "كلاسيكية: 42 بطاقة أراضٍ + جوكران" },
+            { value: "simple", label: "مبسّطة: بلا أسماء أراضٍ" },
             { value: "off", label: "بلا بطاقات" },
           ],
-          hint: "البطاقات الكلاسيكية تحمل اسم إقليم ورمز نوع، مع جوكرين ومجموعات تُبدَّل بتصاعد 4/6/8…",
+          hint: "البطاقة الكلاسيكية تحمل إقليمًا ورمز مشاة/فرسان/مدفعية. مكافأة مطابقة الإقليم +2 كتيبة على الإقليم.",
         },
         {
           key: "fortify",
@@ -332,7 +356,7 @@
             { value: "unlimited", label: "متعدد" },
             { value: "none", label: "بلا" },
           ],
-          hint: "المتصل هو الأصل: نقل واحد بين إقليمين متجاورين. الحر يسمح بأي إقليم تملكه، والمتعدد يسمح بتكرار النقل.",
+          hint: "المتصل: نقل واحد بين إقليمين متجاورين. الحر: أي إقليم تملكه. المتعدد: نقلات متكررة.",
         },
         {
           key: "reinforce",
@@ -359,59 +383,58 @@
           label: "كتائب الإعداد",
           type: "seg",
           choices: [
-            { value: "quick", label: "سريع: 3" },
             { value: "classic", label: "أصلي: 40…20" },
+            { value: "quick", label: "سريع: +3" },
           ],
-          hint: "الأصلي يوزّع 40 كتيبة للاعبين اثنين، وتنقص 5 لكل لاعب إضافي حتى 20. زر «توزيع تلقائي» يسرّع الإعداد.",
+          hint: "الأصلي يوزّع 40 كتيبة للاعبين اثنين، وتنقص 5 لكل لاعب إضافي حتى 20 — شاملةً كتيبة كل إقليم.",
         },
       ],
       summary(options) {
         const o = Object.assign({}, RULE_DEFAULTS, options || {});
-        const map = MAPS[o.map] || MAPS.classic;
-        const win = o.victory === "domination" ? "سيطرة 60%" : "إقصاء الجميع";
+        const win = o.victory === "mission" ? "مهمة سرية" : o.victory === "domination" ? "سيطرة 60%" : o.victory === "elimination" ? "إقصاء الجميع" : "سيطرة + مهمة";
         const cards = o.cards === "off" ? "بلا بطاقات" : o.cards === "simple" ? "بطاقات مبسطة" : "بطاقات كلاسيكية";
-        return map.name + " · " + win + " · " + cards;
+        return "العالم الكلاسيكي · " + win + " · " + cards;
       },
     },
 
     rules: {
-      goal: "السيطرة العسكرية على العالم: أقصِ جميع القادة الآخرين، أو سيطر على 60% من الأراضي حسب شرط النصر المختار.",
+      goal: "اقضِ على قادة العالم أو أنجز مهمتك السرية قبلهم. السيطرة العسكرية الكاملة تبقى الطريق الكلاسيكي للفوز.",
       facts: [
-        ["الخرائط", "3 خرائط: 42 / 24 / 18 إقليمًا"],
-        ["القارات", "مكافآت تعزيز عند السيطرة الكاملة"],
-        ["النرد", "حتى 3 للمهاجم و2 للمدافع"],
-        ["البطاقات", "أراضٍ + جوكر + تصاعد 4/6/8…"],
+        ["الخريطة", "42 إقليمًا · 6 قارات · Natural Earth"],
+        ["الكتائب", "40 / 35 / 30 / 25 / 20 للاعبين 2–6"],
+        ["النرد", "3 للمهاجم · 2 للمدافع"],
+        ["البطاقات", "42 بطاقة أراضٍ + جوكران · تصاعد 4/6/8…"],
       ],
       components: [
-        "خريطة استراتيجية قابلة للاختيار: العالم الكلاسيكي (42 إقليمًا)، عالم مصغّر (24)، أو أرخبيل النخبة (18).",
-        "جيش لكل لاعب بلون مختلف، وكل قطعة تمثل كتيبة واحدة.",
-        "نردان للمعركة: حتى ثلاثة نرد للمهاجم ونردان للمدافع.",
-        "بطاقات قيادة كلاسيكية تحمل اسم إقليم ورمز مشاة أو فرسان أو مدفعية، مع جوكرين.",
-        "مكافآت القارات في الخريطة الكلاسيكية: أمريكا الشمالية 5، أوروبا 5، آسيا 7، أفريقيا 3، أمريكا الجنوبية 2، أوقيانوسيا 2.",
-        "شريط أعداد لاختيار عدد الكتائب المنقولة في التحصين والاستحواذ، مع أزرار سريعة.",
+        "خريطة العالم الكلاسيكية بـ42 إقليمًا وست قارات، مرسومة من بيانات Natural Earth الحقيقية.",
+        "جيش لكل قائد بلون واضح، وكل قطعة تمثل كتيبة واحدة.",
+        "نرد المعركة: حتى ثلاثة نرد للمهاجم ونردان للمدافع، مع اختيار عدد نرد المهاجم قبل كل ضربة.",
+        "بطاقات قيادة كلاسيكية: 42 بطاقة أراضٍ ورمز مشاة أو فرسان أو مدفعية، مع جوكرين.",
+        "مكافآت القارات: أمريكا الشمالية 5، أوروبا 5، آسيا 7، أفريقيا 3، أمريكا الجنوبية 2، أوقيانوسيا 2.",
+        "مهمة سرية لكل قائد عند اختيار وضع المهمات، تُعرض في لوحة سرّية ولا يراها الخصوم.",
       ],
       setup: [
         "تُوزَّع الأراضي عشوائيًا بالتساوي، أو تُختار بالتبادل حسب إعداد «توزيع الأراضي».",
-        "يضع كل لاعب كتيبة واحدة في كل إقليم يملكه، ثم يوزّع كتائب الإعداد: 3 في الوضع السريع أو 40/35/30/25/20 في الوضع الأصلي.",
-        "يمكن استخدام زر «توزيع تلقائي» لإنهاء توزيع كتائب الإعداد بسرعة.",
-        "بعد انتهاء توزيع كتائب الإعداد يبدأ اللاعب الأول دور التعزيز.",
+        "يضع كل قائد كتيبة واحدة في كل إقليم يملكه. ثم يوزّع كتائب الإعداد: 40 للاعبين اثنين، وتنقص 5 لكل لاعب إضافي حتى 20 — شاملةً كتيبة كل إقليم.",
+        "في الوضع السريع يضيف كل قائد 3 كتائب فقط فوق كتائب الأراضي.",
+        "إذا كانت المهمات مفعّلة، تُسند لكل قائد مهمة سرية عشوائية قبل بدء الإعداد.",
       ],
       steps: [
-        "<strong>التعزيز:</strong> احصل على كتيبة لكل ثلاثة أراضٍ (بحد أدنى 3)، أو 5 كتائب في الوضع السريع، وأضف مكافآت القارات التي تسيطر عليها بالكامل. وزّعها على أراضيك بالنقر.",
-        "<strong>البطاقات:</strong> عند استحواذك على إقليم واحد على الأقل خلال دورك تحصل على بطاقة عند إنهاء الدور (بحد أقصى 5 في اليد). بدّل ثلاث بطاقات متشابهة أو واحدة من كل نوع، والجوكر يصلح بدلًا عن أي نوع. التصاعد الكلاسيكي: 4 ثم 6 ثم 8 ثم 10 ثم 12 ثم 15 ثم 20…",
-        "<strong>الهجوم:</strong> اختر إقليمًا تملكه وفيه كتيبتان على الأقل، ثم اضغط على إقليم مجاور معادٍ. يرمي المهاجم حتى ثلاثة نرد والمدافع حتى نردين، وتُقارن النتائج من الأعلى للأدنى: كل نرد مهاجم أعلى يقتل كتيبة مدافعة، وكل نرد مدافع مساوٍ أو أعلى يقتل كتيبة مهاجمة.",
-        "<strong>الاستحواذ:</strong> إذا خسر المدافع آخر كتيبة ينتقل الإقليم إلى المهاجم. اختر عدد الكتائب التي ستنقلها (من 1 إلى كل ما تبقى ناقص واحدة) عبر شريط الأعداد ثم أكّد.",
-        "<strong>التحصين:</strong> في نهاية دورك انقل كتائب من إقليم تملكه إلى إقليم آخر تملكه، حسب قانون التحصين المختار. حدّد العدد بشريط الأعداد أو أزرار الزيادة والنقصان ثم أكّد.",
-        "<strong>الاستيلاء على البطاقات:</strong> عند إقصاء لاعب تحصل على كل بطاقاته فورًا، تمامًا كما في القواعد الأصلية.",
-        "<strong>إنهاء الدور:</strong> بعد الهجوم والتحصين ينتقل الدور إلى اللاعب التالي غير المُقصى.",
+        "<strong>التعزيز:</strong> احصل على كتيبة لكل ثلاثة أراضٍ (بحد أدنى 3)، أو 5 كتائب في الوضع السريع، وأضف مكافآت القارات التي تسيطر عليها بالكامل. وزّعها بالنقر على أراضيك.",
+        "<strong>البطاقات:</strong> عند استحواذك على إقليم واحد على الأقل خلال دورك تحصل على بطاقة عند إنهاء الدور (حتى 5 في اليد). بدّل ثلاث بطاقات متشابهة أو واحدة من كل نوع، والجوكر يصلح بدلًا عن أي نوع. التصاعد: 4 ثم 6 ثم 8 ثم 10 ثم 12 ثم 15 ثم 20…",
+        "<strong>مكافأة الإقليم:</strong> إذا احتوت مجموعة البطاقات على إقليم تملكه، تحصل على كتيبتين إضافيتين على ذلك الإقليم مباشرة.",
+        "<strong>الهجوم:</strong> اختر إقليمًا تملكه وفيه كتيبتان على الأقل، ثم اضغط على إقليم مجاور معادٍ. اختر عدد نرد المهاجم (1–3)، ويرمي المدافع تلقائيًا حتى نردين. قارن النتائج من الأعلى للأدنى: كل نرد مهاجم أعلى يقتل كتيبة مدافعة، وكل نرد مدافع مساوٍ أو أعلى يقتل كتيبة مهاجمة.",
+        "<strong>الاستحواذ:</strong> إذا خسر المدافع آخر كتيبة ينتقل الإقليم إلى المهاجم. اختر عدد الكتائب التي ستنقلها (على الأقل عدد النرد المستخدم، وعلى الأكثر كل ما تبقى ناقص واحدة) عبر شريط الأعداد ثم أكّد.",
+        "<strong>التحصين:</strong> بعد الهجوم يمكنك نقل كتائب من إقليم تملكه إلى إقليم آخر تملكه حسب قانون التحصين. حدّد العدد بشريط الأعداد أو أزرار الزيادة والنقصان، ويمكنك الرجوع قبل التأكيد.",
+        "<strong>المهمة السرية:</strong> تحقق شرط مهمتك في أي لحظة من دورك لتفوز. تظهر مهمتك فقط في لوحتك السرية، وتُكشف جميع المهمات عند نهاية المباراة.",
       ],
-      winning: "يفوز آخر لاعب يحتفظ بأراضٍ، أو أول لاعب يسيطر على 60% من أراضي الخريطة عند اختيار شرط «السيطرة». تُعلن النتيجة فور تحقق الشرط.",
+      winning: "يفوز آخر قائد يحتفظ بأراضٍ، أو أول قائد يبلغ شرط السيطرة المختار، أو أول قائد ينجز مهمته السرية في أوضاع المهمات. تُعلن النتيجة فور تحقق الشرط.",
       notes: [
-        "الخريطة الكلاسيكية تستخدم أسماء وحدود ريسك الأصلية، بما فيها طريق البرازيل–شمال أفريقيا وخط ألاسكا–كامتشاتكا.",
-        "التحصين يعرض شريط أعداد واضحًا، فلا حاجة لكتابة الرقم في نافذة منبثقة.",
-        "زر التكبير والتصغير يساعد على قراءة الخريطة الكلاسيكية على الهاتف.",
-        "بطاقات القيادة تُعرض داخل لوحة سرّية؛ يمكن تفعيل زر الإخفاء من الإعدادات الرئيسية.",
-        "الكمبيوتر يدير أدواره تلقائيًا حسب مستوى الصعوبة المحدد لكل لاعب.",
+        "خريطة اللعب مبنية من بيانات Natural Earth (الملكية العامة) وتُعرض بمسارات SVG جاهزة.",
+        "تقسيم روسيا إلى أقاليم ريسك الخمسة يتم بقصّ جغرافي دقيق، مع الحفاظ على حدود الدول الداخلية.",
+        "نرد المدافع تلقائي إلى أقصى عدد ممكن لتسريع اللعب؛ نرد المهاجم قابل للاختيار.",
+        "بطاقات القيادة والمهمات تُعرض داخل لوحة سرّية؛ يمكن تفعيل زر الإخفاء من الإعدادات الرئيسية.",
+        "الكمبيوتر يدير أدواره تلقائيًا حسب مستوى الصعوبة: سهل، متوسط، أو صعب.",
       ],
     },
 
@@ -419,97 +442,28 @@
       rootRef = root;
       apiRef = api;
       aiRunner = AI.runner();
-      cpuAttacks = 0;
-      zoom = 1;
-
+      aiAttackCount = 0;
+      tradeSel = [];
+      tradeOwner = -1;
+      lastTradeTurn = -1;
+      ready = false;
       const rules = Object.assign({}, RULE_DEFAULTS, api.options || {});
-      applyMap(rules.map);
-
-      const players = api.players.map((p, i) => ({
-        index: i,
-        name: p.name,
-        type: p.type === "cpu" ? "cpu" : "human",
-        level: AI.level(p.level),
-        isCpu: AI.isCpu(p),
-        color: PCOLORS[i % PCOLORS.length],
-        cards: [],
-        eliminated: false,
-        exchanges: 0,
-      }));
-
-      const owners = {};
-      const troops = {};
-      if (rules.setup === "draft") {
-        TERRITORIES.forEach((t) => { owners[t.id] = -1; troops[t.id] = 0; });
-      } else {
-        const shuffled = U.shuffle(TERRITORIES.map((t) => t.id));
-        shuffled.forEach((id, i) => {
-          owners[id] = i % players.length;
-          troops[id] = 1;
-        });
-      }
-
-      state = {
-        rules,
-        mapId: MAP.id,
-        players,
-        owner: owners,
-        troops,
-        current: 0,
-        phase: "claim",
-        toPlace: 0,
-        setupPlayer: null,
-        claimPlayer: 0,
-        claimCount: 0,
-        selected: null,
-        mode: "reinforce",
-        battle: null,
-        notice: "",
-        conquered: false,
-        fortifyUsed: false,
-        fortifyFrom: null,
-        fortifyTo: null,
-        pendingMove: null,
-        over: false,
-        turn: 1,
-        deck: [],
-        discard: [],
-        cardTrades: 0,
-      };
-      state.deck = rules.cards === "classic" ? buildClassicDeck() : [];
-
-      if (rules.setup === "draft") {
-        state.phase = "claim";
-        state.claimPlayer = 0;
-        state.current = 0;
-        state.notice = "اختيار الأراضي: دور " + players[0].name + " — انقر على إقليم غير مملوك.";
-      } else {
-        state.phase = "setup";
-        state.setupPlayer = 0;
-        state.current = 0;
-        state.toPlace = setupArmyCount();
-        state.notice = "الإعداد: دور " + players[0].name + " — وزّع " + state.toPlace + " كتيبة.";
-      }
-
+      buildState(rules, api.players);
+      buildShell();
+      ready = true;
+      render();
       if (new URLSearchParams(location.search).has("bgdebug")) {
-        window.__bgDebug = {
+        window.__riskDebug = {
           get state() { return state; },
-          get adj() { return ADJ; },
-          get map() { return MAP; },
-          render, beginTurn, resolveBattle, endTurn, exchangeCards, canExchange,
-          territoriesOf, continentsOf, reinforceAmount, nextPlayer, checkVictory,
-          applyMap, applyConquest: (v) => applyConquestMove(v), performFortify,
-          claimTerritory, placeSetup, findSet, nextTradeValue,
+          render,
+          adj: (id) => (ADJ[id] || []).slice(),
         };
       }
-
-      const counts = players.map((p) => territoriesOf(p.index).length).join(" / ");
       if (rules.setup === "draft") {
-        apiRef.log("بدأت ريسك — " + MAP.name + ". اختيار الأراضي بالتبادل يبدأ الآن.", "accent");
+        apiRef.log("بدأت ريسك — العالم الكلاسيكي. اختيار الأراضي بالتبادل يبدأ الآن.", "accent");
       } else {
-        apiRef.log("بدأت ريسك — " + MAP.name + " (" + TERRITORIES.length + " إقليمًا). التوزيع: " + counts + ". الإعداد: " + setupArmyCount() + " كتائب لكل لاعب.", "accent");
+        apiRef.log("بدأت ريسك — العالم الكلاسيكي (" + TERRITORIES.length + " إقليمًا). الإعداد: " + setupRemaining(state.players[0]) + " كتيبة إضافية لكل قائد.", "accent");
       }
-      render();
       return {
         netSnapshot() {
           return state ? BG.netCodec.encode(state) : null;
@@ -517,25 +471,35 @@
         netLoad(data) {
           if (!data) return;
           BG.closeDialogs();
+          const mapChanged = !state || state.mapId !== (data.mapId || (data.rules && data.rules.map));
           state = BG.netCodec.decode(data);
           state.rules = Object.assign({}, RULE_DEFAULTS, state.rules || {});
-          state.mapId = state.mapId || state.rules.map;
-          applyMap(state.mapId);
-          state.selected = null;
-          state.mode = "reinforce";
-          state.battle = null;
-          state.fortifyFrom = null;
-          state.fortifyTo = null;
-          state.pendingMove = null;
-          state.conquered = false;
+          state.mapId = "classic";
           state.owner = state.owner || {};
           state.troops = state.troops || {};
           state.deck = state.deck || [];
           state.discard = state.discard || [];
+          state.players = state.players || [];
+          state.turn = Number.isFinite(Number(state.turn)) ? Number(state.turn) : 0;
+          state.cardTrades = Number.isFinite(Number(state.cardTrades)) ? Number(state.cardTrades) : 0;
+          state.reinforceLog = state.reinforceLog || [];
           state.players.forEach((p) => {
             p.cards = (p.cards || []).map((c) => (typeof c === "string" ? { t: c, terr: null } : c));
+            p.isCpu = AI.isCpu(p);
+            p.level = AI.level(p.level);
           });
-          zoom = 1;
+          if (!state.battle) state.battle = null;
+          if (mapChanged) {
+            lastMapId = null;
+            buildShell();
+          } else if (!mapSvg || !mapSvg.isConnected) {
+            buildShell();
+          }
+          const viewer = viewerSeat();
+          if (viewer !== lastViewer) {
+            lastViewer = viewer;
+            tradeSel = [];
+          }
           render();
         },
         netSeat() {
@@ -552,20 +516,119 @@
         destroy() {
           if (aiRunner) aiRunner.clear();
           aiRunner = null;
+          teardownShell();
           rootRef = null;
           apiRef = null;
           state = null;
+          mapSvg = null;
+          mapShell = null;
+          sideEl = null;
+          secret = null;
+          camera = null;
+          ready = false;
         },
       };
     },
   };
 
+  /* ------------------------------ بناء الحالة ------------------------------ */
+
+  function buildState(rules, apiPlayers) {
+    const players = apiPlayers.map((p, i) => ({
+      index: i,
+      name: p.name || PLAYER_NAMES[i % PLAYER_NAMES.length],
+      type: p.type === "cpu" ? "cpu" : "human",
+      level: AI.level(p.level),
+      isCpu: AI.isCpu(p),
+      color: PCOLORS[i % PCOLORS.length],
+      cards: [],
+      eliminated: false,
+      exchanges: 0,
+      mission: null,
+    }));
+
+    const owner = {};
+    const troops = {};
+    TERRITORIES.forEach((t) => { owner[t.id] = -1; troops[t.id] = 0; });
+
+    if (rules.setup === "random") {
+      const ids = U.shuffle(TERRITORIES.map((t) => t.id));
+      ids.forEach((id, i) => {
+        owner[id] = i % players.length;
+        troops[id] = 1;
+      });
+    }
+
+    state = {
+      rules: Object.assign({}, RULE_DEFAULTS, rules || {}),
+      mapId: "classic",
+      players,
+      owner,
+      troops,
+      current: 0,
+      phase: rules.setup === "draft" ? "claim" : "setup",
+      toPlace: 0,
+      setupPlayer: 0,
+      claimPlayer: 0,
+      claimCount: 0,
+      selected: null,
+      mode: "reinforce",
+      battle: null,
+      notice: "",
+      conquered: false,
+      fortifyUsed: false,
+      fortifyFrom: null,
+      fortifyTo: null,
+      pendingMove: null,
+      over: false,
+      winner: null,
+      winReason: "",
+      turn: 0,
+      deck: [],
+      discard: [],
+      cardTrades: 0,
+      attackDice: 3,
+      reinforceLog: [],
+      firstPlayer: 0,
+      missionMode: rules.victory === "mission" || rules.victory === "both",
+    };
+
+    if (rules.cards === "classic") state.deck = buildClassicDeck();
+    if (state.missionMode) assignMissions();
+
+    if (rules.setup === "draft") {
+      state.claimCount = 0;
+      state.claimPlayer = 0;
+      state.current = 0;
+      state.notice = "اختيار الأراضي: دور " + players[0].name + " — انقر على إقليم غير مملوك.";
+    } else {
+      state.setupPlayer = 0;
+      state.current = 0;
+      state.toPlace = setupRemaining(players[0]);
+      state.notice = "الإعداد: دور " + players[0].name + " — وزّع " + state.toPlace + " كتيبة إضافية.";
+    }
+
+    if (new URLSearchParams(location.search).has("bgdebug")) {
+      window.__bgDebug = {
+        get state() { return state; },
+        get adj() { return ADJ; },
+        get camera() { return camera; },
+        render, beginTurn, resolveBattle: attack, endTurn, exchangeCards, canExchange,
+        territoriesOf, continentsOf, reinforceAmount, nextPlayer, checkVictory,
+        claimTerritory, placeSetup, autoPlaceSetup, placeReinforcement,
+        selectForAttack, attack, applyConquestMove, startFortify, fortifyClick,
+        performFortify, cancelFortify, nextTradeValue, findSet, bestTradeSet,
+        missionStatus, assignMissions, focusContinent, resetCamera,
+        setupRemaining,
+      };
+    }
+  }
+
   /* ------------------------------ أدوات الحالة ------------------------------ */
 
   function rule(key) {
     const value = state && state.rules ? state.rules[key] : undefined;
-    if (value === undefined || value === null) return RULE_DEFAULTS[key];
-    return value;
+    return value === undefined || value === null ? RULE_DEFAULTS[key] : value;
   }
 
   function cur() {
@@ -601,8 +664,7 @@
   }
 
   function canAct() {
-    if (!state || state.over) return false;
-    if (state.phase === "over") return false;
+    if (!state || state.over || state.phase === "over" || state.pendingMove) return false;
     const seat = activeSeat();
     if (seat < 0) return false;
     const player = state.players[seat];
@@ -622,25 +684,23 @@
   }
 
   function continentsOf(index) {
-    const owned = {};
-    TERRITORIES.forEach((t) => {
-      if (state.owner[t.id] === index) {
-        owned[t.c] = owned[t.c] || [];
-        owned[t.c].push(t.id);
-      }
-    });
-    return Object.keys(CONTINENTS).filter((c) => {
-      const all = TERRITORIES.filter((t) => t.c === c);
-      return all.length && all.every((t) => state.owner[t.id] === index);
+    return Object.keys(CONTINENTS).filter((code) => {
+      const all = CONTINENT_TERRITORIES[code];
+      return all && all.length && all.every((id) => state.owner[id] === index);
     });
   }
 
   function continentOwner(code) {
-    const all = TERRITORIES.filter((t) => t.c === code);
+    const all = CONTINENT_TERRITORIES[code] || [];
     if (!all.length) return -1;
-    const first = state.owner[all[0].id];
+    const first = state.owner[all[0]];
     if (first < 0) return -1;
-    return all.every((t) => state.owner[t.id] === first) ? first : -1;
+    return all.every((id) => state.owner[id] === first) ? first : -1;
+  }
+
+  function continentCount(code, index) {
+    const all = CONTINENT_TERRITORIES[code] || [];
+    return all.filter((id) => state.owner[id] === index).length;
   }
 
   function reinforceAmount(index) {
@@ -649,12 +709,18 @@
     return base + bonus;
   }
 
-  function setupArmyCount() {
+  function setupArmyTotal(count) {
+    return Math.max(20, 40 - (count - 2) * 5);
+  }
+
+  function setupRemaining(player) {
+    if (!player) return 0;
     if (rule("setupArmies") !== "classic") return 3;
-    return Math.max(20, 40 - (state.players.length - 2) * 5);
+    return Math.max(0, setupArmyTotal(state.players.length) - countTerritories(player.index));
   }
 
   function nextPlayer(from) {
+    if (!state || !state.players.length) return from;
     let i = from;
     for (let step = 0; step < state.players.length; step++) {
       i = (i + 1) % state.players.length;
@@ -668,20 +734,30 @@
   }
 
   function adjacentOwned(terrId, index) {
-    return ADJ[terrId].filter((id) => state.owner[id] === index);
+    return (ADJ[terrId] || []).filter((id) => state.owner[id] === index);
   }
 
   function adjacentEnemies(terrId, index) {
-    return ADJ[terrId].filter((id) => state.owner[id] !== index);
+    return (ADJ[terrId] || []).filter((id) => state.owner[id] !== index);
   }
 
   function testAdjacency(a, b) {
-    return ADJ[a] ? ADJ[a].includes(b) : false;
+    return !!(ADJ[a] && ADJ[a].includes(b));
   }
 
   function clamp(value, min, max) {
     return Math.max(min, Math.min(max, value));
   }
+
+  function pcolor(index) {
+    return state && state.players[index] ? state.players[index].color : "#8a9aa0";
+  }
+
+  function playerName(index) {
+    return state && state.players[index] ? state.players[index].name : "غير مملوك";
+  }
+
+  /* ------------------------------ البطاقات والمهمات ------------------------------ */
 
   function cardTypeKey(card) {
     return card && CARD_TYPES[card.t] ? card.t : "infantry";
@@ -695,45 +771,56 @@
 
   function buildClassicDeck() {
     const deck = [];
-    TERRITORIES.forEach((t, i) => deck.push({ t: CARD_KEYS[i % CARD_KEYS.length], terr: t.id }));
+    TERRITORIES.forEach((t, i) => {
+      deck.push({ t: CARD_KEYS[i % CARD_KEYS.length], terr: t.id });
+    });
     deck.push({ t: "wild", terr: null }, { t: "wild", terr: null });
     return U.shuffle(deck);
   }
 
   function nextTradeValue() {
-    const n = state.cardTrades || 0;
+    const n = state ? state.cardTrades || 0 : 0;
     if (rule("cards") === "simple") return 4 + n * 2;
     if (n < CLASSIC_TRADE.length) return CLASSIC_TRADE[n];
     return 50 + (n - CLASSIC_TRADE.length + 1) * 5;
   }
 
-  function findSet(cards) {
+  function cardSetScore(indices, cards, owner) {
+    let score = 0;
+    let wilds = 0;
+    const ownerIndex = Number.isInteger(owner) ? owner : state.current;
+    indices.forEach((i) => {
+      const card = cards[i];
+      if (!card) return;
+      if (card.t === "wild") wilds += 1;
+      else if (card.terr && state.owner[card.terr] === ownerIndex) score += 2.4;
+    });
+    return score - wilds * 0.5;
+  }
+
+  function isValidSet(indices, cards) {
+    if (!Array.isArray(indices) || indices.length !== 3) return false;
+    const chosen = indices.map((i) => cards[i]).filter(Boolean);
+    if (chosen.length !== 3) return false;
+    const nonWild = chosen.filter((c) => c && c.t !== "wild");
+    const wilds = 3 - nonWild.length;
+    if (!nonWild.length) return true;
+    if (nonWild.every((c) => c.t === nonWild[0].t)) return true;
+    const types = new Set(nonWild.map((c) => c.t));
+    return types.size === nonWild.length && types.size + wilds >= 3;
+  }
+
+  function findSet(cards, owner) {
     if (!Array.isArray(cards) || cards.length < 3) return null;
-    const byType = {};
-    CARD_KEYS.forEach((k) => { byType[k] = []; });
-    const wilds = [];
-    cards.forEach((card, index) => {
-      if (card && card.t === "wild") wilds.push(index);
-      else if (card && byType[card.t]) byType[card.t].push(index);
-    });
     let best = null;
-    const consider = (indices, wildsUsed, kind) => {
-      if (indices.length !== 3) return;
-      if (!best || wildsUsed < best.wildsUsed) best = { indices, wildsUsed, kind };
-    };
-    CARD_KEYS.forEach((k) => {
-      const own = byType[k];
-      if (!own.length || own.length + wilds.length < 3) return;
-      const need = 3 - own.length;
-      consider(own.slice(0, 3).concat(wilds.slice(0, Math.max(0, need))), Math.max(0, need), "same");
-    });
-    const missing = CARD_KEYS.filter((k) => byType[k].length === 0);
-    if (missing.length <= wilds.length) {
-      const picks = CARD_KEYS.map((k) => (byType[k].length ? byType[k][0] : -1));
-      if (picks.every((i) => i >= 0)) consider(picks.concat(wilds.slice(0, missing.length)).slice(0, 3), missing.length, "mixed");
-      else {
-        const chosen = picks.filter((i) => i >= 0).concat(wilds.slice(0, missing.length));
-        consider(chosen.slice(0, 3), missing.length, "mixed");
+    for (let i = 0; i < cards.length - 2; i++) {
+      for (let j = i + 1; j < cards.length - 1; j++) {
+        for (let k = j + 1; k < cards.length; k++) {
+          const indices = [i, j, k];
+          if (!isValidSet(indices, cards)) continue;
+          const score = cardSetScore(indices, cards, owner);
+          if (!best || score > best.score) best = { indices, score };
+        }
       }
     }
     return best;
@@ -741,13 +828,134 @@
 
   function canExchange(player) {
     if (!player || rule("cards") === "off") return false;
-    return !!findSet(player.cards);
+    return !!findSet(player.cards, player.index);
   }
 
-  /* ------------------------------ الإعداد والدور ------------------------------ */
+  function bestTradeSet(player) {
+    return player ? findSet(player.cards, player.index) : null;
+  }
+
+  function exchangeCards(indices) {
+    if (!state || state.over) return;
+    if (state.phase !== "reinforce" && state.phase !== "attack") return;
+    if (state.pendingMove) return;
+    const player = cur();
+    if (!player) return;
+    const cards = player.cards || [];
+    let picks = Array.isArray(indices) && indices.length ? indices.slice() : null;
+    if (!picks || !isValidSet(picks, cards)) {
+      const best = findSet(cards, player.index);
+      if (!best) {
+        BG.toast("تحتاج ثلاث بطاقات متشابهة أو واحدة من كل نوع.", "warn");
+        if (FX) FX.sound("error");
+        return;
+      }
+      picks = best.indices;
+    }
+    picks = Array.from(new Set(picks)).sort((a, b) => b - a);
+    const removed = [];
+    picks.forEach((i) => {
+      const card = player.cards.splice(i, 1)[0];
+      if (card) removed.push(card);
+    });
+    if (removed.length !== 3) return;
+    if (rule("cards") === "classic") state.discard = state.discard.concat(removed);
+    const bonus = nextTradeValue();
+    state.cardTrades = (state.cardTrades || 0) + 1;
+    player.exchanges = (player.exchanges || 0) + 1;
+    state.toPlace = (state.toPlace || 0) + bonus;
+    if (state.phase === "attack") {
+      state.phase = "reinforce";
+      state.mode = "reinforce";
+    }
+    let territoryBonus = 0;
+    if (rule("cards") === "classic") {
+      removed.forEach((card) => {
+        if (!card.terr || state.owner[card.terr] !== player.index) return;
+        state.troops[card.terr] += 2;
+        territoryBonus += 2;
+        if (FX) {
+          FX.after(() => {
+            const el = mapSvg && mapSvg.querySelector('[data-terr="' + card.terr + '"] .risk-troops');
+            if (el) { FX.pop(el); FX.floatText(el, "+2", "good"); }
+          }, 80);
+        }
+      });
+    }
+    tradeSel = [];
+    tradeOwner = player.index;
+    apiRef.log("بدّل <strong>" + U.escape(player.name) + "</strong> " + removed.map(cardLabel).join(" + ") + " مقابل " + bonus + " كتيبة" + (territoryBonus ? " + " + territoryBonus + " على الأراضي المطابقة" : "") + ".", "good");
+    state.notice = "+" + bonus + " كتيبة من البطاقات" + (territoryBonus ? " + " + territoryBonus + " على أرضٍ مطابقة" : "") + " — بقيت " + state.toPlace + " للتعزيز.";
+    if (FX) FX.sound("coin");
+    if (checkVictory()) return;
+    render();
+  }
+
+  function drawCard(player) {
+    if (rule("cards") === "off" || !player) return null;
+    let card = null;
+    if (rule("cards") === "simple") {
+      card = { t: U.pick(CARD_KEYS), terr: null };
+    } else {
+      if (!state.deck.length) {
+        state.deck = U.shuffle((state.discard || []).slice());
+        state.discard = [];
+      }
+      card = state.deck.pop() || null;
+    }
+    if (!card) return null;
+    player.cards.push(card);
+    return card;
+  }
+
+  function handLimitBlocked(player) {
+    if (!player || rule("cards") === "off") return false;
+    return player.cards.length >= 5 && !!findSet(player.cards);
+  }
+
+  function assignMissions() {
+    if (!state) return;
+    const pool = U.shuffle(MISSION_LIBRARY.slice());
+    state.players.forEach((p, i) => {
+      const template = pool[i % pool.length];
+      p.mission = {
+        id: template.id,
+        icon: template.icon,
+        title: template.title,
+        detail: template.detail,
+        target: template.target ? (i + 1) % state.players.length : null,
+      };
+    });
+  }
+
+  function missionTemplate(player) {
+    if (!player || !player.mission) return null;
+    return MISSION_LIBRARY.find((m) => m.id === player.mission.id) || null;
+  }
+
+  function missionStatus(player) {
+    const template = missionTemplate(player);
+    if (!template || !player.mission) return null;
+    const progress = typeof template.progress === "function" ? template.progress(player) : null;
+    return {
+      icon: player.mission.icon,
+      title: player.mission.title,
+      detail: player.mission.detail,
+      progress,
+      done: typeof template.check === "function" ? !!template.check(player) : false,
+    };
+  }
+
+  function checkMission(player) {
+    const template = missionTemplate(player);
+    if (!template) return false;
+    return typeof template.check === "function" ? !!template.check(player) : false;
+  }
+
+  /* ------------------------------ الإعداد ------------------------------ */
 
   function claimTerritory(terrId) {
-    if (!state || state.phase !== "claim") return;
+    if (!state || state.phase !== "claim" || state.over) return;
     if (!TERR_BY_ID[terrId]) return;
     if (state.owner[terrId] !== -1) {
       BG.toast("هذا الإقليم مملوك بالفعل — اختر إقليمًا رماديًا.", "warn");
@@ -757,22 +965,21 @@
     const player = state.players[state.claimPlayer];
     state.owner[terrId] = player.index;
     state.troops[terrId] = 1;
-    state.claimCount += 1;
+    state.claimCount = (state.claimCount || 0) + 1;
     if (FX) {
       FX.sound("move");
       FX.after(() => {
-        const el = rootRef && rootRef.querySelector('[data-terr="' + terrId + '"]');
+        const el = mapSvg && mapSvg.querySelector('[data-terr="' + terrId + '"] .risk-troops');
         if (el) { FX.pop(el); FX.floatText(el, "+1", "good"); }
       }, 30);
     }
     apiRef.log("<strong>" + U.escape(player.name) + "</strong> اختار " + U.escape(TERR_BY_ID[terrId].name) + ".", "");
-
     if (state.claimCount >= TERRITORIES.length) {
       state.phase = "setup";
       state.setupPlayer = 0;
       state.current = 0;
-      state.toPlace = setupArmyCount();
-      state.notice = "اكتمل اختيار الأراضي. الإعداد: دور " + state.players[0].name + " — وزّع " + state.toPlace + " كتيبة.";
+      state.toPlace = setupRemaining(state.players[0]);
+      state.notice = "اكتمل اختيار الأراضي. الإعداد: دور " + state.players[0].name + " — وزّع " + state.toPlace + " كتيبة إضافية.";
       apiRef.log("اكتمل اختيار الأراضي — يبدأ توزيع كتائب الإعداد.", "accent");
     } else {
       state.claimPlayer = nextPlayer(state.claimPlayer);
@@ -783,17 +990,37 @@
   }
 
   function finishSetup() {
+    if (!state) return;
     state.phase = "reinforce";
     state.setupPlayer = null;
+    state.toPlace = 0;
     apiRef.log("انتهى الإعداد — تبدأ المعارك.", "accent");
     beginTurn(0);
   }
 
+  function advanceSetup() {
+    const next = nextPlayer(state.setupPlayer);
+    if (next <= state.setupPlayer) {
+      finishSetup();
+      return;
+    }
+    state.setupPlayer = next;
+    state.current = next;
+    state.toPlace = setupRemaining(state.players[next]);
+    state.notice = "الإعداد: دور " + state.players[next].name + " — وزّع " + state.toPlace + " كتيبة إضافية.";
+    apiRef.log("انتهى إعداد <strong>" + U.escape(state.players[next].name) + "</strong>", "");
+    render();
+  }
+
   function placeSetup(terrId) {
-    if (state.phase !== "setup") return;
+    if (!state || state.phase !== "setup" || state.over) return;
     if (state.owner[terrId] !== state.setupPlayer) {
       BG.toast("اختر إقليمًا تملكه أنت.", "warn");
       if (FX) FX.sound("error");
+      return;
+    }
+    if (state.toPlace <= 0) {
+      advanceSetup();
       return;
     }
     state.troops[terrId] += 1;
@@ -801,67 +1028,55 @@
     if (FX) {
       FX.sound("move");
       FX.after(() => {
-        const el = rootRef && rootRef.querySelector('[data-terr="' + terrId + '"]');
+        const el = mapSvg && mapSvg.querySelector('[data-terr="' + terrId + '"] .risk-troops');
         if (el) { FX.hop(el); FX.floatText(el, "+1", "good"); }
       }, 30);
     }
     if (state.toPlace <= 0) {
-      const next = nextPlayer(state.setupPlayer);
-      if (next <= state.setupPlayer) {
-        finishSetup();
-        return;
-      }
-      state.setupPlayer = next;
-      state.current = next;
-      state.toPlace = setupArmyCount();
-      state.notice = "الإعداد: دور " + state.players[next].name + " — وزّع " + state.toPlace + " كتيبة.";
-      apiRef.log("انتهى إعداد <strong>" + U.escape(state.players[next].name) + "</strong>", "");
-    } else {
-      state.notice = "الإعداد: " + state.players[state.setupPlayer].name + " — بقيت " + state.toPlace + " كتيبة.";
+      advanceSetup();
+      return;
     }
+    state.notice = "الإعداد: " + state.players[state.setupPlayer].name + " — بقيت " + state.toPlace + " كتيبة.";
     render();
   }
 
   function autoPlaceSetup() {
     if (!state || state.phase !== "setup" || state.toPlace <= 0) return;
     const player = state.players[state.setupPlayer];
+    if (!player) return;
+    const list = territoriesOf(player.index)
+      .slice()
+      .sort((a, b) => setupTerritoryScore(b, player) - setupTerritoryScore(a, player));
+    if (!list.length) return;
+    const focus = list.slice(0, Math.min(4, list.length));
+    let index = 0;
     let guard = 0;
-    while (state.toPlace > 0 && guard < 500) {
+    while (state.toPlace > 0 && guard < 120) {
+      const id = focus[index % focus.length];
+      state.troops[id] += 1;
+      state.toPlace -= 1;
+      index += 1;
       guard += 1;
-      const pick = bestSetupTerritory(player);
-      if (pick == null) break;
-      state.troops[pick] += state.toPlace;
-      state.toPlace = 0;
     }
     if (FX) FX.sound("build");
-    if (state.toPlace <= 0) {
-      const next = nextPlayer(state.setupPlayer);
-      if (next <= state.setupPlayer) {
-        finishSetup();
-        return;
-      }
-      state.setupPlayer = next;
-      state.current = next;
-      state.toPlace = setupArmyCount();
-      state.notice = "الإعداد: دور " + state.players[next].name + " — وزّع " + state.toPlace + " كتيبة.";
-    }
     apiRef.log("وزّع <strong>" + U.escape(player.name) + "</strong> كتائب الإعداد تلقائيًا.", "");
+    if (state.toPlace <= 0) {
+      advanceSetup();
+      return;
+    }
     render();
   }
 
-  function bestSetupTerritory(player) {
-    const list = territoriesOf(player.index);
-    if (!list.length) return null;
-    let best = list[0];
-    let bestScore = -Infinity;
-    list.forEach((id) => {
-      const enemy = adjacentEnemies(id, player.index).length;
-      const cont = cpuContinentProgress(id, player);
-      const score = enemy * 2 + cont + state.troops[id] * 0.05;
-      if (score > bestScore) { bestScore = score; best = id; }
-    });
-    return best;
+  function setupTerritoryScore(id, player) {
+    const enemies = adjacentEnemies(id, player.index);
+    let score = enemies.length * 2.2;
+    enemies.forEach((e) => { score += state.troops[e] * 0.35; });
+    score += continentProgressScore(id, player) * 1.4;
+    if (enemies.length === 0) score -= 1.5;
+    return score;
   }
+
+  /* ------------------------------ الدور والتعزيز ------------------------------ */
 
   function beginTurn(index) {
     if (!state || state.over) return;
@@ -876,15 +1091,21 @@
     state.fortifyFrom = null;
     state.fortifyTo = null;
     state.pendingMove = null;
+    state.reinforceLog = [];
+    state.attackDice = 3;
     state.turn = (state.turn || 0) + 1;
-    cpuAttacks = 0;
+    aiAttackCount = 0;
+    tradeSel = [];
+    tradeOwner = index;
+    lastTradeTurn = state.turn;
     state.notice = "دور " + state.players[index].name + " — وزّع " + state.toPlace + " كتيبة تعزيز.";
     if (FX) FX.sound("turn");
+    if (checkVictory()) return;
     render();
   }
 
   function placeReinforcement(terrId) {
-    if (!state || state.phase !== "reinforce") return;
+    if (!state || state.phase !== "reinforce" || state.over) return;
     if (state.toPlace <= 0) {
       BG.toast("وزّعت كل التعزيزات — انتقل إلى الهجوم.", "warn");
       return;
@@ -896,28 +1117,49 @@
     }
     state.troops[terrId] += 1;
     state.toPlace -= 1;
+    state.reinforceLog.push(terrId);
     if (FX) {
       FX.sound("move");
       FX.after(() => {
-        const el = rootRef && rootRef.querySelector('[data-terr="' + terrId + '"]');
+        const el = mapSvg && mapSvg.querySelector('[data-terr="' + terrId + '"] .risk-troops');
         if (el) { FX.pop(el); FX.floatText(el, "+1", "good"); }
       }, 30);
     }
     if (state.toPlace <= 0) {
       state.phase = "attack";
       state.mode = "attack";
-      state.notice = "وزّعت كل التعزيزات. اختر إقليمًا للمهاجمة أو حصّن ثم أنهِ الدور.";
+      state.notice = "وزّعت كل التعزيزات. اختر إقليمًا للمهاجمة، أو حصّن ثم أنهِ الدور.";
       apiRef.log("وزّع <strong>" + U.escape(cur().name) + "</strong> تعزيزاته كاملة.", "");
+      if (checkVictory()) return;
     } else {
       state.notice = "بقيت " + state.toPlace + " كتيبة تعزيز — انقر على أراضيك.";
     }
     render();
   }
 
+  function undoReinforcement() {
+    if (!state || state.phase !== "reinforce" || state.over) return;
+    if (!state.reinforceLog || !state.reinforceLog.length) {
+      BG.toast("لا توجد تعزيزات يمكن التراجع عنها.", "warn");
+      return;
+    }
+    const id = state.reinforceLog.pop();
+    if (state.troops[id] > 1) {
+      state.troops[id] -= 1;
+      state.toPlace += 1;
+      state.notice = "تراجعت عن تعزيز " + TERR_BY_ID[id].name + " — بقيت " + state.toPlace + " كتيبة.";
+      if (FX) FX.sound("recall");
+      render();
+    }
+  }
+
+  /* ------------------------------ الهجوم ------------------------------ */
+
   function selectForAttack(terrId) {
+    if (!state || state.phase !== "attack" || state.over || state.pendingMove) return;
     if (state.owner[terrId] !== state.current) {
-      const owner = state.players[state.owner[terrId]];
-      BG.toast("هذا الإقليم يملكه " + (owner ? owner.name : "لاعب آخر") + ".", "warn");
+      const owner = state.owner[terrId] >= 0 ? state.players[state.owner[terrId]] : null;
+      BG.toast(owner ? "هذا الإقليم يملكه " + owner.name + "." : "هذا الإقليم غير مملوك.", "warn");
       if (FX) FX.sound("error");
       return;
     }
@@ -927,22 +1169,24 @@
       render();
       return;
     }
-    const troops = state.troops[terrId];
+    const troops = state.troops[terrId] || 0;
     if (troops < 2) {
       BG.toast("تحتاج كتيبتين على الأقل للهجوم من هذا الإقليم.", "warn");
       if (FX) FX.sound("error");
       return;
     }
     state.selected = terrId;
+    state.attackDice = clamp(state.attackDice || 3, 1, Math.min(3, troops - 1));
     const targets = adjacentEnemies(terrId, state.current);
     state.notice = targets.length
-      ? "اختر إقليمًا معاديًا مجاورًا: " + targets.map((id) => TERR_BY_ID[id].name).join("، ")
+      ? "اختر إقليمًا معاديًا مجاورًا: " + targets.map((id) => TERR_BY_ID[id].name).join("، ") + " — نردك " + state.attackDice + "."
       : "لا توجد أقاليم معادية مجاورة لهذا الإقليم.";
-    if (FX) FX.sound("click");
+    if (FX) FX.sound("select");
     render();
   }
 
   function attack(terrId) {
+    if (!state || state.over || state.phase !== "attack" || state.pendingMove) return;
     if (!state.selected) {
       BG.toast("اختر إقليمًا تملكه أولًا.", "warn");
       return;
@@ -956,6 +1200,10 @@
       BG.toast("هذا الإقليم لك بالفعل.", "warn");
       return;
     }
+    if (state.owner[terrId] < 0) {
+      BG.toast("لا يمكن مهاجمة إقليم غير مملوك.", "warn");
+      return;
+    }
     resolveBattle(state.selected, terrId);
   }
 
@@ -964,9 +1212,10 @@
     const attacker = state.owner[attackerId];
     const defender = state.owner[defenderId];
     if (attacker !== state.current || defender === state.current || defender < 0) return;
-    const aCount = Math.min(3, state.troops[attackerId] - 1);
-    const dCount = Math.min(2, state.troops[defenderId]);
-    if (aCount < 1) return;
+    const requested = clamp(Number(state.attackDice) || 3, 1, 3);
+    const aCount = Math.min(requested, (state.troops[attackerId] || 0) - 1);
+    const dCount = Math.min(2, state.troops[defenderId] || 0);
+    if (aCount < 1 || dCount < 1) return;
 
     const aDice = [];
     const dDice = [];
@@ -981,107 +1230,116 @@
       if (aDice[i] > dDice[i]) dLoss += 1;
       else aLoss += 1;
     }
+    state.troops[attackerId] = Math.max(1, state.troops[attackerId] - aLoss);
+    state.troops[defenderId] = Math.max(0, state.troops[defenderId] - dLoss);
 
-    state.troops[attackerId] -= aLoss;
-    state.troops[defenderId] -= dLoss;
-    if (state.troops[defenderId] < 0) state.troops[defenderId] = 0;
+    state.battle = {
+      attackerId,
+      defenderId,
+      aDice,
+      dDice,
+      aLoss,
+      dLoss,
+      aCount,
+      dCount,
+      conquered: false,
+      moved: 0,
+      attackerName: playerName(attacker),
+      defenderName: playerName(defender),
+    };
 
-    let conquered = false;
-    let moved = 0;
     if (state.troops[defenderId] <= 0) {
-      conquered = true;
-      const available = state.troops[attackerId] - 1;
-      const sourceTotal = state.troops[attackerId];
-      moved = Math.max(1, Math.min(3, available, sourceTotal - 1));
-      state.troops[attackerId] -= moved;
-      state.troops[defenderId] = moved;
+      const available = Math.max(0, state.troops[attackerId] - 1);
       state.owner[defenderId] = attacker;
+      state.troops[defenderId] = 0;
       state.conquered = true;
-      state.selected = null;
-
+      state.battle.conquered = true;
       const eliminated = eliminateDefender(defender, attacker);
-      state.battle = {
-        attackerId, defenderId, aDice, dDice, aLoss, dLoss, conquered: true, moved,
-        attackerName: state.players[attacker].name,
-        defenderName: state.players[defender] ? state.players[defender].name : "",
-      };
+      state.battle.eliminated = eliminated;
+      state.selected = null;
       apiRef.log(
-        "<strong>" + U.escape(state.players[attacker].name) + "</strong> هاجم " + U.escape(TERR_BY_ID[defenderId].name) +
+        "<strong>" + U.escape(playerName(attacker)) + "</strong> هاجم " + U.escape(TERR_BY_ID[defenderId].name) +
         " — خسائر: " + aLoss + " مهاجم / " + dLoss + " مدافع — <strong>سقط الإقليم!</strong>",
         "good"
       );
       if (FX) {
-        FX.sound("build");
+        FX.sound("capture");
         FX.after(() => {
-          const el = rootRef && rootRef.querySelector('[data-terr="' + defenderId + '"]');
-          if (el) { FX.pop(el); FX.floatText(el, "+" + moved, "good"); }
-        }, 40);
+          const el = mapSvg && mapSvg.querySelector('[data-terr="' + defenderId + '"]');
+          if (el) { FX.pop(el); FX.shake(el); }
+        }, 60);
       }
       if (eliminated) {
-        state.notice = "سقط الإقليم! أُقصي " + state.players[defender].name + " واستوليت على بطاقاته.";
+        state.notice = "سقط الإقليم! أُقصي " + playerName(defender) + " واستوليت على بطاقاته.";
       } else {
-        state.notice = "سقط " + TERR_BY_ID[defenderId].name + "! انتقلت " + moved + " كتيبة.";
+        state.notice = "سقط " + TERR_BY_ID[defenderId].name + "! اختر عدد الكتائب التي ستحتل بها الإقليم ثم أكّد.";
       }
-      const over = checkVictory();
-      if (!over && !state.players[attacker].isCpu && available >= 1) {
+      if (checkVictory()) return;
+      if (available >= 1) {
+        const min = Math.min(aCount, available);
         state.pendingMove = {
           kind: "conquest",
           from: attackerId,
           to: defenderId,
           max: available,
-          sourceTotal,
-          value: moved,
+          min,
+          sourceTotal: state.troops[attackerId],
+          value: min,
         };
-        state.battle.moved = moved;
-        state.notice = "سقط " + TERR_BY_ID[defenderId].name + " — اختر عدد الكتائب التي ستحتل بها الإقليم ثم أكّد.";
-      } else if (!over) {
+        state.battle.pending = true;
+      } else {
         state.selected = state.troops[attackerId] >= 2 ? attackerId : null;
       }
       if (FX) FX.sound("dice");
       render();
-      if (FX) FX.after(() => FX.shake(rootRef && rootRef.querySelector(".risk-battle-dice")), 35);
+      if (FX) FX.after(() => FX.shake(mapSvg && mapSvg.querySelector(".risk-battle-dice")), 35);
       return;
     }
 
     state.selected = state.troops[attackerId] >= 2 ? attackerId : null;
-    state.battle = {
-      attackerId, defenderId, aDice, dDice, aLoss, dLoss, conquered: false,
-      attackerName: state.players[attacker].name,
-      defenderName: state.players[defender] ? state.players[defender].name : "",
-    };
     apiRef.log(
-      "<strong>" + U.escape(state.players[attacker].name) + "</strong> هاجم " + U.escape(TERR_BY_ID[defenderId].name) +
+      "<strong>" + U.escape(playerName(attacker)) + "</strong> هاجم " + U.escape(TERR_BY_ID[defenderId].name) +
       " — خسائر: " + aLoss + " مهاجم / " + dLoss + " مدافع.",
       "warn"
     );
-    state.notice = "نتيجة المعركة: " + (dLoss > aLoss ? "تقدّم المهاجم" : aLoss > dLoss ? "صمود المدافع" : "تبادل خسائر") + ".";
-    if (FX) FX.sound("dice");
+    state.notice = "نتيجة المعركة: " + (dLoss > aLoss ? "تقدّم المهاجم" : aLoss > dLoss ? "صمود المدافع" : "تبادل خسائر") + " — يمكنك متابعة الهجوم أو التحصين.";
+    if (FX) {
+      FX.sound("dice");
+      FX.after(() => {
+        const el = mapSvg && mapSvg.querySelector('[data-terr="' + defenderId + '"]');
+        if (el) FX.shake(el);
+      }, 55);
+    }
     render();
-    if (FX) FX.after(() => FX.shake(rootRef && rootRef.querySelector(".risk-battle-dice")), 35);
+    if (FX) FX.after(() => FX.shake(mapSvg && mapSvg.querySelector(".risk-battle-dice")), 35);
   }
 
   function applyConquestMove(value) {
     const pm = state && state.pendingMove;
     if (!pm || pm.kind !== "conquest") return;
-    const move = clamp(Number(value) || pm.value || 1, 1, pm.max);
+    const max = Math.max(1, pm.max);
+    const min = Math.max(1, pm.min || 1);
+    const move = clamp(Number(value) || pm.value || min, min, max);
     state.troops[pm.from] = Math.max(1, pm.sourceTotal - move);
     state.troops[pm.to] = move;
-    if (state.battle) state.battle.moved = move;
-    state.selected = state.troops[pm.from] >= 2 ? pm.from : null;
+    if (state.battle) {
+      state.battle.moved = move;
+      state.battle.pending = false;
+    }
     state.pendingMove = null;
-    state.notice = "تم نقل " + move + " كتيبة إلى " + TERR_BY_ID[pm.to].name + ". يمكنك مواصلة الهجوم أو إنهاء الدور.";
+    state.selected = state.troops[pm.from] >= 2 ? pm.from : null;
+    state.notice = "تم نقل " + move + " كتيبة إلى " + TERR_BY_ID[pm.to].name + ". يمكنك مواصلة الهجوم أو التحصين.";
     apiRef.log("نقل <strong>" + U.escape(cur().name) + "</strong> " + move + " كتيبة إلى " + U.escape(TERR_BY_ID[pm.to].name) + ".", "");
     if (FX) {
       FX.sound("move");
-      FX.after(() => {
-        const el = rootRef && rootRef.querySelector('[data-terr="' + pm.to + '"]');
-        if (el) { FX.pop(el); FX.floatText(el, "+" + move, "good"); }
-      }, 30);
+      animateMarch(pm.from, pm.to, move, "conquest");
     }
+    if (checkVictory()) return;
     render();
   }
 
   function eliminateDefender(index, conqueror) {
+    if (!state || !state.players[index]) return false;
     if (countTerritories(index) > 0 || state.players[index].eliminated) return false;
     state.players[index].eliminated = true;
     const victor = state.players[conqueror];
@@ -1095,31 +1353,72 @@
     return true;
   }
 
+  /* ------------------------------ الفوز ------------------------------ */
+
   function checkVictory() {
     if (!state || state.over) return false;
+    const active = activePlayers();
     let winner = null;
-    if (rule("victory") === "domination") {
+    let reason = "";
+
+    if (active.length === 1) {
+      winner = active[0];
+      reason = "آخر قائد يحتفظ بأراضٍ على الخريطة.";
+    }
+
+    if (!winner && rule("victory") === "domination") {
       const need = Math.ceil(TERRITORIES.length * 0.6);
-      const reached = state.players
-        .filter((p) => !p.eliminated && countTerritories(p.index) >= need)
+      const reached = active
+        .filter((p) => countTerritories(p.index) >= need)
         .sort((a, b) => countTerritories(b.index) - countTerritories(a.index));
-      if (reached.length) winner = reached[0];
+      if (reached.length) {
+        winner = reached[0];
+        reason = "السيطرة على " + need + " إقليمًا (" + Math.round((need / TERRITORIES.length) * 100) + "% من العالم).";
+      }
     }
-    if (!winner) {
-      const active = activePlayers();
-      if (active.length > 1) return false;
-      winner = active[0] || null;
+
+    if (!winner && rule("victory") === "both") {
+      const need = Math.ceil(TERRITORIES.length * 0.6);
+      const reached = active.filter((p) => countTerritories(p.index) >= need);
+      if (reached.length) {
+        winner = reached.sort((a, b) => countTerritories(b.index) - countTerritories(a.index))[0];
+        reason = "السيطرة على " + need + " إقليمًا و" + Math.round((need / TERRITORIES.length) * 100) + "% من العالم.";
+      }
     }
+
+    if (!winner && state.missionMode) {
+      for (const p of active) {
+        if (checkMission(p)) {
+          winner = p;
+          reason = "أنجز مهمته السرية: " + (p.mission ? p.mission.title : "");
+          break;
+        }
+      }
+    }
+
+    if (!winner) return false;
+    finishGame(winner, reason);
+    return true;
+  }
+
+  function finishGame(winner, reason) {
+    if (!state || state.over) return;
     state.over = true;
     state.phase = "over";
+    state.winner = winner ? winner.index : null;
+    state.winReason = reason || "";
     state.pendingMove = null;
     state.selected = null;
+    state.fortifyFrom = null;
+    state.fortifyTo = null;
     const standings = state.players
       .slice()
       .sort((a, b) => countTerritories(b.index) - countTerritories(a.index))
       .map((p) => ({
         name: p.name,
-        value: countTerritories(p.index) + " إقليم · " + p.cards.length + " بطاقة" + (p.eliminated ? " — مُقصى" : ""),
+        value: countTerritories(p.index) + " إقليم · " + p.cards.length + " بطاقة" +
+          (p.mission ? " · مهمة: " + p.mission.title : "") +
+          (p.eliminated ? " — مُقصى" : ""),
       }));
     apiRef.log("انتهت الحرب" + (winner ? " — <strong>" + U.escape(winner.name) + "</strong> يسيطر على العالم!" : "."), "good");
     if (FX) FX.win();
@@ -1127,32 +1426,31 @@
     apiRef.gameOver({
       icon: "🌍",
       title: "انتهت ريسك",
-      text: winner
-        ? (rule("victory") === "domination" ? "السيطرة على 60% من الخريطة تحسم الحملة." : "آخر قائد يحتفظ بأراضٍ على الخريطة.")
-        : "لم يتبقَّ لاعبون.",
+      text: winner ? reason : "لم يتبقَّ لاعبون.",
       winner: winner ? winner.name : "",
       standings,
     });
-    return true;
   }
 
   /* ------------------------------ التحصين ------------------------------ */
 
-  function fortifyTargets(from) {
+  function fortifyTargets(from, index) {
     if (!from || !state) return [];
+    const owner = index == null ? state.current : index;
     if (rule("fortify") === "anywhere") {
-      return territoriesOf(state.current).filter((id) => id !== from);
+      return territoriesOf(owner).filter((id) => id !== from);
     }
-    return adjacentOwned(from, state.current);
+    return adjacentOwned(from, owner);
   }
 
   function fortifyMovable() {
-    if (!state || rule("fortify") === "none") return false;
+    if (!state || rule("fortify") === "none" || state.fortifyUsed) return false;
     return territoriesOf(state.current).some((id) => state.troops[id] > 1 && fortifyTargets(id).length);
   }
 
   function startFortify() {
-    if (!state || state.phase !== "attack" || state.pendingMove) return;
+    if (!state || state.over || state.pendingMove) return;
+    if (state.phase !== "attack") return;
     if (rule("fortify") === "none") {
       BG.toast("قانون التحصين معطّل في هذه المباراة.", "warn");
       return;
@@ -1163,6 +1461,7 @@
     }
     if (!fortifyMovable()) {
       BG.toast("لا توجد كتائب قابلة للتحصين.", "warn");
+      if (FX) FX.sound("error");
       return;
     }
     state.phase = "fortify";
@@ -1172,13 +1471,15 @@
     state.fortifyTo = null;
     state.pendingMove = null;
     state.notice = "التحصين: اختر إقليمًا مصدرًا فيه أكثر من كتيبة.";
+    if (FX) FX.sound("select");
     render();
   }
 
   function fortifyClick(terrId) {
-    if (!state || state.phase !== "fortify" || state.pendingMove) return;
+    if (!state || state.phase !== "fortify" || state.over || state.pendingMove) return;
     if (state.owner[terrId] !== state.current) {
       BG.toast("اختر أراضيك فقط.", "warn");
+      if (FX) FX.sound("error");
       return;
     }
     if (!state.fortifyFrom) {
@@ -1196,13 +1497,14 @@
       state.notice = rule("fortify") === "anywhere"
         ? "اختر أي إقليم تملكه لنقل الكتائب إليه."
         : "اختر إقليمًا مجاورًا تملكه لنقل الكتائب إليه.";
+      if (FX) FX.sound("select");
       render();
       return;
     }
     if (terrId === state.fortifyFrom) {
       state.fortifyFrom = null;
       state.fortifyTo = null;
-      state.notice = "أُلغي التحصين — اختر مصدرًا جديدًا.";
+      state.notice = "أُلغي اختيار المصدر — اختر مصدرًا جديدًا.";
       render();
       return;
     }
@@ -1222,6 +1524,7 @@
       from: state.fortifyFrom,
       to: terrId,
       max: available,
+      min: 1,
       value: Math.min(3, available),
     };
     state.notice = "حدّد عدد الكتائب المنقولة من " + TERR_BY_ID[state.fortifyFrom].name + " إلى " + TERR_BY_ID[terrId].name + " ثم أكّد.";
@@ -1230,7 +1533,7 @@
   }
 
   function performFortify(from, to, move, opts) {
-    if (!state || !from || !to) return;
+    if (!state || !from || !to || state.over) return;
     const available = state.troops[from] - 1;
     if (available < 1) return;
     if (!fortifyTargets(from).includes(to)) return;
@@ -1247,19 +1550,27 @@
     state.fortifyUsed = !unlimited;
     if (FX) {
       FX.sound("move");
-      FX.after(() => {
-        const el = rootRef && rootRef.querySelector('[data-terr="' + to + '"]');
-        if (el) { FX.pop(el); FX.floatText(el, "+" + amount, "good"); }
-      }, 30);
+      animateMarch(from, to, amount, "fortify");
     }
-    apiRef.log("حصّن <strong>" + U.escape(state.players[state.current].name) + "</strong> " + U.escape(TERR_BY_ID[to].name) + " بـ" + amount + " كتيبة.", "");
+    apiRef.log("حصّن <strong>" + U.escape(playerName(state.current)) + "</strong> " + U.escape(TERR_BY_ID[to].name) + " بـ" + amount + " كتيبة.", "");
     state.notice = "تم التحصين: " + amount + " كتيبة إلى " + TERR_BY_ID[to].name + ".";
+    if (checkVictory()) return;
+    if (!unlimited) {
+      endTurn();
+      return;
+    }
     render();
-    if (!unlimited) endTurn();
   }
 
   function cancelFortify() {
     if (!state) return;
+    if (state.pendingMove && state.pendingMove.kind === "fortify") {
+      state.pendingMove = null;
+      state.fortifyTo = null;
+      state.notice = "أُلغي النقل — اختر وجهة أخرى، أو اضغط «رجوع» ثانية للخروج من التحصين.";
+      render();
+      return;
+    }
     state.pendingMove = null;
     state.fortifyFrom = null;
     state.fortifyTo = null;
@@ -1269,50 +1580,10 @@
     render();
   }
 
-  /* ------------------------------ البطاقات ------------------------------ */
-
-  function exchangeCards() {
-    if (!state || state.phase !== "reinforce") return;
-    const player = cur();
-    const set = findSet(player.cards);
-    if (!set) {
-      BG.toast("تحتاج ثلاث بطاقات متشابهة أو واحدة من كل نوع.", "warn");
-      return;
-    }
-    const removed = set.indices
-      .slice()
-      .sort((a, b) => b - a)
-      .map((i) => player.cards.splice(i, 1)[0])
-      .filter(Boolean);
-    if (rule("cards") === "classic") state.discard = state.discard.concat(removed);
-    const bonus = nextTradeValue();
-    state.cardTrades += 1;
-    player.exchanges += 1;
-    state.toPlace += bonus;
-    apiRef.log("بدّل <strong>" + U.escape(player.name) + "</strong> " + removed.map(cardLabel).join(" + ") + " مقابل " + bonus + " كتيبة.", "good");
-    state.notice = "+" + bonus + " كتيبة من البطاقات — بقيت " + state.toPlace + " للتعزيز.";
-    if (FX) FX.sound("coin");
-    render();
-  }
-
-  function drawCard(player) {
-    if (rule("cards") === "off" || !player) return null;
-    let card = null;
-    if (rule("cards") === "simple") {
-      card = { t: U.pick(CARD_KEYS), terr: null };
-    } else {
-      if (!state.deck.length) {
-        state.deck = U.shuffle(state.discard.slice());
-        state.discard = [];
-      }
-      card = state.deck.pop() || { t: "wild", terr: null };
-    }
-    player.cards.push(card);
-    return card;
-  }
+  /* ------------------------------ إنهاء الدور ------------------------------ */
 
   function endTurn() {
-    if (!state || state.phase === "over" || state.over) return;
+    if (!state || state.over || state.phase === "over") return;
     if (state.pendingMove) {
       BG.toast("أكّد نقل الكتائب أولًا.", "warn");
       return;
@@ -1327,13 +1598,21 @@
       return;
     }
     const player = cur();
-    if (state.conquered && player.cards.length < 5) {
+    if (!player) return;
+    if (handLimitBlocked(player)) {
+      BG.toast("لديك 5 بطاقات ومجموعة صالحة — بدّلها قبل إنهاء الدور.", "warn");
+      state.notice = "يجب تبديل مجموعة بطاقات قبل إنهاء الدور (الحد 5 بطاقات).";
+      if (FX) FX.sound("error");
+      render();
+      return;
+    }
+    if (state.conquered && rule("cards") !== "off" && player.cards.length < 5) {
       const card = drawCard(player);
       if (card) {
         apiRef.log("حصل <strong>" + U.escape(player.name) + "</strong> على بطاقة " + U.escape(cardLabel(card)) + ".", "accent");
         if (FX) FX.sound("card");
       }
-    } else if (state.conquered && player.cards.length >= 5) {
+    } else if (state.conquered && rule("cards") !== "off" && player.cards.length >= 5) {
       apiRef.log("يد <strong>" + U.escape(player.name) + "</strong> ممتلئة (5 بطاقات) — لا يسحب بطاقة جديدة.", "warn");
     }
     state.selected = null;
@@ -1341,29 +1620,33 @@
     state.fortifyTo = null;
     state.pendingMove = null;
     const next = nextPlayer(state.current);
+    if (next === state.current) {
+      checkVictory();
+      return;
+    }
     beginTurn(next);
   }
 
-  /* ------------------------------ الكمبيوتر ------------------------------ */
+  /* ------------------------------ الذكاء الاصطناعي ------------------------------ */
 
-  function cpuContinentProgress(id, p) {
+  function continentProgressScore(id, p) {
     const terr = TERR_BY_ID[id];
-    if (!terr) return 0;
-    const all = TERRITORIES.filter((t) => t.c === terr.c);
-    const own = all.filter((t) => state.owner[t.id] === p.index).length;
+    if (!terr || !p) return 0;
+    const all = CONTINENT_TERRITORIES[terr.c] || [];
+    const own = all.filter((tid) => state.owner[tid] === p.index).length;
     const bonus = CONTINENTS[terr.c] ? CONTINENTS[terr.c].bonus : 0;
-    if (own === all.length) return bonus * 1.2;
-    if (own === all.length - 1) return bonus * 0.75;
+    if (all.length && own === all.length) return bonus * 1.2;
+    if (all.length && own === all.length - 1) return bonus * 0.75;
     return (own / Math.max(1, all.length)) * bonus * 0.3;
   }
 
   function cpuTerritoryScore(id, p) {
     const enemies = adjacentEnemies(id, p.index);
-    let score = enemies.length * 2.6;
-    enemies.forEach((e) => { score += state.troops[e] * 0.35; });
-    score += cpuContinentProgress(id, p);
-    score += state.troops[id] * 0.18;
-    if (enemies.length === 0) score -= 2;
+    let score = enemies.length * 2.4;
+    enemies.forEach((e) => { score += state.troops[e] * 0.32; });
+    score += continentProgressScore(id, p) * 1.5;
+    score += state.troops[id] * 0.16;
+    if (enemies.length === 0) score -= 1.8;
     return score;
   }
 
@@ -1376,12 +1659,14 @@
   function cpuClaimScore(id, p) {
     const terr = TERR_BY_ID[id];
     if (!terr) return 0;
-    const all = TERRITORIES.filter((t) => t.c === terr.c);
-    const own = all.filter((t) => state.owner[t.id] === p.index).length;
+    const all = CONTINENT_TERRITORIES[terr.c] || [];
+    const own = all.filter((tid) => state.owner[tid] === p.index).length;
     const neighbours = ADJ[id] || [];
     const ownN = neighbours.filter((n) => state.owner[n] === p.index).length;
     const enemyN = neighbours.filter((n) => state.owner[n] >= 0 && state.owner[n] !== p.index).length;
-    return own * 1.6 + ownN * 2.4 - enemyN * 0.4 + (CONTINENTS[terr.c] ? CONTINENTS[terr.c].bonus * 0.2 : 0) + Math.random() * 0.5;
+    const unownedN = neighbours.filter((n) => state.owner[n] < 0).length;
+    return own * 1.7 + ownN * 2.6 + unownedN * 0.5 - enemyN * 0.35 +
+      (CONTINENTS[terr.c] ? CONTINENTS[terr.c].bonus * 0.22 : 0) + Math.random() * 0.45;
   }
 
   function cpuClaimStep() {
@@ -1396,6 +1681,13 @@
     return true;
   }
 
+  function autoClaim() {
+    if (!state || state.phase !== "claim" || !canControl()) return;
+    if (!cpuClaimStep()) {
+      BG.toast("لا توجد أراضٍ متاحة للاختيار.", "warn");
+    }
+  }
+
   function cpuSetupStep() {
     if (!state || state.phase !== "setup") return false;
     const p = state.players[state.setupPlayer];
@@ -1407,6 +1699,7 @@
   function cpuReinforceStep() {
     if (!state || state.phase !== "reinforce") return false;
     const p = cur();
+    if (!p) return false;
     if (state.toPlace <= 0) return false;
     if (canExchange(p)) {
       exchangeCards();
@@ -1414,7 +1707,10 @@
     }
     const list = territoriesOf(p.index);
     const id = cpuPickTerritory(list, p);
-    if (id == null) return false;
+    if (id == null) {
+      endTurn();
+      return false;
+    }
     placeReinforcement(id);
     return true;
   }
@@ -1422,8 +1718,12 @@
   function attackWinChance(a, d) {
     const aa = Math.max(1, Math.min(3, a));
     const dd = Math.max(1, Math.min(2, d));
-    const table = { "1,1": 0.583, "1,2": 0.254, "2,1": 0.578, "2,2": 0.228, "3,1": 0.659, "3,2": 0.371 };
-    return table[aa + "," + dd] || (aa > dd ? 0.62 : 0.32);
+    const table = {
+      "1,1": 0.583, "1,2": 0.254,
+      "2,1": 0.578, "2,2": 0.228,
+      "3,1": 0.659, "3,2": 0.371,
+    };
+    return table[aa + "," + dd] || 0.4;
   }
 
   function cpuAttackOptions(p) {
@@ -1433,10 +1733,12 @@
       if (a < 1) return;
       adjacentEnemies(src, p.index).forEach((dst) => {
         const d = state.troops[dst];
+        if (d <= 0) return;
         const chance = attackWinChance(a, d);
-        const bonus = cpuContinentProgress(dst, p);
-        let score = (chance - 0.45) * 12 + (a - d) * 0.9 + bonus;
-        if (d <= 1) score += 1.5;
+        const bonus = continentProgressScore(dst, p);
+        let score = chance * (d + 1) - (1 - chance) * (Math.min(a, 3) * 0.7) + bonus * 1.8;
+        if (d <= 1) score += 1.35;
+        if (state.owner[dst] >= 0 && state.players[state.owner[dst]].eliminated) score += 2;
         options.push({ src, dst, score, chance });
       });
     });
@@ -1444,19 +1746,18 @@
   }
 
   function cpuAttackThreshold(level) {
-    if (level === "easy") return 3.6;
-    if (level === "hard") return 0.4;
-    return 1.3;
+    if (level === "easy") return 1.15;
+    if (level === "hard") return -0.25;
+    return 0.08;
   }
 
   function cpuFortifyMove(p) {
-    const perTurn = rule("fortify");
-    if (perTurn === "none") return null;
+    if (!p || rule("fortify") === "none" || state.fortifyUsed) return null;
     const sources = territoriesOf(p.index)
-      .filter((id) => state.troops[id] >= 3 && fortifyTargets(id).length)
+      .filter((id) => state.troops[id] >= 3 && fortifyTargets(id, p.index).length)
       .sort((a, b) => state.troops[b] - state.troops[a]);
     for (const src of sources) {
-      const targets = fortifyTargets(src)
+      const targets = fortifyTargets(src, p.index)
         .filter((id) => adjacentEnemies(id, p.index).length > 0)
         .sort((a, b) => adjacentEnemies(b, p.index).length - adjacentEnemies(a, p.index));
       if (!targets.length) continue;
@@ -1467,7 +1768,7 @@
     }
     for (const src of sources) {
       if (adjacentEnemies(src, p.index).length > 0) continue;
-      const targets = fortifyTargets(src)
+      const targets = fortifyTargets(src, p.index)
         .filter((id) => adjacentEnemies(id, p.index).length > 0)
         .sort((a, b) => adjacentEnemies(b, p.index).length - adjacentEnemies(a, p.index));
       if (!targets.length) continue;
@@ -1478,8 +1779,22 @@
     return null;
   }
 
+  function cpuConfirmPending() {
+    if (!state || !state.pendingMove || state.over) return false;
+    const pm = state.pendingMove;
+    if (pm.kind === "fortify") {
+      const move = clamp(Math.max(pm.min || 1, Math.round(pm.max * 0.6)), pm.min || 1, pm.max);
+      performFortify(pm.from, pm.to, move, { forceEnd: true });
+      return true;
+    }
+    applyConquestMove(pm.max);
+    return true;
+  }
+
   function cpuFinishAttackPhase() {
+    if (!state || state.over) return;
     const p = cur();
+    if (!p) return;
     if (rule("fortify") !== "none" && !state.fortifyUsed) {
       const move = cpuFortifyMove(p);
       if (move) {
@@ -1491,232 +1806,756 @@
   }
 
   function cpuAttackStep() {
-    if (!state || state.phase !== "attack" || state.pendingMove) return;
+    if (!state || state.over || state.phase !== "attack" || state.pendingMove) return;
     const p = cur();
-    if (cpuAttacks >= 12) { cpuFinishAttackPhase(); return; }
-
+    if (!p) return;
+    if (aiAttackCount >= 18) {
+      cpuFinishAttackPhase();
+      return;
+    }
     const threshold = cpuAttackThreshold(AI.level(p.level));
     const options = cpuAttackOptions(p).filter((option) => option.score >= threshold);
-    if (!options.length) { cpuFinishAttackPhase(); return; }
-
-    if (AI.level(p.level) === "easy" && Math.random() < 0.2) { cpuFinishAttackPhase(); return; }
+    if (!options.length) {
+      cpuFinishAttackPhase();
+      return;
+    }
+    if (AI.level(p.level) === "easy" && Math.random() < 0.18) {
+      cpuFinishAttackPhase();
+      return;
+    }
     const best = AI.choose(options, (option) => option.score, p.level);
-    if (!best) { cpuFinishAttackPhase(); return; }
-
-    if (state.selected !== best.src) selectForAttack(best.src);
-    if (state.selected !== best.src) { cpuFinishAttackPhase(); return; }
-    cpuAttacks += 1;
+    if (!best) {
+      cpuFinishAttackPhase();
+      return;
+    }
+    if (state.selected !== best.src) {
+      selectForAttack(best.src);
+    }
+    if (state.selected !== best.src) {
+      cpuFinishAttackPhase();
+      return;
+    }
+    state.attackDice = clamp(3, 1, Math.max(1, state.troops[best.src] - 1));
+    aiAttackCount += 1;
     attack(best.dst);
   }
 
   function syncCpu() {
     if (!aiRunner) return;
     aiRunner.clear();
-    if (!state || state.over || state.pendingMove) return;
+    if (!state || state.over || !rootRef) return;
+
+    let seatPlayer = null;
+    if (state.phase === "claim") seatPlayer = state.players[state.claimPlayer];
+    else if (state.phase === "setup") seatPlayer = state.players[state.setupPlayer];
+    else if (state.phase !== "over") seatPlayer = cur();
+    if (!seatPlayer || !AI.isCpu(seatPlayer) || !AI.autoAllowed(apiRef, seatPlayer)) return;
+
+    const wait = AI.delay(seatPlayer.level, 0.82);
+    const guard = (fn, phase) => () => {
+      if (!state || state.over) return;
+      if (phase && state.phase !== phase) return;
+      if (state.phase === "claim" || state.phase === "setup") {
+        const seat = state.phase === "claim" ? state.claimPlayer : state.setupPlayer;
+        if (seat !== seatPlayer.index) return;
+      } else if (state.current !== seatPlayer.index) return;
+      fn();
+    };
+
+    if (state.pendingMove) {
+      aiRunner.later(guard(cpuConfirmPending, state.phase), wait);
+      return;
+    }
 
     if (state.phase === "claim") {
-      const p = state.players[state.claimPlayer];
-      if (!p || !AI.isCpu(p) || !AI.autoAllowed(apiRef, p)) return;
-      const wait = AI.delay(p.level, 0.65);
-      aiRunner.later(() => {
-        if (!state || state.over || state.phase !== "claim" || state.claimPlayer !== p.index) return;
-        cpuClaimStep();
-      }, wait);
+      aiRunner.later(guard(cpuClaimStep, "claim"), wait);
       return;
     }
-
     if (state.phase === "setup") {
-      const p = state.players[state.setupPlayer];
-      if (!p || !AI.isCpu(p) || !AI.autoAllowed(apiRef, p)) return;
-      const wait = AI.delay(p.level, 0.7);
-      aiRunner.later(() => {
-        if (!state || state.over || state.phase !== "setup" || state.setupPlayer !== p.index) return;
-        cpuSetupStep();
-      }, wait);
+      aiRunner.later(guard(cpuSetupStep, "setup"), wait);
       return;
     }
-
-    const seat = cur();
-    if (!seat || !AI.isCpu(seat) || !AI.autoAllowed(apiRef, seat)) return;
-    const wait = AI.delay(seat.level, 0.75);
-
     if (state.phase === "reinforce") {
-      aiRunner.later(() => {
-        if (!state || state.over || state.phase !== "reinforce" || !AI.isCpu(cur())) return;
-        cpuReinforceStep();
-      }, wait);
+      aiRunner.later(guard(cpuReinforceStep, "reinforce"), wait);
       return;
     }
-
     if (state.phase === "attack") {
-      aiRunner.later(() => {
-        if (!state || state.over || state.phase !== "attack" || state.pendingMove || !AI.isCpu(cur())) return;
-        cpuAttackStep();
-      }, wait);
+      aiRunner.later(guard(cpuAttackStep, "attack"), wait);
       return;
     }
-
     if (state.phase === "fortify") {
-      aiRunner.later(() => {
-        if (!state || state.over || state.phase !== "fortify" || state.pendingMove || !AI.isCpu(cur())) return;
-        cpuFinishAttackPhase();
-      }, wait);
+      aiRunner.later(guard(cpuFinishAttackPhase, "fortify"), wait);
     }
   }
 
-  /* ------------------------------ العرض ------------------------------ */
+  /* ------------------------------ الخريطة والواجهة ------------------------------ */
+
+  const MAP_W = GEO ? GEO.width : 1200;
+  const MAP_H = GEO ? GEO.height : 640;
+  const MAP_RATIO = MAP_W / MAP_H;
+
+  let mapViewport = null;
+  let sideTop = null;
+  let sideRest = null;
+  let noticeEl = null;
+  let zoomLabelEl = null;
+  let routeLayer = null;
+  let pathLayer = null;
+  let nodeLayer = null;
+  let terrRefs = {};
+  let nodeRefs = {};
+  let pathRefs = {};
+  let nodeScaleValue = 1;
+  let focusedContinent = null;
+  let lastRouteKey = null;
+  let boundRoot = null;
+  let resizeHandler = null;
+  let panState = null;
+  let lastDragAt = 0;
 
   function svgEscape(text) {
-    return U.escape(text);
+    return U.escape(text == null ? "" : String(text));
+  }
+
+  function hexToRgba(hex, alpha) {
+    const value = String(hex || "").replace("#", "");
+    const full = value.length === 3 ? value.split("").map((c) => c + c).join("") : value;
+    const num = parseInt(full || "7d9098", 16);
+    const r = (num >> 16) & 255;
+    const g = (num >> 8) & 255;
+    const b = num & 255;
+    return "rgba(" + r + "," + g + "," + b + "," + (alpha == null ? 1 : alpha) + ")";
+  }
+
+  function territoryBaseFill(code) {
+    const info = CONTINENTS[code];
+    return hexToRgba(info ? info.color : "#7d9098", 0.34);
   }
 
   function curvePath(a, b, bend) {
-    const dx = b.x - a.x;
-    const dy = b.y - a.y;
+    const ax = a[0];
+    const ay = a[1];
+    const bx = b[0];
+    const by = b[1];
+    const dx = bx - ax;
+    const dy = by - ay;
     const len = Math.hypot(dx, dy) || 1;
-    const midX = (a.x + b.x) / 2;
-    const midY = (a.y + b.y) / 2;
-    const offset = clamp(len * 0.16, 12, 54) * (bend || 1);
+    const midX = (ax + bx) / 2;
+    const midY = (ay + by) / 2;
+    const offset = clamp(len * 0.16, 10, 46) * (bend || 1);
     const cx = midX - (dy / len) * offset;
     const cy = midY + (dx / len) * offset;
-    return "M" + a.x + " " + a.y + " Q" + cx + " " + cy + " " + b.x + " " + b.y;
+    return "M" + ax + " " + ay + " Q" + cx + " " + cy + " " + bx + " " + by;
+  }
+
+  function dieHTML(value, kind, index) {
+    const pips = {
+      1: [4],
+      2: [0, 8],
+      3: [0, 4, 8],
+      4: [0, 2, 6, 8],
+      5: [0, 2, 4, 6, 8],
+      6: [0, 2, 3, 5, 6, 8],
+    };
+    const faces = pips[clamp(Number(value) || 1, 1, 6)] || pips[1];
+    return '<span class="risk-die ' + kind + '" style="--i:' + (index || 0) + '">' +
+      faces.map((n) => '<i style="grid-area:' + (Math.floor(n / 3) + 1) + "/" + (n % 3 + 1) + '"></i>').join("") +
+      "</span>";
+  }
+
+  // ضبط مواضع الأسماء في المناطق المزدحمة (أوروبا أساسًا) ووصلها بخطوط رفيعة.
+  const NAME_TWEAKS = {
+    iceland: { x: 502, y: 96, anchor: "end" },
+    britain: { x: 512, y: 146, anchor: "end" },
+    scandinavia: { x: 622, y: 78, anchor: "middle" },
+    neurope: { x: 620, y: 140, anchor: "start" },
+    weurope: { x: 508, y: 212, anchor: "end" },
+    seurope: { x: 670, y: 222, anchor: "start" },
+    ukraine: { x: 700, y: 168, anchor: "start" },
+    egypt: { x: 690, y: 282, anchor: "start" },
+    mideast: { x: 735, y: 260, anchor: "start" },
+  };
+  const MAP_NAMES = {
+    neurope: "شمال أوروبا",
+    weurope: "غرب أوروبا",
+    seurope: "جنوب أوروبا",
+  };
+  const NAME_LEADERS = {
+    iceland: true,
+    britain: true,
+    neurope: true,
+    weurope: true,
+    seurope: true,
+    ukraine: true,
+    egypt: true,
+    mideast: true,
+  };
+
+  function namePos(id, geo) {
+    const tweak = NAME_TWEAKS[id];
+    if (tweak) return { x: tweak.x, y: tweak.y, anchor: tweak.anchor };
+    const pos = geo.name || geo.label;
+    return { x: pos[0], y: pos[1], anchor: geo.anchor || "middle" };
+  }
+
+  function leaderPath(id, pos, node) {
+    if (!NAME_LEADERS[id]) return "";
+    let sx = pos.x;
+    let sy = pos.y - 4;
+    if (pos.anchor === "end") sx = pos.x + 5;
+    else if (pos.anchor === "start") sx = pos.x - 5;
+    else sy = pos.y + 6;
+    return '<path class="risk-leader" d="M' + sx + " " + sy + " L" + node[0] + " " + node[1] + '"/>';
   }
 
   function mapSVG() {
+    if (!GEO) {
+      return '<div class="risk-map-missing">تعذّر تحميل بيانات الخريطة. أعد تحميل الصفحة.</div>';
+    }
     const parts = [];
-    parts.push('<svg viewBox="' + MAP.viewBox + '" class="risk-map risk-map-' + MAP.id + '" role="img" aria-label="خريطة ريسك — ' + svgEscape(MAP.name) + '">');
+    parts.push('<svg class="risk-map" viewBox="0 0 ' + MAP_W + " " + MAP_H + '" role="img" aria-label="خريطة ريسك — العالم الكلاسيكي بـ42 إقليمًا" preserveAspectRatio="xMidYMid meet">');
 
     const defs = [];
-    defs.push('<radialGradient id="riskSea" cx="50%" cy="38%" r="78%"><stop offset="0%" stop-color="#123540"/><stop offset="52%" stop-color="#0a2029"/><stop offset="100%" stop-color="#060f14"/></radialGradient>');
-    defs.push('<radialGradient id="riskVignette" cx="50%" cy="50%" r="72%"><stop offset="62%" stop-color="rgba(0,0,0,0)"/><stop offset="100%" stop-color="rgba(0,0,0,0.45)"/></radialGradient>');
-    defs.push('<pattern id="riskWaves" width="46" height="22" patternUnits="userSpaceOnUse"><path d="M0 11 Q11 6 23 11 T46 11" stroke="rgba(120,190,255,0.11)" stroke-width="1.2" fill="none"/></pattern>');
-    defs.push('<pattern id="riskGrid" width="60" height="60" patternUnits="userSpaceOnUse"><path d="M60 0H0V60" stroke="rgba(140,200,230,0.05)" stroke-width="1" fill="none"/></pattern>');
-    defs.push('<radialGradient id="riskGloss" cx="35%" cy="30%" r="72%"><stop offset="0%" stop-color="rgba(255,255,255,0.55)"/><stop offset="100%" stop-color="rgba(255,255,255,0)"/></radialGradient>');
-    defs.push('<filter id="riskGlow" x="-70%" y="-70%" width="240%" height="240%"><feDropShadow dx="0" dy="4" stdDeviation="5" flood-color="#000" flood-opacity="0.72"/></filter>');
+    defs.push('<radialGradient id="riskSea" cx="50%" cy="42%" r="82%"><stop offset="0%" stop-color="#153843"/><stop offset="48%" stop-color="#0a2029"/><stop offset="100%" stop-color="#050e13"/></radialGradient>');
+    defs.push('<radialGradient id="riskVignette" cx="50%" cy="50%" r="74%"><stop offset="58%" stop-color="rgba(0,0,0,0)"/><stop offset="100%" stop-color="rgba(0,0,0,0.48)"/></radialGradient>');
+    defs.push('<filter id="riskGlow" x="-80%" y="-80%" width="260%" height="260%"><feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="#000" flood-opacity="0.7"/></filter>');
     defs.push('<filter id="riskSoft" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="1.4"/></filter>');
-    Object.keys(CONTINENTS).forEach((code) => {
-      const info = CONTINENTS[code];
-      defs.push('<linearGradient id="riskG-' + code + '" x1="0" y1="0" x2="0.85" y2="1"><stop offset="0%" stop-color="' + info.color + '" stop-opacity="0.46"/><stop offset="58%" stop-color="' + info.color + '" stop-opacity="0.26"/><stop offset="100%" stop-color="' + info.color + '" stop-opacity="0.1"/></linearGradient>');
+    defs.push('<marker id="riskArrowAttack" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#ffb27a"/></marker>');
+    defs.push('<marker id="riskArrowFort" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#8fe8c4"/></marker>');
+    defs.push('<marker id="riskArrowMove" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#f6f2e8"/></marker>');
+    Object.keys(GEO.clips || {}).forEach((key) => {
+      defs.push('<clipPath id="riskClip-' + key + '"><path d="' + GEO.clips[key] + '"/></clipPath>');
     });
-    defs.push('<marker id="riskArrow" viewBox="0 0 10 10" refX="8.4" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#ffb27a"/></marker>');
-    defs.push('<marker id="riskArrowF" viewBox="0 0 10 10" refX="8.4" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#8fe8c4"/></marker>');
     parts.push("<defs>" + defs.join("") + "</defs>");
 
-    parts.push('<rect width="960" height="560" fill="url(#riskSea)"/>');
-    parts.push('<rect width="960" height="560" fill="url(#riskGrid)" opacity="0.9"/>');
-    parts.push('<rect width="960" height="560" fill="url(#riskWaves)" opacity="0.5"/>');
-    parts.push('<g class="risk-ocean-lines" aria-hidden="true">' +
-      '<path d="M0 390 Q240 330 480 392 T960 380" class="risk-lat"/>' +
-      '<path d="M0 470 Q260 512 520 462 T960 500" class="risk-lat"/>' +
-      '<path d="M120 560 Q300 430 460 240 T780 12" class="risk-lat"/>' +
-      '</g>');
-    parts.push('<rect width="960" height="560" fill="url(#riskVignette)"/>');
+    parts.push('<rect class="risk-sea-rect" width="' + MAP_W + '" height="' + MAP_H + '" fill="url(#riskSea)"/>');
+    if (GEO.graticule) {
+      parts.push('<path class="risk-graticule" d="' + GEO.graticule + '" fill="none" stroke="rgba(140,200,230,0.10)" stroke-width="1"/>');
+    }
 
-    Object.keys(CONTINENTS).forEach((code) => {
-      const info = CONTINENTS[code];
-      parts.push('<path d="' + info.blob + '" fill="url(#riskG-' + code + ')" stroke="' + info.color + '" stroke-opacity="0.5" stroke-width="2.4" class="risk-cont-shape"/>');
-      parts.push('<path d="' + info.blob + '" fill="none" stroke="rgba(255,255,255,0.14)" stroke-width="1" opacity="0.7" filter="url(#riskSoft)"/>');
+    parts.push('<g class="risk-cont-labels" aria-hidden="true">');
+    Object.keys(GEO.continents || {}).forEach((code) => {
+      const c = GEO.continents[code];
+      if (!c || !c.label || !CONTINENTS[code] || code === "eu") return;
+      parts.push('<text class="risk-cont-label" x="' + c.label[0] + '" y="' + c.label[1] + '" text-anchor="middle">' + svgEscape(CONTINENTS[code].short) + "</text>");
+    });
+    parts.push("</g>");
+
+    parts.push('<g class="risk-terr-layer">');
+    TERRITORIES.forEach((t) => {
+      const geo = GEO.territories ? GEO.territories[t.id] : null;
+      if (!geo) return;
+      parts.push('<g class="risk-terr" data-terr="' + t.id + '" data-cont="' + t.c + '" role="button" tabindex="-1" aria-label="' + svgEscape(t.name) + '">');
+      parts.push("<title>" + svgEscape(t.name) + "</title>");
+      geo.parts.forEach((part) => {
+        const clip = part.clip ? ' clip-path="url(#riskClip-' + part.clip + ')"' : "";
+        parts.push('<path class="risk-terr-path" d="' + part.d + '" fill="' + territoryBaseFill(t.c) + '"' + clip + "/>");
+      });
+      parts.push("</g>");
+    });
+    parts.push("</g>");
+
+    routeLayer = null;
+    parts.push('<g class="risk-sea-layer" aria-hidden="true">');
+    SEA_ROUTES.forEach((pair, i) => {
+      const a = GEO.territories[pair[0]];
+      const b = GEO.territories[pair[1]];
+      if (!a || !b) return;
+      const d = curvePath(a.label, b.label, i % 2 ? -0.72 : 0.72);
+      parts.push('<path class="risk-sea-route" d="' + d + '" marker-end="url(#riskArrowFort)"/>');
+    });
+    parts.push("</g>");
+
+    parts.push('<g class="risk-path-layer" aria-hidden="true"></g>');
+    parts.push('<g class="risk-march-layer" aria-hidden="true"></g>');
+
+    parts.push('<g class="risk-leader-layer" aria-hidden="true">');
+    TERRITORIES.forEach((t) => {
+      const geo = GEO.territories ? GEO.territories[t.id] : null;
+      if (!geo) return;
+      parts.push(leaderPath(t.id, namePos(t.id, geo), geo.label));
+    });
+    parts.push("</g>");
+
+    parts.push('<g class="risk-name-layer" aria-hidden="true">');
+    TERRITORIES.forEach((t) => {
+      const geo = GEO.territories ? GEO.territories[t.id] : null;
+      if (!geo) return;
+      const pos = namePos(t.id, geo);
+      parts.push('<text class="risk-name' + (NAME_TWEAKS[t.id] ? " is-tweaked" : "") + '" data-for="' + t.id + '" x="' + pos.x + '" y="' + pos.y + '" text-anchor="' + pos.anchor + '">' + svgEscape(MAP_NAMES[t.id] || t.name) + "</text>");
+    });
+    parts.push("</g>");
+
+    parts.push('<g class="risk-node-layer">');
+    TERRITORIES.forEach((t) => {
+      const geo = GEO.territories ? GEO.territories[t.id] : null;
+      if (!geo) return;
+      const pos = geo.label;
+      parts.push('<g class="risk-node" data-terr="' + t.id + '" role="button" tabindex="0" aria-label="' + svgEscape(t.name) + '" transform="translate(' + pos[0] + "," + pos[1] + ')">');
+      parts.push("<title>" + svgEscape(t.name) + "</title>");
+      parts.push('<circle class="risk-node-halo" r="19"/>');
+      parts.push('<circle class="risk-node-body" r="13" fill="#1b2a31"/>');
+      parts.push('<text class="risk-troops" text-anchor="middle" y="4">?</text>');
+      parts.push("</g>");
+    });
+    parts.push("</g>");
+
+    parts.push('<rect class="risk-vignette" width="' + MAP_W + '" height="' + MAP_H + '" fill="url(#riskVignette)" pointer-events="none"/>');
+    parts.push("</svg>");
+    return parts.join("");
+  }
+
+  function cacheMapRefs() {
+    terrRefs = {};
+    nodeRefs = {};
+    pathRefs = {};
+    if (!mapSvg) return;
+    mapSvg.querySelectorAll(".risk-terr").forEach((g) => {
+      const id = g.getAttribute("data-terr");
+      if (!id) return;
+      terrRefs[id] = g;
+      pathRefs[id] = Array.prototype.slice.call(g.querySelectorAll("path"));
+    });
+    mapSvg.querySelectorAll(".risk-node").forEach((g) => {
+      const id = g.getAttribute("data-terr");
+      if (!id) return;
+      nodeRefs[id] = {
+        g,
+        body: g.querySelector(".risk-node-body"),
+        text: g.querySelector(".risk-troops"),
+      };
+    });
+    routeLayer = mapSvg.querySelector(".risk-path-layer");
+    pathLayer = mapSvg.querySelector(".risk-path-layer");
+    nodeLayer = mapSvg.querySelector(".risk-node-layer");
+  }
+
+  function ensureResize() {
+    if (resizeHandler) return;
+    resizeHandler = () => {
+      if (!mapSvg) return;
+      applyCamera();
+    };
+    window.addEventListener("resize", resizeHandler);
+    window.addEventListener("orientationchange", resizeHandler);
+  }
+
+  function teardownShell() {
+    if (resizeHandler) {
+      window.removeEventListener("resize", resizeHandler);
+      window.removeEventListener("orientationchange", resizeHandler);
+      resizeHandler = null;
+    }
+    if (cameraAnim) {
+      cancelAnimationFrame(cameraAnim);
+      cameraAnim = null;
+    }
+    boundRoot = null;
+    panState = null;
+  }
+
+  function buildShell() {
+    if (!rootRef) return;
+    rootRef.innerHTML = "";
+
+    const wrap = document.createElement("div");
+    wrap.className = "risk-layout";
+
+    const board = document.createElement("section");
+    board.className = "risk-board-wrap";
+    board.innerHTML =
+      '<div class="board-head risk-board-head">' +
+      '<span class="risk-head-icon" aria-hidden="true">🌍</span>' +
+      '<div class="board-head-copy"><span class="board-head-kicker">غرفة العمليات · خريطة العالم</span><strong>ريسك — السيطرة على العالم</strong><small class="risk-map-sub">42 إقليمًا · 6 قارات · Natural Earth</small></div>' +
+      '<div class="risk-zoom" role="group" aria-label="تكبير الخريطة والتنقل">' +
+      '<button type="button" data-zoom="-1" aria-label="تصغير الخريطة">−</button>' +
+      '<span data-zoom-label>100%</span>' +
+      '<button type="button" data-zoom="1" aria-label="تكبير الخريطة">+</button>' +
+      '<button type="button" data-zoom="0" aria-label="عرض العالم كاملًا">⌂</button>' +
+      "</div>" +
+      "</div>" +
+      '<div class="risk-continents" role="group" aria-label="الانتقال إلى قارة">' +
+      '<button type="button" class="risk-cont-chip is-world" data-focus="world"><span class="risk-cont-dot"></span><span>العالم</span></button>' +
+      Object.keys(CONTINENTS).map((code) => {
+        const info = CONTINENTS[code];
+        return '<button type="button" class="risk-cont-chip" data-focus="' + code + '" style="--cc:' + info.color + '">' +
+          '<span class="risk-cont-dot"></span><span>' + svgEscape(info.short) + '</span><b>+' + info.bonus + '</b>' +
+          '<small data-chip-count>0/' + (CONTINENT_TERRITORIES[code] || []).length + "</small></button>";
+      }).join("") +
+      "</div>" +
+      '<div class="risk-map-viewport" data-map-viewport>' +
+      '<div class="risk-map-stage">' + mapSVG() + "</div>" +
+      "</div>" +
+      '<div class="risk-map-foot"><span class="risk-map-hint">اسحب الخريطة للتنقل · اضغط قارة للتركيز · الأرقام هي كتائب الإقليم</span><span class="risk-map-zoom-read" data-zoom-read>100%</span></div>' +
+      '<div class="risk-notice" data-notice aria-live="polite"></div>';
+
+    const side = document.createElement("aside");
+    side.className = "risk-side";
+    side.innerHTML = '<div data-side-top></div><div class="risk-secret-slot" data-secret-slot></div><div data-side-rest></div>';
+    wrap.appendChild(board);
+    wrap.appendChild(side);
+    rootRef.appendChild(wrap);
+
+    mapShell = board;
+    sideEl = side;
+    mapViewport = board.querySelector("[data-map-viewport]");
+    mapSvg = board.querySelector("svg.risk-map");
+    noticeEl = board.querySelector("[data-notice]");
+    zoomLabelEl = board.querySelector("[data-zoom-label]");
+    sideTop = side.querySelector("[data-side-top]");
+    sideRest = side.querySelector("[data-side-rest]");
+    lastRouteKey = null;
+
+    secret = BG.secretPanel({
+      title: "🎴 قيادتك السرية",
+      owner: "بطاقاتك ومهمتك",
+      hint: "المحتوى مخفي. تأكد أن الجهاز أمام صاحبه فقط ثم اضغط «إظهار».",
+      open: false,
+      render: secretHTML,
+    });
+    const slot = side.querySelector("[data-secret-slot]");
+    if (slot) slot.appendChild(secret.el);
+
+    cacheMapRefs();
+    camera = { x: 0, y: 0, w: MAP_W, h: MAP_H };
+    focusedContinent = null;
+    applyCamera();
+    bindRoot();
+    bindMapPan();
+    ensureResize();
+    lastViewer = viewerSeat();
+    tradeOwner = lastViewer;
+    tradeSel = [];
+  }
+
+  function bindRoot() {
+    if (!rootRef || boundRoot === rootRef) return;
+    boundRoot = rootRef;
+    rootRef.addEventListener("click", onRootClick);
+    rootRef.addEventListener("input", onRootInput);
+    rootRef.addEventListener("keydown", onRootKeydown);
+  }
+
+  function bindMapPan() {
+    if (!mapViewport) return;
+    mapViewport.addEventListener("pointerdown", onPanStart);
+  }
+
+  function onPanStart(event) {
+    if (!mapViewport || !camera || camera.w >= MAP_W - 1) return;
+    if (event.button != null && event.button !== 0) return;
+    panState = {
+      id: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      cam: { x: camera.x, y: camera.y, w: camera.w, h: camera.h },
+      moved: false,
+    };
+    window.addEventListener("pointermove", onPanMove);
+    window.addEventListener("pointerup", onPanEnd);
+    window.addEventListener("pointercancel", onPanEnd);
+  }
+
+  function onPanMove(event) {
+    if (!panState || event.pointerId !== panState.id || !mapViewport) return;
+    const dx = event.clientX - panState.startX;
+    const dy = event.clientY - panState.startY;
+    if (!panState.moved && Math.hypot(dx, dy) < 6) return;
+    panState.moved = true;
+    const width = mapViewport.clientWidth || 1;
+    const unit = camera.w / width;
+    camera = clampCamera({
+      x: panState.cam.x - dx * unit,
+      y: panState.cam.y - dy * unit,
+      w: panState.cam.w,
+      h: panState.cam.h,
+    });
+    applyCamera();
+    event.preventDefault();
+  }
+
+  function onPanEnd(event) {
+    if (!panState || (event && event.pointerId !== panState.id)) return;
+    if (panState.moved) lastDragAt = performance.now();
+    panState = null;
+    window.removeEventListener("pointermove", onPanMove);
+    window.removeEventListener("pointerup", onPanEnd);
+    window.removeEventListener("pointercancel", onPanEnd);
+  }
+
+  function clampCamera(box) {
+    let w = clamp(Number(box.w) || MAP_W, 150, MAP_W);
+    let h = w / MAP_RATIO;
+    if (h > MAP_H) {
+      h = MAP_H;
+      w = h * MAP_RATIO;
+    }
+    const x = clamp(Number(box.x) || 0, 0, MAP_W - w);
+    const y = clamp(Number(box.y) || 0, 0, MAP_H - h);
+    return { x, y, w, h };
+  }
+
+  function fitCamera(box, pad) {
+    const p = pad == null ? 18 : pad;
+    let x = Number(box[0]) - p;
+    let y = Number(box[1]) - p;
+    let w = Number(box[2]) + p * 2;
+    let h = Number(box[3]) + p * 2;
+    if (w / h > MAP_RATIO) {
+      const nh = w / MAP_RATIO;
+      y -= (nh - h) / 2;
+      h = nh;
+    } else {
+      const nw = h * MAP_RATIO;
+      x -= (nw - w) / 2;
+      w = nw;
+    }
+    return clampCamera({ x, y, w, h });
+  }
+
+  function animateCamera(target) {
+    const next = clampCamera(target);
+    if (cameraAnim) {
+      cancelAnimationFrame(cameraAnim);
+      cameraAnim = null;
+    }
+    if (!FX || !FX.motionEnabled || !FX.motionEnabled()) {
+      camera = next;
+      applyCamera();
+      return;
+    }
+    const from = { x: camera.x, y: camera.y, w: camera.w, h: camera.h };
+    const start = performance.now();
+    const duration = 430;
+    const tick = (now) => {
+      const t = clamp((now - start) / duration, 0, 1);
+      const e = 1 - Math.pow(1 - t, 3);
+      camera = {
+        x: from.x + (next.x - from.x) * e,
+        y: from.y + (next.y - from.y) * e,
+        w: from.w + (next.w - from.w) * e,
+        h: from.h + (next.h - from.h) * e,
+      };
+      applyCamera();
+      if (t < 1) cameraAnim = requestAnimationFrame(tick);
+      else cameraAnim = null;
+    };
+    cameraAnim = requestAnimationFrame(tick);
+  }
+
+  function zoomBy(factor) {
+    if (!camera) return;
+    const cx = camera.x + camera.w / 2;
+    const cy = camera.y + camera.h / 2;
+    let w = clamp(camera.w * factor, 150, MAP_W);
+    let h = w / MAP_RATIO;
+    if (h > MAP_H) {
+      h = MAP_H;
+      w = h * MAP_RATIO;
+    }
+    focusedContinent = null;
+    animateCamera({ x: cx - w / 2, y: cy - h / 2, w, h });
+  }
+
+  function focusContinent(code) {
+    if (!GEO || !GEO.continents) return;
+    if (!code || code === "world" || (focusedContinent === code && camera && camera.w < MAP_W * 0.92)) {
+      focusedContinent = null;
+      animateCamera({ x: 0, y: 0, w: MAP_W, h: MAP_H });
+      return;
+    }
+    const item = GEO.continents[code];
+    if (!item || !item.focus) return;
+    focusedContinent = code;
+    animateCamera(fitCamera(item.focus, 16));
+  }
+
+  function resetCamera() {
+    focusedContinent = null;
+    animateCamera({ x: 0, y: 0, w: MAP_W, h: MAP_H });
+  }
+
+  function applyCamera() {
+    if (!mapSvg || !camera) return;
+    camera = clampCamera(camera);
+    const vb = [camera.x, camera.y, camera.w, camera.h].map((v) => Math.round(v * 10) / 10).join(" ");
+    mapSvg.setAttribute("viewBox", vb);
+    const zoomed = camera.w < MAP_W * 0.82;
+    mapSvg.classList.toggle("is-zoomed", zoomed);
+    if (mapViewport) mapViewport.style.touchAction = zoomed ? "none" : "pan-y";
+    const percent = Math.round((MAP_W / camera.w) * 100);
+    if (zoomLabelEl) zoomLabelEl.textContent = percent + "%";
+    const read = rootRef && rootRef.querySelector("[data-zoom-read]");
+    if (read) read.textContent = percent + "%";
+    updateNodeScale();
+    updateChips();
+  }
+
+  function updateNodeScale() {
+    if (!mapViewport || !mapSvg || !camera) return;
+    const screen = mapViewport.clientWidth || 900;
+    const px = screen / Math.max(1, camera.w);
+    mapSvg.style.setProperty("--risk-inv", (1 / Math.max(0.001, px)).toFixed(4));
+    const target = screen < 560 ? 24 : 27;
+    nodeScaleValue = clamp(target / (26 * Math.max(0.001, px)), 0.22, 4.2);
+    Object.keys(nodeRefs).forEach((id) => {
+      const geo = GEO && GEO.territories ? GEO.territories[id] : null;
+      const ref = nodeRefs[id];
+      if (!geo || !ref) return;
+      ref.g.setAttribute("transform", "translate(" + geo.label[0] + "," + geo.label[1] + ") scale(" + nodeScaleValue.toFixed(3) + ")");
+    });
+  }
+
+  function updateChips() {
+    if (!rootRef || !state) return;
+    rootRef.querySelectorAll("[data-focus]").forEach((btn) => {
+      const code = btn.getAttribute("data-focus");
+      const isWorld = code === "world";
+      btn.classList.toggle("active", focusedContinent ? code === focusedContinent : isWorld);
+      if (isWorld) return;
+      const owner = continentOwner(code);
+      btn.classList.toggle("owned", owner >= 0);
+      btn.style.setProperty("--pc", owner >= 0 ? state.players[owner].color : "transparent");
+      const count = btn.querySelector("[data-chip-count]");
+      if (count) {
+        const total = (CONTINENT_TERRITORIES[code] || []).length;
+        count.textContent = continentCount(code, owner >= 0 ? owner : state.current) + "/" + total;
+      }
+    });
+  }
+
+  function renderMap() {
+    if (!mapSvg || !state) return;
+    const current = state.current;
+    const phase = state.phase;
+    const act = canControl();
+    const deployOwner = phase === "setup" ? state.setupPlayer : phase === "reinforce" ? current : -1;
+    const selected = state.selected || state.fortifyFrom || (state.pendingMove ? state.pendingMove.from : null);
+    const targetSet = new Set();
+    if (phase === "attack" && state.selected && state.owner[state.selected] === current && state.troops[state.selected] >= 2) {
+      adjacentEnemies(state.selected, current).forEach((id) => targetSet.add(id));
+    }
+    const fortSet = new Set();
+    if (phase === "fortify" && state.fortifyFrom) {
+      fortifyTargets(state.fortifyFrom).forEach((id) => fortSet.add(id));
+    }
+    const moveDest = state.pendingMove ? state.pendingMove.to : null;
+
+    TERRITORIES.forEach((t) => {
+      const owner = state.owner[t.id];
+      const ref = terrRefs[t.id];
+      const node = nodeRefs[t.id];
+      const color = owner >= 0 && state.players[owner] ? state.players[owner].color : null;
+      const fill = color ? hexToRgba(color, 0.88) : territoryBaseFill(t.c);
+      if (ref) {
+        (pathRefs[t.id] || []).forEach((path) => path.setAttribute("fill", fill));
+        ref.classList.toggle("is-selected", selected === t.id);
+        ref.classList.toggle("is-target", targetSet.has(t.id));
+        ref.classList.toggle("is-fortify-target", fortSet.has(t.id));
+        ref.classList.toggle("is-move-dest", moveDest === t.id);
+        ref.classList.toggle("is-deployable", owner === deployOwner && (phase === "setup" || phase === "reinforce") && act);
+        ref.classList.toggle("is-claimable", phase === "claim" && owner < 0 && act);
+        ref.classList.toggle("is-unowned", owner < 0);
+        ref.classList.toggle("is-complete", owner >= 0 && continentsOf(owner).indexOf(t.c) >= 0);
+      }
+      if (node) {
+        const g = node.g;
+        g.classList.toggle("is-selected", selected === t.id);
+        g.classList.toggle("is-target", targetSet.has(t.id));
+        g.classList.toggle("is-fortify-target", fortSet.has(t.id));
+        g.classList.toggle("is-move-dest", moveDest === t.id);
+        g.classList.toggle("is-deployable", owner === deployOwner && (phase === "setup" || phase === "reinforce") && act);
+        g.classList.toggle("is-claimable", phase === "claim" && owner < 0 && act);
+        g.classList.toggle("is-unowned", owner < 0);
+        g.classList.toggle("is-complete", owner >= 0 && continentsOf(owner).indexOf(t.c) >= 0);
+        if (node.body) node.body.setAttribute("fill", color || "#1b2a31");
+        if (node.text) node.text.textContent = owner >= 0 ? String(state.troops[t.id]) : "?";
+        const ownerName = owner >= 0 ? state.players[owner].name : "غير مملوك";
+        g.setAttribute("aria-label", t.name + " — " + ownerName + " — " + (owner >= 0 ? state.troops[t.id] + " كتيبة" : "بانتظار الاختيار"));
+      }
     });
 
-    EDGES.forEach(([a, b]) => {
-      const ta = TERR_BY_ID[a];
-      const tb = TERR_BY_ID[b];
-      if (!ta || !tb) return;
-      const distance = Math.hypot(tb.x - ta.x, tb.y - ta.y);
-      const active = (state.selected && (a === state.selected || b === state.selected)) ||
-        (state.fortifyFrom && (a === state.fortifyFrom || b === state.fortifyFrom));
-      parts.push('<line x1="' + ta.x + '" y1="' + ta.y + '" x2="' + tb.x + '" y2="' + tb.y +
-        '" class="risk-link' + (distance > 300 ? " sea" : "") + (active ? " active" : "") + '"/>');
-    });
+    renderRouteLayer(targetSet, fortSet);
+    applyCamera();
+  }
 
-    Object.keys(MAP.labels).forEach((code) => {
-      const info = CONTINENTS[code];
-      const pos = MAP.labels[code];
-      if (!info || !pos) return;
-      const ownerIndex = continentOwner(code);
-      const owner = ownerIndex >= 0 ? state.players[ownerIndex] : null;
-      const width = info.name.length * 6.6 + 58;
-      parts.push('<g class="risk-cont' + (owner ? " owned" : "") + '" transform="translate(' + pos[0] + "," + pos[1] + ')"' + (owner ? ' style="--own:' + owner.color + '"' : '') + '>' +
-        '<rect x="-8" y="-15" width="' + width + '" height="25" rx="12.5"/>' +
-        '<text x="2" y="2">' + svgEscape(info.name) + '</text>' +
-        '<text x="' + (width - 24) + '" y="2" class="risk-cont-bonus">+' + info.bonus + '</text>' +
-        (owner ? '<circle cx="' + (width - 12) + '" cy="-2" r="3.2" class="risk-cont-owner"/>' : '') +
-        '</g>');
-    });
-
+  function renderRouteLayer(targetSet, fortSet) {
+    if (!pathLayer || !state) return;
     const paths = [];
-    if (state.phase === "attack" && state.selected && state.owner[state.selected] === state.current && state.troops[state.selected] >= 2) {
-      adjacentEnemies(state.selected, state.current).forEach((dst, i) => {
-        paths.push({ from: state.selected, to: dst, bend: i % 2 ? -1 : 1, kind: "attack" });
+    const selected = state.selected || state.fortifyFrom;
+    if (state.phase === "attack" && state.selected) {
+      Array.from(targetSet).forEach((dst, i) => {
+        const a = GEO.territories[state.selected];
+        const b = GEO.territories[dst];
+        if (!a || !b) return;
+        paths.push('<path class="risk-attack-path" d="' + curvePath(a.label, b.label, i % 2 ? -1 : 1) + '" marker-end="url(#riskArrowAttack)"/>');
       });
     }
     if (state.phase === "fortify" && state.fortifyFrom) {
-      fortifyTargets(state.fortifyFrom).forEach((dst, i) => {
-        paths.push({ from: state.fortifyFrom, to: dst, bend: i % 2 ? -1 : 1, kind: "fortify", active: state.fortifyTo === dst });
+      Array.from(fortSet).forEach((dst, i) => {
+        const a = GEO.territories[state.fortifyFrom];
+        const b = GEO.territories[dst];
+        if (!a || !b) return;
+        paths.push('<path class="risk-fortify-path' + (state.fortifyTo === dst ? " active" : "") + '" d="' + curvePath(a.label, b.label, i % 2 ? -1 : 1) + '" marker-end="url(#riskArrowFort)"/>');
       });
     }
-    if (paths.length) {
-      parts.push('<g class="risk-paths" aria-hidden="true">');
-      paths.forEach((path) => {
-        const from = TERR_BY_ID[path.from];
-        const to = TERR_BY_ID[path.to];
-        if (!from || !to) return;
-        const cls = path.kind === "attack"
-          ? "risk-attack-path" + (path.active ? " active" : "")
-          : "risk-fortify-path" + (path.active ? " active" : "");
-        parts.push('<path d="' + curvePath(from, to, path.bend) + '" class="' + cls + '" marker-end="url(#' +
-          (path.kind === "attack" ? "riskArrow" : "riskArrowF") + ')"/>');
-      });
-      parts.push('</g>');
+    if (state.pendingMove && GEO.territories[state.pendingMove.from] && GEO.territories[state.pendingMove.to]) {
+      const a = GEO.territories[state.pendingMove.from];
+      const b = GEO.territories[state.pendingMove.to];
+      paths.push('<path class="risk-move-path" d="' + curvePath(a.label, b.label, 0.8) + '" marker-end="url(#riskArrowMove)"/>');
     }
+    const key = state.phase + "|" + (selected || "") + "|" + Array.from(targetSet).sort().join(",") + "|" + Array.from(fortSet).sort().join(",") + "|" + (state.fortifyTo || "") + "|" + (state.pendingMove ? state.pendingMove.from + "-" + state.pendingMove.to : "");
+    if (key === lastRouteKey) return;
+    lastRouteKey = key;
+    pathLayer.innerHTML = paths.join("");
+  }
 
-    TERRITORIES.forEach((t) => {
-      const ownerIndex = state.owner[t.id];
-      const owner = ownerIndex >= 0 ? state.players[ownerIndex] : null;
-      const info = CONTINENTS[t.c];
-      const color = owner ? owner.color : "#6b7d84";
-      const isSelected = state.selected === t.id || state.fortifyFrom === t.id ||
-        (state.pendingMove && state.pendingMove.from === t.id);
-      const isTarget = !!state.selected && state.phase === "attack" && ADJ[state.selected].includes(t.id) && ownerIndex !== state.current;
-      const isFortifyTarget = state.phase === "fortify" && state.fortifyFrom && fortifyTargets(state.fortifyFrom).includes(t.id);
-      const isMoveDest = state.pendingMove && state.pendingMove.to === t.id;
-      const isDeployable = (state.phase === "setup" && ownerIndex === state.setupPlayer) ||
-        (state.phase === "reinforce" && ownerIndex === state.current);
-      const isClaimable = state.phase === "claim" && ownerIndex === -1;
-      const isComplete = owner && continentsOf(ownerIndex).includes(t.c);
-      const classes = ["risk-terr"];
-      if (isSelected) classes.push("selected");
-      if (isTarget) classes.push("target");
-      if (isFortifyTarget) classes.push("fortify-target");
-      if (isMoveDest) classes.push("move-dest");
-      if (isDeployable) classes.push("deployable");
-      if (isClaimable) classes.push("claimable");
-      if (!owner) classes.push("unowned");
-      if (isComplete) classes.push("continent-complete");
-      const label = t.name + " — " + (owner ? owner.name : "غير مملوك") + " — " + (owner ? state.troops[t.id] + " كتيبة" : "بانتظار الاختيار") + " — " + info.name;
-      parts.push('<g class="' + classes.join(" ") + '" data-terr="' + t.id + '" role="button" tabindex="0" aria-label="' + svgEscape(label) + '" style="--pc:' + color + ';--cc:' + info.color + '">');
-      parts.push('<title>' + svgEscape(label) + '</title>');
-      parts.push('<circle class="risk-node-shadow" cx="' + t.x + '" cy="' + (t.y + 5) + '" r="26"/>');
-      if (isSelected || isTarget || isFortifyTarget || isMoveDest || isDeployable || isClaimable) {
-        parts.push('<circle class="risk-node-halo" cx="' + t.x + '" cy="' + t.y + '" r="33"/>');
-      }
-      parts.push('<circle class="risk-node-ring" cx="' + t.x + '" cy="' + t.y + '" r="27" style="stroke:' + info.color + '"/>');
-      parts.push('<circle class="risk-node" cx="' + t.x + '" cy="' + t.y + '" r="23" fill="' + color + '"/>');
-      parts.push('<circle class="risk-node-gloss" cx="' + (t.x - 7) + '" cy="' + (t.y - 8) + '" r="9" fill="url(#riskGloss)"/>');
-      if (owner) {
-        parts.push('<text class="risk-troops" x="' + t.x + '" y="' + (t.y + 6) + '" data-fx-piece="risk-' + t.id + "-" + ownerIndex + "-" + state.troops[t.id] + '" data-fx-enter="pop">' + state.troops[t.id] + '</text>');
-      } else {
-        parts.push('<text class="risk-unowned-mark" x="' + t.x + '" y="' + (t.y + 7) + '">?</text>');
-      }
-      parts.push('<text class="risk-tname" x="' + t.x + '" y="' + (t.y + 44) + '">' + svgEscape(t.name) + '</text>');
-      parts.push('</g>');
-    });
+  const SVG_NS = "http://www.w3.org/2000/svg";
 
-    parts.push('<g class="risk-compass" transform="translate(918 522)" aria-hidden="true">' +
-      '<circle r="21"/><path d="M0 -14 L5 4 L0 1 L-5 4 Z"/><text y="-25">N</text></g>');
-    parts.push('<rect width="960" height="560" fill="none" stroke="rgba(246,242,232,0.12)" stroke-width="1.5" rx="14"/>');
-    parts.push('</svg>');
-    return parts.join("");
+  function animateMarch(from, to, count, kind) {
+    if (!mapSvg || !GEO || !GEO.territories[from] || !GEO.territories[to]) return;
+    if (!FX || typeof FX.motionEnabled !== "function" || !FX.motionEnabled()) return;
+    const layer = mapSvg.querySelector(".risk-march-layer");
+    if (!layer) return;
+    const a = GEO.territories[from].label;
+    const b = GEO.territories[to].label;
+    const mx = (a[0] + b[0]) / 2;
+    const my = (a[1] + b[1]) / 2;
+    const dx = b[0] - a[0];
+    const dy = b[1] - a[1];
+    const len = Math.hypot(dx, dy) || 1;
+    const bend = kind === "fortify" ? 26 : 38;
+    const cx = mx - (dy / len) * bend;
+    const cy = my + (dx / len) * bend;
+
+    const g = document.createElementNS(SVG_NS, "g");
+    g.setAttribute("class", "risk-march" + (kind ? " " + kind : ""));
+    const circle = document.createElementNS(SVG_NS, "circle");
+    circle.setAttribute("r", "11");
+    const text = document.createElementNS(SVG_NS, "text");
+    text.setAttribute("text-anchor", "middle");
+    text.setAttribute("y", "3.5");
+    text.textContent = String(Math.max(1, count));
+    g.appendChild(circle);
+    g.appendChild(text);
+    layer.appendChild(g);
+
+    const frames = [];
+    const steps = 22;
+    for (let i = 0; i <= steps; i++) {
+      const t = i / steps;
+      const u = 1 - t;
+      const x = u * u * a[0] + 2 * u * t * cx + t * t * b[0];
+      const y = u * u * a[1] + 2 * u * t * cy + t * t * b[1];
+      frames.push({ transform: "translate(" + x.toFixed(1) + "px," + y.toFixed(1) + "px)", offset: t });
+    }
+    try {
+      const anim = g.animate(frames, { duration: kind === "fortify" ? 460 : 540, easing: "cubic-bezier(.3,.7,.3,1)" });
+      anim.onfinish = () => { if (g.parentNode) g.parentNode.removeChild(g); };
+      setTimeout(() => { if (g.parentNode) g.parentNode.removeChild(g); }, 900);
+    } catch (e) {
+      if (g.parentNode) g.parentNode.removeChild(g);
+    }
   }
 
   /* ------------------------------ لوحات الواجهة ------------------------------ */
@@ -1731,58 +2570,112 @@
     return state.phase === "over" ? "النهاية" : state.phase;
   }
 
+  function canControl() {
+    if (!state || state.over) return false;
+    const seat = activeSeat();
+    if (seat < 0) return false;
+    const player = state.players[seat];
+    if (!player) return false;
+    if (isOnline()) return apiRef.net.seat === seat && !apiRef.net.isCpuSeat(seat);
+    return !player.isCpu;
+  }
+
+  function phaseStepsHTML() {
+    const steps = [];
+    if (rule("setup") === "draft") steps.push({ id: "claim", label: "الاختيار" });
+    steps.push({ id: "setup", label: "الإعداد" }, { id: "reinforce", label: "التعزيز" }, { id: "attack", label: "الهجوم" }, { id: "fortify", label: "التحصين" });
+    let active = steps.findIndex((step) => step.id === state.phase);
+    if (state.phase === "over") active = steps.length;
+    return '<div class="risk-phases">' + steps.map((step, i) => {
+      const cls = i < active ? "done" : i === active ? "active" : "";
+      return '<span class="risk-phase ' + cls + '"><i>' + (i + 1) + "</i>" + step.label + "</span>";
+    }).join("") + "</div>";
+  }
+
+  function turnSubtitle() {
+    if (!state) return "";
+    if (state.phase === "over") {
+      const winner = state.winner != null ? state.players[state.winner] : null;
+      return winner ? "فاز " + winner.name + " — " + state.winReason : "انتهت الحملة.";
+    }
+    if (state.phase === "claim") return "اختر إقليمًا غير مملوك — تبدأ الحدود بالتشكّل.";
+    if (state.phase === "setup") return "وزّع " + state.toPlace + " كتيبة إعداد على أراضيك.";
+    if (state.phase === "reinforce") {
+      return "وزّع " + state.toPlace + " كتيبة تعزيز" + (canExchange(cur()) ? " — لديك مجموعة بطاقات صالحة." : ".");
+    }
+    if (state.phase === "fortify") return "انقل كتائب بين أراضيك ثم أكّد العدد.";
+    if (state.pendingMove) return "أكّد عدد الكتائب المنقولة إلى الإقليم المحتل.";
+    return "اهجم من أراضيك، ثم حصّن وأنهِ الدور.";
+  }
+
+  function actionHint() {
+    if (!state) return "";
+    if (state.phase === "reinforce") {
+      return canExchange(cur()) ? "بدّل مجموعة البطاقات الآن للحصول على تعزيزات إضافية قبل الهجوم." : "وزّع كل كتائب التعزيز بالنقر على أراضيك.";
+    }
+    if (state.phase === "fortify") {
+      return state.fortifyFrom ? "اختر الوجهة ثم حدّد عدد الكتائب في لوحة النقل." : "اختر مصدرًا فيه كتيبتان على الأقل.";
+    }
+    if (state.phase === "attack") {
+      if (state.selected) return "اختر إقليمًا معاديًا مجاورًا، أو غيّر عدد النرد قبل الضربة.";
+      return "انقر إقليمًا تملكه لبدء الهجوم، أو استخدم زر التحصين.";
+    }
+    if (state.phase === "over") return "أغلقت الحملة — يمكنك بدء مباراة جديدة.";
+    return "انقر على الخريطة لتنفيذ الأمر.";
+  }
+
   function numberPanelHTML() {
+    if (!state || !state.pendingMove) return "";
     const pm = state.pendingMove;
-    if (!pm) return "";
     const from = TERR_BY_ID[pm.from];
     const to = TERR_BY_ID[pm.to];
     if (!from || !to) return "";
-    const max = Math.max(1, pm.max);
-    const value = clamp(Number(pm.value) || 1, 1, max);
-    const quick = Array.from(new Set([1, Math.max(1, Math.floor(max / 2)), max]));
+    const min = Math.max(1, pm.min || 1);
+    const max = Math.max(min, pm.max || min);
+    const value = clamp(Number(pm.value) || min, min, max);
     const isFortify = pm.kind === "fortify";
+    const quick = Array.from(new Set([min, Math.max(min, Math.floor((min + max) / 2)), max]));
     return (
       '<div class="risk-number">' +
-      '<div class="risk-number-head"><b>' + (isFortify ? "🛡️ تحصين — نقل كتائب" : "🏴 استحواذ — نقل كتائب") + '</b>' +
-      '<span>' + svgEscape(from.name) + ' ← ' + svgEscape(to.name) + '</span></div>' +
+      '<div class="risk-number-head"><b>' + (isFortify ? "🛡️ تحصين — نقل كتائب" : "🏴 استحواذ — نقل كتائب") + "</b>" +
+      "<span>" + svgEscape(from.name) + " ← " + svgEscape(to.name) + "</span></div>" +
       '<div class="risk-number-row">' +
       '<button type="button" class="risk-step" data-num-step="-1" aria-label="إنقاص كتيبة">−</button>' +
-      '<input type="range" min="1" max="' + max + '" step="1" value="' + value + '" data-number-range aria-label="عدد الكتائب المنقولة">' +
+      '<input type="range" min="' + min + '" max="' + max + '" step="1" value="' + value + '" data-number-range aria-label="عدد الكتائب المنقولة">' +
       '<button type="button" class="risk-step" data-num-step="1" aria-label="زيادة كتيبة">+</button>' +
-      '<output class="risk-number-out" data-number-output aria-live="polite">' + value + '</output>' +
-      '</div>' +
+      '<output class="risk-number-out" data-number-output aria-live="polite">' + value + "</output>" +
+      "</div>" +
       '<div class="risk-number-quick">' +
-      quick.map((v) => '<button type="button" data-num-set="' + v + '"' + (v === value ? ' class="active"' : "") + '>' + v + '</button>').join("") +
-      '<button type="button" data-num-set="max">الكل (' + max + ')</button>' +
-      '</div>' +
+      quick.map((v) => '<button type="button" data-num-set="' + v + '"' + (v === value ? ' class="active"' : "") + ">" + v + "</button>").join("") +
+      '<button type="button" data-num-set="max">الحد الأقصى (' + max + ")</button>" +
+      "</div>" +
       '<div class="risk-number-actions">' +
-      '<button type="button" class="bg-btn primary" data-act="number-confirm"><span>✅ تأكيد النقل</span></button>' +
-      (isFortify ? '<button type="button" class="bg-btn ghost small" data-act="number-cancel"><span>رجوع</span></button>' : "") +
-      '</div>' +
+      '<button type="button" class="bg-btn primary" data-act="number-confirm"><span>✅ ' + (isFortify ? "تأكيد التحصين" : "تأكيد الاستحواذ") + "</span></button>" +
+      (isFortify ? '<button type="button" class="bg-btn ghost small" data-act="number-cancel"><span>↩ رجوع</span></button>' : "") +
+      "</div>" +
       '<p class="risk-hint">' + (isFortify
         ? "حدّد العدد ثم أكّد. التحصين المتصل ينهي دورك بعد التأكيد، ويبقى المتعدد متاحًا لعدة نقلات."
-        : "اترك كتيبة واحدة على الأقل في الإقليم المهاجم، ثم أكّد نقل الكتائب إلى الإقليم المحتل.") + '</p>' +
-      '</div>'
+        : "اترك كتيبة واحدة على الأقل في الإقليم المهاجم، ثم أكّد نقل الكتائب إلى الإقليم المحتل.") + "</p>" +
+      "</div>"
     );
   }
 
   function battleHTML() {
-    if (!state.battle) {
+    if (!state || !state.battle) {
       return '<div class="risk-battle-empty"><span>⚔️</span><p>اختر إقليمًا تملكه ثم إقليمًا معاديًا مجاورًا لتبدأ المعركة.</p></div>';
     }
     const b = state.battle;
-    const die = (v, kind) => '<span class="risk-die ' + kind + '">' + v + '</span>';
     return (
       '<div class="risk-battle">' +
-      '<div class="risk-battle-side"><span class="risk-battle-label">المهاجم · ' + U.escape(b.attackerName) + '</span>' +
-      '<div class="risk-battle-dice">' + b.aDice.map((v) => die(v, "a")).join("") + '</div>' +
-      '<small>خسر ' + b.aLoss + '</small></div>' +
+      '<div class="risk-battle-side"><span class="risk-battle-label">المهاجم · ' + U.escape(b.attackerName) + "</span>" +
+      '<div class="risk-battle-dice">' + b.aDice.map((v, i) => dieHTML(v, "a", i)).join("") + "</div>" +
+      "<small>خسر " + b.aLoss + "</small></div>" +
       '<div class="risk-battle-vs">⚔️</div>' +
-      '<div class="risk-battle-side"><span class="risk-battle-label">المدافع · ' + U.escape(b.defenderName) + '</span>' +
-      '<div class="risk-battle-dice">' + b.dDice.map((v) => die(v, "d")).join("") + '</div>' +
-      '<small>خسر ' + b.dLoss + '</small></div>' +
-      '</div>' +
-      (b.conquered ? '<p class="risk-conquered">🏴 سقط ' + U.escape(TERR_BY_ID[b.defenderId].name) + ' — انتقلت ' + (b.moved || 0) + ' كتيبة.</p>' : "")
+      '<div class="risk-battle-side"><span class="risk-battle-label">المدافع · ' + U.escape(b.defenderName) + "</span>" +
+      '<div class="risk-battle-dice">' + b.dDice.map((v, i) => dieHTML(v, "d", i)).join("") + "</div>" +
+      "<small>خسر " + b.dLoss + "</small></div>" +
+      "</div>" +
+      (b.conquered ? '<p class="risk-conquered">🏴 سقط ' + U.escape(TERR_BY_ID[b.defenderId].name) + " — انتقلت " + (b.moved || 0) + " كتيبة.</p>" : "")
     );
   }
 
@@ -1790,288 +2683,403 @@
     const count = countTerritories(p.index);
     const active = p.index === activeSeat() && !state.over;
     const conts = continentsOf(p.index);
+    const pct = Math.round((count / TERRITORIES.length) * 100);
     return (
       '<div class="risk-player' + (active ? " active" : "") + (p.eliminated ? " out" : "") + '" data-player="' + p.index + '" style="--p:' + p.color + '">' +
-      '<span class="pdot">' + (p.index + 1) + '</span>' +
-      '<div class="risk-player-copy"><strong>' + U.escape(p.name) + (p.isCpu ? ' <i class="risk-cpu">كمبيوتر</i>' : "") + '</strong>' +
-      '<small>' + (p.eliminated ? "مُقصى" : count + " إقليم · " + p.cards.length + " بطاقة") + '</small></div>' +
-      '<div class="risk-player-meta"><b>' + (p.eliminated ? "—" : reinforceAmount(p.index)) + '</b><small>تعزيز</small></div>' +
-      '<span class="risk-conts">' + conts.map((c) => '<i title="' + U.escape(CONTINENTS[c].name) + '" style="--cc:' + CONTINENTS[c].color + '"></i>').join("") + '</span>' +
-      '</div>'
+      '<span class="risk-pdot">' + (p.index + 1) + "</span>" +
+      '<div class="risk-player-main"><div class="risk-player-top"><strong>' + U.escape(p.name) +
+      (p.isCpu ? ' <i class="risk-cpu">كمبيوتر</i>' : "") + "</strong><b>" + (p.eliminated ? "—" : count + " إقليم") + "</b></div>" +
+      '<div class="risk-player-bar"><i style="width:' + pct + '%"></i></div>' +
+      "<small>" + (p.eliminated ? "مُقصى من الخريطة" : p.cards.length + " بطاقة · تعزيز +" + reinforceAmount(p.index)) + "</small></div>" +
+      '<span class="risk-conts">' + conts.map((c) => '<i title="' + U.escape(CONTINENTS[c].name) + '" style="--cc:' + CONTINENTS[c].color + '"></i>').join("") + "</span>" +
+      "</div>"
     );
   }
 
   function ruleChips() {
-    const victory = rule("victory") === "domination" ? "فوز: سيطرة 60%" : "فوز: إقصاء الجميع";
+    const victory = rule("victory") === "mission" ? "فوز: المهمة" : rule("victory") === "domination" ? "فوز: سيطرة 60%" : rule("victory") === "elimination" ? "فوز: إقصاء الجميع" : "فوز: سيطرة + مهمة";
     const cards = rule("cards") === "off" ? "بلا بطاقات" : rule("cards") === "simple" ? "بطاقات مبسّطة" : "بطاقات كلاسيكية";
     const fort = rule("fortify") === "none" ? "بلا تحصين" : rule("fortify") === "anywhere" ? "تحصين حر" : rule("fortify") === "unlimited" ? "تحصين متعدد" : "تحصين متصل";
     const reinf = rule("reinforce") === "rapid" ? "تعزيز سريع" : "تعزيز كلاسيكي";
-    return [MAP.short, victory, cards, fort, reinf].map((label) => '<span class="risk-rule-chip">' + U.escape(label) + '</span>').join("");
+    const setup = rule("setup") === "draft" ? "اختيار بالتبادل" : "توزيع عشوائي";
+    return [victory, cards, fort, reinf, setup].map((label) => '<span class="risk-rule-chip">' + U.escape(label) + "</span>").join("");
+  }
+
+  function legendHTML() {
+    return '<details class="risk-details risk-legend"><summary><span>مفتاح القارات والمكافآت</span><b>' + state.players.length + " قادة</b></summary>" +
+      Object.keys(CONTINENTS).map((code) => {
+        const info = CONTINENTS[code];
+        const owner = continentOwner(code);
+        const ownerName = owner >= 0 ? state.players[owner].name : "غير مكتملة";
+        const total = (CONTINENT_TERRITORIES[code] || []).length;
+        const count = owner >= 0 ? total : continentCount(code, state.current);
+        return '<div class="risk-legend-row' + (owner >= 0 ? " owned" : "") + '"><i style="--cc:' + info.color + '"></i><span>' + U.escape(info.name) + "</span><b>+" + info.bonus + "</b><small>" + U.escape(ownerName) + " · " + count + "/" + total + "</small></div>";
+      }).join("") +
+      '<div class="risk-rule-chips">' + ruleChips() + "</div></details>";
+  }
+
+  function actionsHTML() {
+    if (!state) return "";
+    if (state.over) {
+      return '<div class="risk-panel risk-actions"><span class="risk-kicker">انتهت الحملة</span><p class="risk-hint">' + U.escape(state.winReason || "") + "</p></div>";
+    }
+    if (state.pendingMove) return '<div class="risk-panel risk-actions">' + numberPanelHTML() + "</div>";
+
+    const act = canControl();
+    const p = cur();
+    const phase = state.phase;
+    let body = "";
+
+    if (phase === "claim") {
+      body = '<p class="risk-hint">اختر أي إقليم رمادي غير مملوك لضمّه إلى إمبراطوريتك. يتناوب القادة بالترتيب.</p>' +
+        '<button type="button" class="bg-btn" data-act="autoclaim"' + (act ? "" : " disabled") + '><span>🎲 اختيار تلقائي</span></button>';
+    } else if (phase === "setup") {
+      body = '<p class="risk-hint">انقر على أراضيك لتوزيع كتائب الإعداد. زر التوزيع التلقائي يضع كل الكتائب المتبقية على الحدود والمناطق الأكثر عرضة.</p>' +
+        '<button type="button" class="bg-btn" data-act="autoplace"' + (act ? "" : " disabled") + '><span>⚡ توزيع تلقائي</span></button>';
+    } else if (phase === "reinforce") {
+      const canEx = canExchange(p) && act;
+      body = '<div class="risk-action-row">' +
+        '<button type="button" class="bg-btn" data-act="exchange"' + (canEx ? "" : " disabled") + '><span>🃏 بدّل المجموعة (+' + nextTradeValue() + ")</span></button>" +
+        '<button type="button" class="bg-btn ghost" data-act="undo-reinforce"' + (act && state.reinforceLog.length ? "" : " disabled") + '><span>↩ تراجع</span></button>' +
+        "</div>" +
+        '<button type="button" class="bg-btn primary" data-act="end"' + (act && state.toPlace <= 0 && !handLimitBlocked(p) ? "" : " disabled") + '><span>⏭️ إنهاء الدور</span></button>' +
+        '<p class="risk-hint">' + actionHint() + "</p>";
+    } else if (phase === "attack") {
+      const movable = fortifyMovable();
+      const maxDice = state.selected ? clamp((state.troops[state.selected] || 1) - 1, 1, 3) : 3;
+      const diceRow = state.selected
+        ? '<div class="risk-dice-pick"><span>نرد المهاجم</span>' + [1, 2, 3].map((n) =>
+          '<button type="button" data-attack-dice="' + n + '"' + (state.attackDice === n ? ' class="active"' : "") + (n > maxDice ? " disabled" : "") + ">" + n + "</button>").join("") + "</div>"
+        : "";
+      body = '<div class="risk-action-row">' +
+        '<button type="button" class="bg-btn" data-act="fortify"' + (act && movable && !state.fortifyUsed ? "" : " disabled") + '><span>🛡️ تحصين</span></button>' +
+        '<button type="button" class="bg-btn ghost" data-act="cancel"' + (state.selected ? "" : " disabled") + '><span>✖ إلغاء</span></button>' +
+        "</div>" +
+        diceRow +
+        '<button type="button" class="bg-btn primary" data-act="end"' + (act && state.toPlace <= 0 && !handLimitBlocked(p) ? "" : " disabled") + '><span>⏭️ إنهاء الدور</span></button>' +
+        '<p class="risk-hint">' + actionHint() + "</p>";
+    } else if (phase === "fortify") {
+      body = '<button type="button" class="bg-btn ghost" data-act="cancel"><span>↩ رجوع للهجوم</span></button>' +
+        '<p class="risk-hint">' + actionHint() + "</p>";
+    }
+
+    return '<div class="risk-panel risk-actions"><span class="risk-kicker">أوامر</span>' + body + "</div>";
   }
 
   function sideHTML() {
-    const p = state.players[state.current] || state.players[0];
-    const phase = state.phase;
-    const isClaim = phase === "claim";
-    const isSetup = phase === "setup";
-    const isReinforce = phase === "reinforce";
-    const pending = !!state.pendingMove;
-    const canEx = isReinforce && canExchange(p) && canAct();
-    const movable = fortifyMovable();
-    const selectedTroops = state.selected ? state.troops[state.selected] : 0;
-    const statValue = isClaim ? (state.claimCount + "/" + TERRITORIES.length) : isSetup ? state.toPlace : isReinforce ? state.toPlace : selectedTroops;
-    const statLabel = isClaim ? "إقليم" : (isSetup || isReinforce ? "كاتيبة" : "مختارة");
-    const turnName = isClaim ? state.players[state.claimPlayer].name : isSetup ? state.players[state.setupPlayer].name : state.over ? "انتهت الحملة" : p.name;
+    if (!state) return "";
+    return sideTopHTML() + sideRestHTML();
+  }
 
-    let actions = '<div class="risk-panel risk-actions"><span class="risk-kicker">أوامر</span>';
-    if (pending) {
-      actions += numberPanelHTML();
-    } else if (isClaim) {
-      actions += '<p class="risk-hint">اختر أي إقليم رمادي غير مملوك لضمّه إلى إمبراطوريتك. يتناوب القادة بالترتيب.</p>';
-      actions += '<button type="button" class="bg-btn" data-act="autoclaim"' + (canAct() ? "" : " disabled") + '><span>🎲 اختيار تلقائي</span></button>';
-    } else if (isSetup) {
-      actions += '<p class="risk-hint">انقر على أراضيك لتوزيع كتائب الإعداد. زر التوزيع التلقائي يضع كل الكتائب المتبقية على الحدود.</p>';
-      actions += '<button type="button" class="bg-btn" data-act="autoplace"' + (canAct() ? "" : " disabled") + '><span>⚡ توزيع تلقائي</span></button>';
-    } else {
-      actions +=
-        '<button type="button" class="bg-btn" data-act="exchange"' + (canEx ? "" : " disabled") + '><span>🃏 بدّل المجموعة (+' + nextTradeValue() + ')</span></button>' +
-        '<button type="button" class="bg-btn" data-act="fortify"' + (phase === "attack" && canAct() && movable && !state.fortifyUsed ? "" : " disabled") + '><span>🛡️ تحصين</span></button>' +
-        '<button type="button" class="bg-btn primary" data-act="end"' + (phase === "attack" && canAct() && state.toPlace <= 0 && !state.over && !pending ? "" : " disabled") + '><span>⏭️ إنهاء الدور</span></button>' +
-        (state.selected || state.fortifyFrom ? '<button type="button" class="bg-btn ghost small" data-act="cancel"><span>✖ إلغاء التحديد</span></button>' : "") +
-        '<p class="risk-hint">' + actionHint() + '</p>';
-    }
-    actions += '</div>';
+  function sideTopHTML() {
+    if (!state) return "";
+    const seat = activeSeat();
+    const p = seat >= 0 ? state.players[seat] : null;
+    const phase = state.phase;
+    const statSecond = phase === "claim" ? state.claimCount + "/" + TERRITORIES.length : (phase === "setup" || phase === "reinforce") ? state.toPlace : (state.selected ? state.troops[state.selected] : "—");
+    const statSecondLabel = phase === "claim" ? "مختارة" : (phase === "setup" || phase === "reinforce") ? "متبقية" : "مختارة";
 
     return (
-      '<div class="risk-panel risk-turn">' +
-      '<span class="risk-kicker">' + phaseLabel() + '</span>' +
-      '<strong>' + U.escape(turnName) + '</strong>' +
-      '<small>' + turnSubtitle() + '</small>' +
+      '<div class="risk-panel risk-turn" style="--p:' + (p ? p.color : "#8a9aa0") + '">' +
+      '<div class="risk-turn-top"><span class="risk-kicker">' + phaseLabel() + '</span><span class="risk-turn-no">دور ' + (state.turn || 1) + "</span></div>" +
+      "<strong>" + U.escape(p ? p.name : "انتهت الحملة") + "</strong>" +
+      "<small>" + U.escape(turnSubtitle()) + "</small>" +
+      phaseStepsHTML() +
       '<div class="risk-turn-stats">' +
-      '<div><b>' + countTerritories(p.index) + '</b><small>إقليم</small></div>' +
-      '<div><b>' + statValue + '</b><small>' + statLabel + '</small></div>' +
-      '<div><b>' + p.cards.length + '</b><small>بطاقة</small></div>' +
-      '</div>' +
-      '</div>' +
-      actions +
-      '<div class="risk-panel risk-battle-panel"><span class="risk-kicker">آخر معركة</span>' + battleHTML() + '</div>' +
-      '<div class="risk-panel risk-players"><span class="risk-kicker">القادة</span>' + state.players.map(playerRow).join("") + '</div>' +
-      '<div class="risk-notice">' + U.escape(state.notice) + '</div>' +
-      '<div class="risk-panel risk-legend">' +
-      '<span class="risk-kicker">مفتاح الخريطة</span>' +
-      '<div class="risk-rule-chips">' + ruleChips() + '</div>' +
-      Object.keys(CONTINENTS).map((c) => '<div class="risk-legend-row"><i style="--cc:' + CONTINENTS[c].color + '"></i><span>' + U.escape(CONTINENTS[c].name) + '</span><b>+' + CONTINENTS[c].bonus + '</b></div>').join("") +
-      '<p>الخطوط الداكنة طرق هجوم وتحصين، والمنقّطة الطويلة مسارات بحرية. مرّر المؤشر فوق الإقليم لرؤية تفاصيله.</p>' +
-      '</div>'
+      "<div><b>" + (p ? countTerritories(p.index) : 0) + "</b><small>إقليم</small></div>" +
+      "<div><b>" + statSecond + "</b><small>" + statSecondLabel + "</small></div>" +
+      "<div><b>" + (p ? p.cards.length : 0) + "</b><small>بطاقة</small></div>" +
+      "<div><b>" + (p ? continentsOf(p.index).length : 0) + "</b><small>قارة</small></div>" +
+      "</div></div>" +
+      actionsHTML()
     );
   }
 
-  function turnSubtitle() {
-    if (state.phase === "claim") return "اختر إقليمًا غير مملوك — تبدأ الحدود بالتشكّل.";
-    if (state.phase === "setup") return "وزّع " + state.toPlace + " كتيبة إعداد على أراضيك.";
-    if (state.phase === "reinforce") return "وزّع " + state.toPlace + " كتيبة تعزيز" + (canExchange(cur()) ? " — لديك مجموعة بطاقات صالحة." : ".");
-    if (state.phase === "fortify") return "انقل كتائب بين أراضيك ثم أكّد العدد.";
-    if (state.phase === "over") return "انتهت الحملة — راجع الترتيب النهائي.";
-    if (state.pendingMove) return "أكّد عدد الكتائب المنقولة إلى الإقليم المحتل.";
-    return "اهجم من أراضيك، ثم حصّن وأنهِ الدور.";
+  function sideRestHTML() {
+    if (!state) return "";
+    return (
+      '<div class="risk-panel risk-battle-panel"><span class="risk-kicker">آخر معركة</span>' + battleHTML() + "</div>" +
+      '<div class="risk-panel risk-players"><span class="risk-kicker">القادة</span>' + state.players.map(playerRow).join("") + "</div>" +
+      legendHTML()
+    );
   }
 
-  function actionHint() {
-    if (state.phase === "reinforce") return canExchange(cur()) ? "بدّل مجموعة البطاقات الآن للحصول على تعزيزات إضافية قبل الهجوم." : "وزّع كل كتائب التعزيز بالنقر على أراضيك.";
-    if (state.phase === "fortify") {
-      return state.fortifyFrom ? "اختر الوجهة ثم حدّد عدد الكتائب في لوحة النقل." : "اختر مصدرًا فيه كتيبتان على الأقل.";
-    }
-    if (state.phase === "attack") {
-      return state.selected ? "اختر إقليمًا معاديًا مجاورًا، أو ألغِ التحديد." : "انقر إقليمًا تملكه لبدء الهجوم، أو استخدم زر التحصين.";
-    }
-    if (state.phase === "over") return "أغلقت الحملة — يمكنك بدء مباراة جديدة.";
-    return "انقر على الخريطة لتنفيذ الأمر.";
-  }
+  function secretHTML() {
+    if (!state) return "";
+    const viewer = viewerPlayer();
+    const over = state.over;
+    const missionBlock = (() => {
+      if (over) {
+        return '<div class="risk-secret-missions"><span class="risk-kicker">المهمات عند نهاية الحملة</span>' +
+          state.players.map((p) => {
+            const m = p.mission;
+            return '<div class="risk-reveal-mission" style="--p:' + p.color + '"><span>' + (m ? m.icon : "•") + "</span><strong>" + U.escape(p.name) + "</strong><small>" + U.escape(m ? m.title : "بلا مهمة") + "</small></div>";
+          }).join("") + "</div>";
+      }
+      if (!state.missionMode) {
+        return '<p class="risk-secret-note">هذه المباراة بلا مهمات سرية — الفوز يكون عسكريًا بالسيطرة أو الإقصاء.</p>';
+      }
+      if (!viewer) {
+        return '<p class="risk-secret-note">أنت مشاهد. لا تُعرض مهمة أي قائد على هذا الجهاز.</p>';
+      }
+      const m = missionStatus(viewer);
+      if (!m) return "";
+      const pct = m.progress && m.progress.need ? clamp(Math.round((m.progress.have / m.progress.need) * 100), 0, 100) : 0;
+      return '<div class="risk-mission' + (m.done ? " done" : "") + '">' +
+        '<span class="risk-mission-icon">' + m.icon + "</span>" +
+        '<div class="risk-mission-body"><span class="risk-kicker">مهمتك السرية</span><strong>' + U.escape(m.title) + "</strong>" +
+        "<p>" + U.escape(m.detail) + "</p>" +
+        (m.progress ? '<div class="risk-mission-bar"><i style="width:' + pct + '%"></i></div><small>' + U.escape(m.progress.text) + "</small>" : "") +
+        "</div></div>";
+    })();
 
-  function cardHTML(card) {
-    const key = cardTypeKey(card);
-    const info = CARD_TYPES[key];
-    const terr = card && card.terr && TERR_BY_ID[card.terr] ? TERR_BY_ID[card.terr].name : "";
-    return '<div class="risk-card ' + key + '"><span>' + info.icon + '</span><strong>' + info.name + '</strong>' +
-      (terr ? '<small>' + U.escape(terr) + '</small>' : '<small>بديل أي نوع</small>') + '</div>';
+    if (!viewer) {
+      return missionBlock + '<p class="risk-secret-note">البطاقات والمهمات لا تُعرض إلا لصاحب المقعد على هذا الجهاز.</p>';
+    }
+    if (viewer.eliminated && !over) {
+      return missionBlock + '<p class="risk-secret-note">أُقصيت من الحملة — يمكنك متابعة بقية القادة من الخريطة.</p>';
+    }
+
+    const cards = viewer.cards || [];
+    const canTrade = canControl() && (state.phase === "reinforce" || state.phase === "attack") && !state.pendingMove;
+    const hasSelection = tradeSel.length === 3;
+    const cardsHTML = cards.length
+      ? '<div class="risk-cards-grid">' + cards.map((card, index) => {
+        const key = cardTypeKey(card);
+        const info = CARD_TYPES[key] || CARD_TYPES.infantry;
+        const terr = card && card.terr && TERR_BY_ID[card.terr] ? TERR_BY_ID[card.terr].name : "";
+        const chosen = tradeSel.indexOf(index) >= 0;
+        return '<button type="button" class="risk-card ' + key + (chosen ? " selected" : "") + '" data-card-index="' + index + '"' + (canTrade ? "" : " disabled") + ' aria-pressed="' + chosen + '">' +
+          "<span>" + info.icon + "</span><strong>" + info.name + "</strong>" +
+          "<small>" + (terr ? U.escape(terr) : "بديل أي نوع") + "</small></button>";
+      }).join("") + "</div>"
+      : '<p class="risk-cards-empty">لا تملك بطاقات بعد. استحوذ على إقليم في دورك لتحصل على بطاقة عند إنهائه.</p>';
+
+    return missionBlock +
+      '<div class="risk-secret-cards"><span class="risk-kicker">بطاقات القيادة · ' + cards.length + "/5</span>" +
+      cardsHTML +
+      '<div class="risk-secret-actions">' +
+      '<button type="button" class="bg-btn primary small" data-act="exchange"' + (canTrade ? "" : " disabled") + '><span>🃏 بدّل المحدد (+' + nextTradeValue() + ")</span></button>" +
+      (tradeSel.length ? '<button type="button" class="bg-btn ghost small" data-act="trade-clear"><span>مسح التحديد</span></button>' : "") +
+      "</div>" +
+      '<p class="risk-secret-note">' + (hasSelection ? "تم تحديد ثلاث بطاقات — اضغط التبديل." : "اختر ثلاث بطاقات متشابهة أو واحدة من كل نوع. الجوكر بديل عن أي نوع.") +
+      (rule("cards") === "classic" ? " مكافأة الإقليم المطابق +2 كتيبة." : "") + "</p></div>";
   }
 
   function render() {
-    if (!rootRef || !state) return;
-    const wrap = document.createElement("div");
-    wrap.className = "risk-layout";
-
-    const boardWrap = document.createElement("div");
-    boardWrap.className = "risk-board-wrap";
-    boardWrap.innerHTML =
-      '<div class="board-head">' +
-      '<span class="board-head-icon"><svg class="ic" aria-hidden="true"><use href="#g-risk"/></svg></span>' +
-      '<div class="board-head-copy"><span class="board-head-kicker">غرفة العمليات</span><strong>' + U.escape(MAP.name) + '</strong><small class="risk-map-sub">' + U.escape(MAP.desc) + '</small></div>' +
-      '<div class="risk-zoom" role="group" aria-label="تكبير الخريطة">' +
-      '<button type="button" data-zoom="-1" aria-label="تصغير الخريطة">−</button>' +
-      '<span data-zoom-label>' + Math.round(zoom * 100) + '%</span>' +
-      '<button type="button" data-zoom="1" aria-label="تكبير الخريطة">+</button>' +
-      '<button type="button" data-zoom="0" aria-label="إعادة ضبط التكبير">↺</button>' +
-      '</div>' +
-      '</div>' +
-      '<div class="risk-map-scroll"><div class="risk-map-inner" style="--risk-zoom:' + zoom + '">' + mapSVG() + '</div></div>';
-    wrap.appendChild(boardWrap);
-
-    const side = document.createElement("aside");
-    side.className = "risk-side";
-    side.innerHTML = sideHTML();
-
-    const viewer = viewerPlayer();
-    const seat = viewerSeat();
-    const secret = BG.secretPanel({
-      title: "🃏 بطاقات القيادة",
-      owner: viewer ? viewer.name : "مشاهد",
-      hint: viewer
-        ? "بطاقاتك مخفية عن بقية اللاعبين. أظهرها في دورك فقط، ثم أخفها قبل تمرير الجهاز."
-        : "أنت تشاهد فقط — بطاقات اللاعبين سرّية ولا تُعرض على هذا الجهاز.",
-      open: seat >= 0 && seat === activeSeat(),
-      autoKey: "risk:" + seat + ":" + (state.turn || 1),
-      onToggle() { /* handled by secret panel */ },
-      render() {
-        if (!viewer) {
-          return '<p class="risk-cards-empty">تتابع الخريطة مباشرة. لا تُعرض بطاقات القيادة الخاصة بأي لاعب على هذا الجهاز.</p>';
-        }
-        if (!viewer.cards.length) {
-          return '<p class="risk-cards-empty">لا تملك بطاقات بعد. استحوذ على إقليم في دورك لتحصل على بطاقة عند إنهائه.</p>' +
-            '<p class="risk-cards-note">' + (rule("cards") === "off" ? "البطاقات معطّلة في هذه المباراة." : "كل بطاقة تحمل اسم إقليم ورمز نوع. الجوكر يصلح بدلًا عن أي نوع.") + '</p>';
-        }
-        return (
-          '<div class="risk-cards-grid">' + viewer.cards.map(cardHTML).join("") + '</div>' +
-          '<p class="risk-cards-note">' + (canExchange(viewer) ? '<strong>لديك مجموعة صالحة الآن — بدّلها في مرحلة التعزيز.</strong><br>' : "") +
-          'المجموعة: ثلاث بطاقات متشابهة أو واحدة من كل نوع. قيمة التبديل التالية: +' + nextTradeValue() + ' كتيبة.</p>'
-        );
-      },
-    });
-    side.appendChild(secret.el);
-    wrap.appendChild(side);
-
-    rootRef.innerHTML = "";
-    rootRef.appendChild(wrap);
-
-    wrap.querySelectorAll("[data-terr]").forEach((node) => {
-      const terr = node.getAttribute("data-terr");
-      const act = () => {
-        if (state.over) return;
-        if (state.pendingMove) {
-          BG.toast("أكّد عدد الكتائب المنقولة أولًا.", "warn");
-          return;
-        }
-        if (!canAct()) {
-          if (isOnline()) BG.toast("انتظر دورك.", "warn");
-          return;
-        }
-        if (state.phase === "claim") claimTerritory(terr);
-        else if (state.phase === "setup") placeSetup(terr);
-        else if (state.phase === "reinforce") placeReinforcement(terr);
-        else if (state.phase === "fortify") fortifyClick(terr);
-        else if (state.phase === "attack") {
-          if (state.owner[terr] === state.current) selectForAttack(terr);
-          else if (state.selected) attack(terr);
-          else {
-            BG.toast("اختر إقليمًا تملكه أولًا.", "warn");
-            if (FX) FX.sound("error");
-          }
-        }
-      };
-      node.addEventListener("click", act);
-      node.addEventListener("keydown", (event) => {
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault();
-          act();
-        }
-      });
-    });
-
-    wrap.querySelectorAll("[data-act]").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        if (!state || state.over) return;
-        const act = btn.dataset.act;
-        if (act === "number-cancel") { cancelFortify(); return; }
-        if (!canAct()) return;
-        if (act === "exchange") exchangeCards();
-        else if (act === "fortify") startFortify();
-        else if (act === "end") endTurn();
-        else if (act === "autoclaim") cpuClaimStep();
-        else if (act === "autoplace") autoPlaceSetup();
-        else if (act === "number-confirm") {
-          const pm = state.pendingMove;
-          if (!pm) return;
-          if (pm.kind === "conquest") applyConquestMove(pm.value);
-          else performFortify(pm.from, pm.to, pm.value);
-        } else if (act === "cancel") {
-          state.selected = null;
-          state.fortifyFrom = null;
-          state.fortifyTo = null;
-          state.pendingMove = null;
-          if (state.phase === "fortify") state.phase = "attack";
-          state.notice = "أُلغي التحديد.";
-          render();
-        }
-      });
-    });
-
-    wrap.querySelectorAll("[data-zoom]").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const dir = Number(btn.dataset.zoom);
-        zoom = dir === 0 ? 1 : clamp(Math.round((zoom + dir * 0.25) * 100) / 100, 1, 2.5);
-        const inner = wrap.querySelector(".risk-map-inner");
-        if (inner) inner.style.setProperty("--risk-zoom", zoom);
-        const label = wrap.querySelector("[data-zoom-label]");
-        if (label) label.textContent = Math.round(zoom * 100) + "%";
-      });
-    });
-
-    bindNumberControls(wrap);
-
-    if (!state.over) {
-      const seatIndex = activeSeat();
-      const active = seatIndex >= 0 ? state.players[seatIndex] : null;
-      apiRef.setStatus(active ? "دور " + AI.statusName(active) : phaseLabel(), "live");
+    if (!rootRef || !state || !ready) return;
+    const viewer = viewerSeat();
+    if (viewer !== lastViewer) {
+      lastViewer = viewer;
+      tradeSel = [];
+      tradeOwner = viewer;
     }
+    renderMap();
+    if (sideTop) sideTop.innerHTML = sideTopHTML();
+    if (sideRest) sideRest.innerHTML = sideRestHTML();
+    if (secret) secret.refresh();
+    if (noticeEl) {
+      noticeEl.textContent = state.notice || "";
+      noticeEl.classList.toggle("is-quiet", !state.notice);
+      noticeEl.classList.toggle("is-over", !!state.over);
+    }
+    updateStatus();
     syncCpu();
   }
 
-  function bindNumberControls(wrap) {
-    const pm = state && state.pendingMove;
-    if (!pm) return;
-    const range = wrap.querySelector("[data-number-range]");
-    const output = wrap.querySelector("[data-number-output]");
-    const sync = () => {
-      pm.value = clamp(Number(pm.value) || 1, 1, pm.max);
-      if (range) range.value = String(pm.value);
-      if (output) output.textContent = String(pm.value);
-      wrap.querySelectorAll("[data-num-set]").forEach((btn) => {
-        const value = btn.dataset.numSet === "max" ? pm.max : Number(btn.dataset.numSet);
-        btn.classList.toggle("active", value === pm.value);
-      });
-    };
-    if (range) {
-      range.addEventListener("input", () => {
-        pm.value = clamp(Number(range.value) || 1, 1, pm.max);
-        sync();
-      });
+  function updateStatus() {
+    if (!apiRef || !apiRef.setStatus || !state) return;
+    if (state.over) {
+      apiRef.setStatus("انتهت الحملة", "");
+      return;
     }
-    wrap.querySelectorAll("[data-num-step]").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        pm.value = clamp(pm.value + Number(btn.dataset.numStep || 0), 1, pm.max);
-        sync();
-      });
-    });
-    wrap.querySelectorAll("[data-num-set]").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        pm.value = btn.dataset.numSet === "max" ? pm.max : clamp(Number(btn.dataset.numSet) || 1, 1, pm.max);
-        sync();
-      });
-    });
-    sync();
+    if (isOnline() && viewerSeat() < 0) {
+      apiRef.setStatus("مشاهدة", "live");
+      return;
+    }
+    const seat = activeSeat();
+    const player = seat >= 0 ? state.players[seat] : null;
+    apiRef.setStatus(player ? "دور " + AI.statusName(player) : phaseLabel(), "live");
   }
 
-  /* @@END@@ */
+  function syncNumberUI() {
+    if (!rootRef || !state || !state.pendingMove) return;
+    const pm = state.pendingMove;
+    const min = Math.max(1, pm.min || 1);
+    const max = Math.max(min, pm.max || min);
+    pm.value = clamp(Number(pm.value) || min, min, max);
+    const range = rootRef.querySelector("[data-number-range]");
+    const output = rootRef.querySelector("[data-number-output]");
+    if (range) range.value = String(pm.value);
+    if (output) output.textContent = String(pm.value);
+    rootRef.querySelectorAll("[data-num-set]").forEach((btn) => {
+      const value = btn.getAttribute("data-num-set") === "max" ? max : Number(btn.getAttribute("data-num-set"));
+      btn.classList.toggle("active", value === pm.value);
+    });
+  }
+
+  function onRootInput(event) {
+    const range = event.target.closest("[data-number-range]");
+    if (!range || !state || !state.pendingMove) return;
+    state.pendingMove.value = clamp(Number(range.value) || 1, state.pendingMove.min || 1, state.pendingMove.max || 1);
+    syncNumberUI();
+  }
+
+  function onRootKeydown(event) {
+    if (event.key === "Escape" && state && !state.over) {
+      if (state.pendingMove) {
+        if (state.pendingMove.kind === "fortify") cancelFortify();
+        return;
+      }
+      if (state.selected) {
+        state.selected = null;
+        state.notice = "أُلغي التحديد.";
+        render();
+      }
+      return;
+    }
+    if (event.key !== "Enter" && event.key !== " ") return;
+    const terr = event.target.closest("[data-terr]");
+    if (!terr || !mapSvg || !mapSvg.contains(terr)) return;
+    event.preventDefault();
+    handleTerritory(terr.getAttribute("data-terr"));
+  }
+
+  function onRootClick(event) {
+    if (performance.now() - lastDragAt < 300) return;
+    const card = event.target.closest("[data-card-index]");
+    if (card) {
+      toggleTrade(Number(card.getAttribute("data-card-index")));
+      return;
+    }
+    const focus = event.target.closest("[data-focus]");
+    if (focus) {
+      focusContinent(focus.getAttribute("data-focus"));
+      return;
+    }
+    const zoomBtn = event.target.closest("[data-zoom]");
+    if (zoomBtn) {
+      const dir = Number(zoomBtn.getAttribute("data-zoom"));
+      if (dir === 0) resetCamera();
+      else zoomBy(dir > 0 ? 0.78 : 1.28);
+      return;
+    }
+    const diceBtn = event.target.closest("[data-attack-dice]");
+    if (diceBtn) {
+      if (!state || !canControl()) return;
+      state.attackDice = clamp(Number(diceBtn.getAttribute("data-attack-dice")) || 3, 1, 3);
+      render();
+      return;
+    }
+    const actBtn = event.target.closest("[data-act]");
+    if (actBtn) {
+      handleAction(actBtn.getAttribute("data-act"));
+      return;
+    }
+    const numStep = event.target.closest("[data-num-step]");
+    if (numStep) {
+      if (!state || !state.pendingMove) return;
+      state.pendingMove.value = clamp((state.pendingMove.value || 1) + Number(numStep.getAttribute("data-num-step") || 0), state.pendingMove.min || 1, state.pendingMove.max || 1);
+      syncNumberUI();
+      return;
+    }
+    const numSet = event.target.closest("[data-num-set]");
+    if (numSet) {
+      if (!state || !state.pendingMove) return;
+      const raw = numSet.getAttribute("data-num-set");
+      state.pendingMove.value = raw === "max" ? state.pendingMove.max : clamp(Number(raw) || 1, state.pendingMove.min || 1, state.pendingMove.max || 1);
+      syncNumberUI();
+      return;
+    }
+    const terr = event.target.closest("[data-terr]");
+    if (terr && mapSvg && mapSvg.contains(terr)) {
+      handleTerritory(terr.getAttribute("data-terr"));
+    }
+  }
+
+  function handleAction(act) {
+    if (!state) return;
+    if (act === "number-confirm") {
+      if (!state.pendingMove || !canControl()) return;
+      const pm = state.pendingMove;
+      if (pm.kind === "conquest") applyConquestMove(pm.value);
+      else performFortify(pm.from, pm.to, pm.value);
+      return;
+    }
+    if (act === "number-cancel") {
+      cancelFortify();
+      return;
+    }
+    if (act === "trade-clear") {
+      tradeSel = [];
+      render();
+      return;
+    }
+    if (act === "reset-view") {
+      resetCamera();
+      return;
+    }
+    if (state.over) return;
+    if (!canAct()) {
+      if (isOnline()) BG.toast("انتظر دورك.", "warn");
+      return;
+    }
+    if (act === "exchange") exchangeCards(tradeSel);
+    else if (act === "fortify") startFortify();
+    else if (act === "end") endTurn();
+    else if (act === "autoclaim") autoClaim();
+    else if (act === "autoplace") autoPlaceSetup();
+    else if (act === "undo-reinforce") undoReinforcement();
+    else if (act === "cancel") {
+      if (state.phase === "fortify") cancelFortify();
+      else {
+        state.selected = null;
+        state.notice = "أُلغي التحديد.";
+        render();
+      }
+    }
+  }
+
+  function toggleTrade(index) {
+    if (!state || !canControl() || state.pendingMove) return;
+    if (state.phase !== "reinforce" && state.phase !== "attack") return;
+    const viewer = viewerPlayer();
+    if (!viewer || !viewer.cards || !viewer.cards[index]) return;
+    const pos = tradeSel.indexOf(index);
+    if (pos >= 0) tradeSel.splice(pos, 1);
+    else {
+      tradeSel.push(index);
+      if (tradeSel.length > 3) tradeSel.shift();
+    }
+    if (FX) FX.sound("select");
+    if (secret) secret.refresh();
+  }
+
+  function handleTerritory(terrId) {
+    if (!state || state.over || !TERR_BY_ID[terrId]) return;
+    if (state.pendingMove) {
+      BG.toast("أكّد عدد الكتائب المنقولة أولًا.", "warn");
+      return;
+    }
+    if (!canAct()) {
+      if (isOnline()) BG.toast("انتظر دورك.", "warn");
+      else if (cur() && cur().isCpu) BG.toast("الكمبيوتر يفكر…", "warn");
+      return;
+    }
+    if (state.phase === "claim") claimTerritory(terrId);
+    else if (state.phase === "setup") placeSetup(terrId);
+    else if (state.phase === "reinforce") placeReinforcement(terrId);
+    else if (state.phase === "fortify") fortifyClick(terrId);
+    else if (state.phase === "attack") {
+      if (state.owner[terrId] === state.current) selectForAttack(terrId);
+      else if (state.selected) attack(terrId);
+      else {
+        BG.toast("اختر إقليمًا تملكه أولًا.", "warn");
+        if (FX) FX.sound("error");
+      }
+    }
+  }
 
   BG.register(game);
 })();
+

@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Risk map preview</title>
+<style>
+  html, body { margin: 0; background: #071419; color: #f6f2e8; font-family: "Segoe UI", Tahoma, sans-serif; }
+  .wrap { padding: 10px; }
+  svg { display: block; width: 100%; height: auto; background: #081a20; border-radius: 14px; }
+  .terr path { stroke: #071419; stroke-width: 1.3; }
+  .terr:hover path { filter: brightness(1.18); }
+  text { pointer-events: none; font-weight: 700; }
+  .tname { font-size: 11px; fill: #f6f2e8; paint-order: stroke; stroke: rgba(4,14,18,.85); stroke-width: 3px; stroke-linejoin: round; text-anchor: middle; }
+  .clabel { font-size: 19px; fill: rgba(255,255,255,.5); letter-spacing: .12em; text-anchor: middle; }
+  .dot { fill: #f2b45e; stroke: #061116; stroke-width: 1.4; }
+</style>
+</head>
+<body>
+<div class="wrap"><div id="map"></div></div>
+<script src="js/games/risk-map-data.js"></script>
+<script>
+  const G = window.RISK_GEO;
+  const colors = { na: "#b5674f", sa: "#a68a3e", eu: "#4f87a6", af: "#a25f4c", as: "#7862a3", au: "#438e72" };
+  const terrToCont = {};
+  Object.keys(colors).forEach((code) => {});
+  let out = '<svg viewBox="0 0 ' + G.width + ' ' + G.height + '" role="img">';
+  out += '<defs>';
+  Object.keys(G.clips).forEach((key) => {
+    out += '<clipPath id="clip-' + key + '"><path d="' + G.clips[key] + '"/></clipPath>';
+  });
+  out += '</defs>';
+  out += '<rect width="' + G.width + '" height="' + G.height + '" fill="#071a20"/>';
+  out += '<path d="' + G.graticule + '" fill="none" stroke="rgba(140,200,230,.08)" stroke-width="1"/>';
+  const contByTerr = {};
+  const contTerrs = {
+    na: ["alaska","nwt","greenland","alberta","ontario","quebec","wus","eus","central"],
+    sa: ["venezuela","peru","brazil","argentina"],
+    eu: ["iceland","britain","scandinavia","neurope","weurope","seurope","ukraine"],
+    af: ["nafrica","egypt","eafrica","congo","safrica","madagascar"],
+    as: ["mideast","ural","siberia","yakutsk","irkutsk","mongolia","china","japan","india","siam","afghanistan","kamchatka"],
+    au: ["indonesia","newguinea","waustralia","eaustralia"],
+  };
+  Object.keys(contTerrs).forEach((c) => contTerrs[c].forEach((t) => { contByTerr[t] = c; }));
+  Object.keys(G.territories).forEach((id) => {
+    const t = G.territories[id];
+    const c = contByTerr[id];
+    out += '<g class="terr" data-t="' + id + '">';
+    t.parts.forEach((part) => {
+      const clip = part.clip ? ' clip-path="url(#clip-' + part.clip + ')"' : '';
+      out += '<path d="' + part.d + '" fill="' + colors[c] + '"' + clip + '/>';
+    });
+    out += '</g>';
+  });
+  Object.keys(G.territories).forEach((id) => {
+    const t = G.territories[id];
+    out += '<circle class="dot" cx="' + t.label[0] + '" cy="' + t.label[1] + '" r="2.6"/>';
+    out += '<text class="tname" x="' + t.name[0] + '" y="' + t.name[1] + '" text-anchor="' + (t.anchor || "middle") + '">' + id + '</text>';
+  });
+  Object.keys(G.continents).forEach((code) => {
+    const c = G.continents[code];
+    out += '<text class="clabel" x="' + c.label[0] + '" y="' + c.label[1] + '">' + code.toUpperCase() + '</text>';
+  });
+  out += '</svg>';
+  document.getElementById('map').innerHTML = out;
+</script>
+</body>
+</html>
