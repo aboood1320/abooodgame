@@ -180,6 +180,13 @@
 
 .risk-sea-rect { pointer-events: none; }
 .risk-graticule { pointer-events: none; }
+.risk-neutral-layer { pointer-events: none; }
+.risk-neutral {
+  fill: #16252b;
+  stroke: rgba(120, 160, 176, 0.16);
+  stroke-width: 0.7;
+  opacity: 0.86;
+}
 .risk-vignette { pointer-events: none; }
 
 .risk-cont-label {
