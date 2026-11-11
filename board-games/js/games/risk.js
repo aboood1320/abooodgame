@@ -328,12 +328,12 @@
           type: "select",
           wide: true,
           choices: [
-            { value: "both", label: "السيطرة على العالم + المهمة السرية" },
+            { value: "both", label: "السيطرة 60% أو المهمة السرية" },
             { value: "elimination", label: "الكلاسيكي: إقصاء الجميع" },
             { value: "domination", label: "السيطرة على 60% من الأراضي" },
             { value: "mission", label: "المهمة السرية فقط" },
           ],
-          hint: "«السيطرة + المهمة» تجعل لكل قائد هدفًا خفيًا، مع بقاء السيطرة العسكرية طريقًا للفوز.",
+          hint: "«السيطرة أو المهمة» تجعل لكل قائد هدفًا خفيًا، مع بقاء السيطرة العسكرية طريقًا للفوز.",
         },
         {
           key: "cards",
@@ -463,6 +463,11 @@
         apiRef.log("بدأت ريسك — العالم الكلاسيكي. اختيار الأراضي بالتبادل يبدأ الآن.", "accent");
       } else {
         apiRef.log("بدأت ريسك — العالم الكلاسيكي (" + TERRITORIES.length + " إقليمًا). الإعداد: " + setupRemaining(state.players[0]) + " كتيبة إضافية لكل قائد.", "accent");
+      }
+      if (!apiRef.net) {
+        requestAnimationFrame(() => {
+          try { window.scrollTo({ top: 0, behavior: "smooth" }); } catch (err) { window.scrollTo(0, 0); }
+        });
       }
       return {
         netSnapshot() {
@@ -1420,7 +1425,7 @@
           (p.mission ? " · مهمة: " + p.mission.title : "") +
           (p.eliminated ? " — مُقصى" : ""),
       }));
-    apiRef.log("انتهت الحرب" + (winner ? " — <strong>" + U.escape(winner.name) + "</strong> يسيطر على العالم!" : "."), "good");
+    apiRef.log("انتهت الحرب" + (winner ? " — <strong>" + U.escape(winner.name) + "</strong> حقق النصر: " + U.escape(reason) : "."), "good");
     if (FX) FX.win();
     render();
     apiRef.gameOver({
@@ -1904,6 +1909,7 @@
   let nodeLayer = null;
   let terrRefs = {};
   let nodeRefs = {};
+  let nameRefs = {};
   let pathRefs = {};
   let nodeScaleValue = 1;
   let focusedContinent = null;
@@ -2108,6 +2114,7 @@
   function cacheMapRefs() {
     terrRefs = {};
     nodeRefs = {};
+    nameRefs = {};
     pathRefs = {};
     if (!mapSvg) return;
     mapSvg.querySelectorAll(".risk-terr").forEach((g) => {
@@ -2115,6 +2122,10 @@
       if (!id) return;
       terrRefs[id] = g;
       pathRefs[id] = Array.prototype.slice.call(g.querySelectorAll("path"));
+    });
+    mapSvg.querySelectorAll(".risk-name").forEach((el) => {
+      const id = el.getAttribute("data-for");
+      if (id) nameRefs[id] = el;
     });
     mapSvg.querySelectorAll(".risk-node").forEach((g) => {
       const id = g.getAttribute("data-terr");
@@ -2186,7 +2197,7 @@
       '<div class="risk-map-viewport" data-map-viewport>' +
       '<div class="risk-map-stage">' + mapSVG() + "</div>" +
       "</div>" +
-      '<div class="risk-map-foot"><span class="risk-map-hint">اسحب الخريطة للتنقل · اضغط قارة للتركيز · الأرقام هي كتائب الإقليم</span><span class="risk-map-zoom-read" data-zoom-read>100%</span></div>' +
+      '<div class="risk-map-foot"><span class="risk-map-hint risk-hint-desktop">اسحب الخريطة للتنقل · اضغط قارة للتركيز · الأرقام هي كتائب الإقليم</span><span class="risk-map-hint risk-hint-mobile">اضغط قارة ثم إقليمًا</span><span class="risk-map-zoom-read" data-zoom-read>100%</span></div>' +
       '<div class="risk-notice" data-notice aria-live="polite"></div>';
 
     const side = document.createElement("aside");
@@ -2388,7 +2399,22 @@
     const read = rootRef && rootRef.querySelector("[data-zoom-read]");
     if (read) read.textContent = percent + "%";
     updateNodeScale();
+    updateLabelVisibility();
     updateChips();
+  }
+
+  function updateLabelVisibility() {
+    if (!mapSvg || !camera || !GEO || !GEO.territories) return;
+    const pad = 10;
+    Object.keys(nameRefs).forEach((id) => {
+      const ref = nameRefs[id];
+      const geo = GEO.territories[id];
+      if (!ref || !geo) return;
+      const pos = namePos(id, geo);
+      const visible = pos.x >= camera.x + pad && pos.x <= camera.x + camera.w - pad &&
+        pos.y >= camera.y + pad && pos.y <= camera.y + camera.h - pad;
+      ref.classList.toggle("is-out", !visible);
+    });
   }
 
   function updateNodeScale() {
@@ -2697,7 +2723,7 @@
   }
 
   function ruleChips() {
-    const victory = rule("victory") === "mission" ? "فوز: المهمة" : rule("victory") === "domination" ? "فوز: سيطرة 60%" : rule("victory") === "elimination" ? "فوز: إقصاء الجميع" : "فوز: سيطرة + مهمة";
+    const victory = rule("victory") === "mission" ? "فوز: المهمة" : rule("victory") === "domination" ? "فوز: سيطرة 60%" : rule("victory") === "elimination" ? "فوز: إقصاء الجميع" : "فوز: سيطرة أو مهمة";
     const cards = rule("cards") === "off" ? "بلا بطاقات" : rule("cards") === "simple" ? "بطاقات مبسّطة" : "بطاقات كلاسيكية";
     const fort = rule("fortify") === "none" ? "بلا تحصين" : rule("fortify") === "anywhere" ? "تحصين حر" : rule("fortify") === "unlimited" ? "تحصين متعدد" : "تحصين متصل";
     const reinf = rule("reinforce") === "rapid" ? "تعزيز سريع" : "تعزيز كلاسيكي";
@@ -2791,14 +2817,14 @@
       "<div><b>" + (p ? p.cards.length : 0) + "</b><small>بطاقة</small></div>" +
       "<div><b>" + (p ? continentsOf(p.index).length : 0) + "</b><small>قارة</small></div>" +
       "</div></div>" +
-      actionsHTML()
+      actionsHTML() +
+      '<div class="risk-panel risk-battle-panel"><span class="risk-kicker">آخر معركة</span>' + battleHTML() + "</div>"
     );
   }
 
   function sideRestHTML() {
     if (!state) return "";
     return (
-      '<div class="risk-panel risk-battle-panel"><span class="risk-kicker">آخر معركة</span>' + battleHTML() + "</div>" +
       '<div class="risk-panel risk-players"><span class="risk-kicker">القادة</span>' + state.players.map(playerRow).join("") + "</div>" +
       legendHTML()
     );

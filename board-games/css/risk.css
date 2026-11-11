@@ -245,11 +245,13 @@
   letter-spacing: 0.01em;
   direction: ltr;
   paint-order: stroke;
+  transition: opacity 0.18s ease;
   stroke: rgba(3, 12, 16, 0.92);
   stroke-width: 3.2px;
   stroke-linejoin: round;
   pointer-events: none;
 }
+.risk-name.is-out { opacity: 0; }
 
 .risk-leader {
   fill: none;
@@ -373,6 +375,7 @@
   padding: 6px 14px 10px;
 }
 .risk-map-hint { color: var(--dim); font-size: 0.6rem; }
+.risk-hint-mobile { display: none; }
 .risk-map-zoom-read {
   color: var(--dim);
   font-size: 0.6rem;
@@ -893,8 +896,9 @@
   .risk-head-icon { width: 34px; height: 34px; font-size: 1.05rem; }
   .risk-board-head .board-head-copy strong { font-size: 0.92rem; }
   .risk-map-sub { display: none; }
-  .risk-map-hint { display: none; }
-  .risk-map-foot { justify-content: flex-end; padding: 5px 12px 8px; }
+  .risk-hint-desktop { display: none; }
+  .risk-hint-mobile { display: inline; }
+  .risk-map-foot { justify-content: space-between; padding: 5px 12px 8px; }
 }
 
 @media (max-width: 640px) {
@@ -902,7 +906,7 @@
   .risk-board-head { margin: 7px 7px 0; padding: 7px 8px; border-radius: 13px; }
   .risk-zoom button { width: 25px; height: 25px; font-size: 0.9rem; }
   .risk-zoom span { min-width: 36px; font-size: 0.6rem; }
-  .risk-continents { margin: 7px 7px 0; }
+  .risk-continents { margin: 7px 7px 0; flex-wrap: wrap; overflow-x: visible; gap: 5px; padding-bottom: 2px; }
   .risk-cont-chip { height: 28px; font-size: 0.62rem; padding: 0 8px; }
   .risk-map-viewport { margin: 0 7px; border-radius: 14px; }
   .risk-map-foot { margin: 0 7px; }
@@ -926,7 +930,7 @@
 }
 
 @media (max-width: 420px) {
-  .risk-board-head .board-head-copy strong { font-size: 0.84rem; }
+  .risk-board-head .board-head-copy strong { font-size: 0.84rem; line-height: 1.18; }
   .risk-board-head .board-head-kicker { display: none; }
   .risk-cont-chip { font-size: 0.58rem; }
   .risk-turn-stats b { font-size: 0.84rem; }

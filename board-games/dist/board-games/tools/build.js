@@ -112,6 +112,8 @@ const required = [
   "js/library-art-expansion.js",
   "js/pwa.js",
   "js/games/chess.js",
+  "js/games/risk.js",
+  "js/games/risk-map-data.js",
   "js/games/kootbositta.js",
   "js/games/waraq.js",
   "js/games/mancala.js",

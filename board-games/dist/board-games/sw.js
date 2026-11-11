@@ -5,7 +5,7 @@
    ========================================================================== */
 "use strict";
 
-const VERSION = "1.6.0";
+const VERSION = "1.7.0";
 const CACHE = "bg-shell-v" + VERSION + "-r1";
 const OFFLINE_URL = "index.html";
 
@@ -95,6 +95,7 @@ const CORE = [
   "js/games/ttr-board.js",
   "js/games/ticket-to-ride.js",
   "js/games/carcassonne.js",
+  "js/games/risk-map-data.js",
   "js/games/risk.js",
   "js/games/scrabble.js",
   "js/games/cluedo-art.js",
