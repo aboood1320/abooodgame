@@ -68,8 +68,8 @@
     return set;
   }
 
-  function validPlacement(board, cells, adjacent) {
-    const occ = occupiedSet(board);
+  function validPlacement(board, cells, adjacent, exceptId) {
+    const occ = occupiedSet(board, exceptId);
     for (const at of cells) {
       if (occ.has(at)) return false;
     }
@@ -136,13 +136,12 @@
       opts,
       boards: [placeFleet(opts.adjacent), placeFleet(opts.adjacent)],
       ready: [false, false],
-      held: [null, null],
-      heldDir: [true, true],
+      sel: [null, null],
       stats: [{ shots: 0, hits: 0 }, { shots: 0, hits: 0 }],
       current: 0,
       phase: "setup",
       lastShot: null,
-      notice: "وزّع أسطولك: اضغط سفينة لالتقاطها ثم اضغط مكانها، أو استخدم التوزيع العشوائي، ثم اضغط جاهز.",
+      notice: "وزّع أسطولك: اضغط سفينة لاختيارها، ثم اضغط خانة فارغة لنقلها، أو اضغطها مرة ثانية (أو زر «تدوير») لتدويرها. ثم اضغط جاهز.",
       over: false,
       winner: null,
     };
@@ -190,51 +189,92 @@
     return true;
   }
 
-  function pickUp(seat, at) {
-    const board = state.boards[seat];
-    const ship = board.ships.find((s) => s.cells.includes(at));
-    if (!ship) return false;
-    board.ships = board.ships.filter((s) => s !== ship);
-    state.held[seat] = { id: ship.id, name: ship.name, size: ship.size };
-    state.heldDir[seat] = ship.cells.length < 2 || ship.cells[1] - ship.cells[0] === 1;
-    state.ready[seat] = false;
-    state.notice = "التقطتَ «" + ship.name + "» — اضغط على الخانة التي تريدها. زرّ «تدوير» يبدّل الاتجاه.";
-    render();
-    return true;
+  /* ---- التوزيع اليدوي: اختيار سفينة ← نقلها بالنقر على خانة فارغة ← أو تدويرها في مكانها ---- */
+
+  function isHorizontal(cells) {
+    return cells.length < 2 || cells[1] - cells[0] === 1;
   }
 
-  function dropHeld(seat, at) {
-    const spec = state.held[seat];
-    if (!spec) return false;
-    const board = state.boards[seat];
-    const horizontal = state.heldDir[seat];
+  function selectedShip(seat) {
+    const id = state.sel[seat];
+    return id ? state.boards[seat].ships.find((s) => s.id === id) || null : null;
+  }
+
+  /* خانات السفينة لو وُضعت بداية من الخانة المضغوطة (تُزحزح لتتسع داخل الشبكة) */
+  function movedCells(ship, at) {
+    const horizontal = isHorizontal(ship.cells);
     const r = Math.floor(at / N);
     const c = at % N;
-    /* إن خرجت السفينة عن الشبكة نزحزحها لتتسع بدل رفض الضغطة */
-    const row = horizontal ? r : Math.min(r, N - spec.size);
-    const col = horizontal ? Math.min(c, N - spec.size) : c;
-    const cells = shipCells(spec, row, col, horizontal);
-    if (!cells || !validPlacement(board, cells, state.opts.adjacent)) {
+    const row = horizontal ? r : Math.min(r, N - ship.size);
+    const col = horizontal ? Math.min(c, N - ship.size) : c;
+    return shipCells(ship, row, col, horizontal);
+  }
+
+  function selectShip(seat, id) {
+    state.sel[seat] = id;
+    const ship = selectedShip(seat);
+    state.notice = ship
+      ? "اخترتَ «" + ship.name + "» — اضغط خانة فارغة لنقلها، أو اضغطها مرة ثانية أو زر «تدوير» لتدويرها."
+      : "اضغط سفينة لاختيارها.";
+    render();
+  }
+
+  function moveShip(seat, at) {
+    const ship = selectedShip(seat);
+    if (!ship) return false;
+    const cells = movedCells(ship, at);
+    if (!cells || !validPlacement(state.boards[seat], cells, state.opts.adjacent, ship.id)) {
       apiRef.toast(state.opts.adjacent ? "لا يمكن وضع السفينة هنا (تتداخل مع سفينة أخرى)." : "لا يمكن وضعها هنا: تتداخل أو تلامس سفينة أخرى.", "warn");
       return false;
     }
-    board.ships.push(makeShip(spec, cells));
-    board.ships.sort((a, b) => SHIPS.findIndex((s) => s.id === a.id) - SHIPS.findIndex((s) => s.id === b.id));
-    state.held[seat] = null;
-    state.notice = board.ships.length === SHIPS.length ? "الأسطول كامل — اضغط جاهز." : "تم وضع «" + spec.name + "». اضغط سفينة أخرى لتحريكها أو اضغط جاهز.";
+    ship.cells = cells;
+    ship.hits = cells.map(() => false);
+    state.ready[seat] = false;
+    state.notice = "نُقلت «" + ship.name + "». اضغط جاهز عند الانتهاء.";
     render();
     return true;
   }
 
-  function rotateHeld(seat) {
-    if (!state.held[seat]) return;
-    state.heldDir[seat] = !state.heldDir[seat];
+  /* تدوير في المكان: نجرّب أقرب موضع للسفينة بالاتجاه الآخر (قد تتحرك قليلًا لتتسع) */
+  function rotateShip(seat) {
+    const ship = selectedShip(seat);
+    if (!ship) {
+      apiRef.toast("اضغط على سفينة أولًا لاختيارها ثم دوّرها.", "warn");
+      return false;
+    }
+    const horizontal = isHorizontal(ship.cells);
+    const next = !horizontal;
+    const r0 = Math.floor(ship.cells[0] / N);
+    const c0 = ship.cells[0] % N;
+    const centerR = r0 + (horizontal ? 0 : (ship.size - 1) / 2);
+    const centerC = c0 + (horizontal ? (ship.size - 1) / 2 : 0);
+    let best = null;
+    let bestDistance = Infinity;
+    for (let r = 0; r < N; r++) {
+      for (let c = 0; c < N; c++) {
+        const cells = shipCells(ship, r, c, next);
+        if (!cells || !validPlacement(state.boards[seat], cells, state.opts.adjacent, ship.id)) continue;
+        const cr = r + (next ? 0 : (ship.size - 1) / 2);
+        const cc = c + (next ? (ship.size - 1) / 2 : 0);
+        const distance = Math.abs(cr - centerR) + Math.abs(cc - centerC);
+        if (distance < bestDistance) { bestDistance = distance; best = cells; }
+      }
+    }
+    if (!best) {
+      apiRef.toast("لا يوجد مكان لتدوير هذه السفينة. انقلها إلى مكان أوسع أولًا.", "warn");
+      return false;
+    }
+    ship.cells = best;
+    ship.hits = best.map(() => false);
+    state.ready[seat] = false;
+    state.notice = "دوّرتَ «" + ship.name + "» (" + (next ? "أفقيًا" : "عموديًا") + ").";
     render();
+    return true;
   }
 
   function randomize(seat) {
     state.boards[seat] = placeFleet(state.opts.adjacent);
-    state.held[seat] = null;
+    state.sel[seat] = null;
     state.ready[seat] = false;
     if (state.phase === "setup") {
       state.notice = state.players[seat].name + " أعاد توزيع أسطوله. اضغط جاهز عند الانتهاء.";
@@ -243,7 +283,7 @@
   }
 
   function setReady(seat) {
-    if (state.held[seat] || state.boards[seat].ships.length < SHIPS.length) {
+    if (state.boards[seat].ships.length < SHIPS.length) {
       apiRef.toast("ضع كل سفنك أولًا.", "warn");
       return;
     }
@@ -474,7 +514,7 @@
     "</defs>";
 
   /* السفينة تُرسم أفقية في إحداثيات محلية (طولها ١٠ وحدات لكل خانة، ارتفاعها ١٠) ثم تُدار إن كانت عمودية */
-  function shipSvg(ship, sunk) {
+  function shipSvg(ship, sunk, selected) {
     const W = ship.size * 10;
     const horizontal = ship.cells.length < 2 || ship.cells[1] - ship.cells[0] === 1;
     const r0 = Math.floor(ship.cells[0] / N);
@@ -520,7 +560,7 @@
         '<ellipse class="bs-flame" cx="' + W * 0.3 + '" cy="4.6" rx="3" ry="2.3" fill="#ff7a2a" opacity=".7"/>' +
         '<ellipse class="bs-flame" cx="' + W * 0.68 + '" cy="5" rx="2.4" ry="2" fill="#ffb326" opacity=".65"/>';
     }
-    return '<g class="bs-hull' + (sunk ? " is-sunk" : "") + '" transform="' + transform + '">' + body + "</g>";
+    return '<g class="bs-hull' + (sunk ? " is-sunk" : "") + (selected ? " is-selected" : "") + '" transform="' + transform + '">' + body + "</g>";
   }
 
   const BOOM =
@@ -529,7 +569,7 @@
     '<svg class="bs-splash" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="2.6" fill="#d9f2fb" opacity=".85"/><circle cx="10" cy="10" r="6" fill="none" stroke="#bfe6f4" stroke-width="1.2" opacity=".8"/><circle cx="10" cy="10" r="8.6" fill="none" stroke="#9fd6e8" stroke-width=".7" opacity=".5"/></svg>';
 
   function gridHtml(seat, mode) {
-    // mode: { own, place (التقاط/وضع في التوزيع), shoot, held }
+    // mode: { own, place (التوزيع اليدوي), shoot, sel (معرّف السفينة المختارة) }
     const board = state.boards[seat];
     const last = state.lastShot && state.lastShot.by === other(seat) ? state.lastShot.at : -1;
     const ships = board.ships.filter((ship) => mode.own || ship.sunk);
@@ -544,14 +584,14 @@
         const ship = board.ships.find((s) => s.cells.includes(at));
         const shot = board.shots[at];
         let cls = "bs-cell";
-        if (mode.own && ship) cls += " has-ship" + (ship.sunk ? " is-sunk" : "");
+        if (mode.own && ship) cls += " has-ship" + (ship.sunk ? " is-sunk" : "") + (mode.sel && ship.id === mode.sel ? " is-sel" : "");
         else if (!mode.own && ship && ship.sunk) cls += " is-sunk-cell";
         if (shot === "hit") cls += " is-hit";
         else if (shot === "miss") cls += " is-miss";
         if (at === last) cls += " bs-last";
         const shootable = mode.shoot && !shot;
         if (shootable) cls += " is-target";
-        if (mode.place) cls += mode.held ? " is-place is-drop" : (ship ? " is-place is-pick" : "");
+        if (mode.place) cls += ship ? " is-place is-pick" : (mode.sel ? " is-place is-drop" : " is-place");
         const attr = shootable ? ' data-bs-shot="' + at + '"' : mode.place ? ' data-bs-setup="' + at + '" data-bs-seat="' + seat + '"' : "";
         const disabled = shootable || mode.place ? "" : " disabled";
         cells += '<button type="button" class="' + cls + '"' + attr + disabled + ' aria-label="' + cellName(at) + '">' +
@@ -559,7 +599,7 @@
       }
     }
     const svg = '<svg class="bs-ships" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">' + SVG_DEFS +
-      ships.map((ship) => shipSvg(ship, ship.sunk)).join("") + "</svg>";
+      ships.map((ship) => shipSvg(ship, ship.sunk, !!mode.own && !!mode.sel && mode.sel === ship.id)).join("") + "</svg>";
     return (
       '<div class="bs-grid bs-board">' +
       '<span class="bs-corner"></span><div class="bs-cols">' + cols + "</div>" +
@@ -569,30 +609,40 @@
     );
   }
 
-  function fleetHtml(seat, reveal) {
+  /* pick: في التوزيع تصبح الشارات أزرارًا لاختيار السفينة { sel } */
+  function fleetHtml(seat, reveal, pick) {
     return state.boards[seat].ships.map((ship) => {
       const left = ship.hits.filter((h) => !h).length;
-      return '<div class="bs-ship ' + (ship.sunk ? "is-sunk" : "") + '"><span>' + esc(ship.name) + "</span><span>" +
-        (ship.sunk ? "غارقة" : reveal ? ar(left) + "/" + ar(ship.size) : ar(ship.size)) + "</span></div>";
+      const label = "<span>" + esc(ship.name) + "</span><span>" +
+        (ship.sunk ? "غارقة" : reveal ? ar(left) + "/" + ar(ship.size) : ar(ship.size)) + "</span>";
+      if (pick) {
+        return '<button type="button" class="bs-ship is-pickable ' + (pick.sel === ship.id ? "is-sel" : "") + '" data-bs-chip="' + ship.id + '" data-bs-seat="' + seat + '">' + label + "</button>";
+      }
+      return '<div class="bs-ship ' + (ship.sunk ? "is-sunk" : "") + '">' + label + "</div>";
     }).join("");
   }
 
   function setupHtml(seat) {
     const player = state.players[seat];
     const interactive = canSetup(seat);
-    const held = state.held[seat];
+    const selShip = selectedShip(seat);
     const placed = state.boards[seat].ships.length;
-    const pending = held ? '<div class="bs-ship is-held"><span>' + esc(held.name) + "</span><span>" + ar(held.size) + " · " + (state.heldDir[seat] ? "أفقي" : "عمودي") + "</span></div>" : "";
+    const hint = interactive
+      ? (selShip
+        ? "«" + esc(selShip.name) + "» مختارة: اضغط خانة فارغة لنقلها، أو اضغطها مرة ثانية / زر «تدوير» (أو مفتاح R) لتدويرها."
+        : "اضغط سفينة (على الشبكة أو من القائمة) لاختيارها، أو استخدم «توزيع عشوائي».")
+      : "";
     return (
       '<div class="xg-panel bs-setup">' +
       '<div class="xg-spread"><h3>' + esc(player.name) + " — أسطوله</h3>" +
       '<span class="xg-chip ' + (state.ready[seat] ? "is-good" : "") + '">' + (state.ready[seat] ? "جاهز" : "قيد التوزيع") + "</span></div>" +
-      gridHtml(seat, { own: true, place: interactive, held: !!held }) +
-      '<div class="bs-fleet">' + fleetHtml(seat, false) + pending + "</div>" +
+      gridHtml(seat, { own: true, place: interactive, sel: selShip ? selShip.id : null }) +
+      (hint ? '<p class="bs-hint">' + hint + "</p>" : "") +
+      '<div class="bs-fleet">' + fleetHtml(seat, false, interactive ? { sel: selShip ? selShip.id : null } : null) + "</div>" +
       '<div class="xg-row">' +
-      '<button type="button" class="xg-btn" data-bs-rotate="' + seat + '" ' + (interactive && held ? "" : "disabled") + ">↻ تدوير</button>" +
+      '<button type="button" class="xg-btn" data-bs-rotate="' + seat + '" ' + (interactive && selShip ? "" : "disabled") + ">↻ تدوير</button>" +
       '<button type="button" class="xg-btn" data-bs-random="' + seat + '" ' + (interactive ? "" : "disabled") + ">🎲 توزيع عشوائي</button>" +
-      '<button type="button" class="xg-btn primary" data-bs-ready="' + seat + '" ' + (interactive && !held && placed === SHIPS.length ? "" : "disabled") + ">جاهز</button></div>" +
+      '<button type="button" class="xg-btn primary" data-bs-ready="' + seat + '" ' + (interactive && placed === SHIPS.length ? "" : "disabled") + ">جاهز</button></div>" +
       "</div>"
     );
   }
@@ -637,7 +687,7 @@
       "</div>";
   }
 
-  /* معاينة موضع السفينة الملتقطة عند مرور المؤشر (أخضر = صالح، أحمر = غير صالح) */
+  /* معاينة موضع السفينة المختارة عند مرور المؤشر (أخضر = صالح، أحمر = غير صالح) */
   function clearPreview() {
     if (!rootRef) return;
     rootRef.querySelectorAll(".is-prev, .is-prev-bad").forEach((node) => node.classList.remove("is-prev", "is-prev-bad"));
@@ -649,19 +699,31 @@
     const cell = event.target.closest ? event.target.closest("[data-bs-setup]") : null;
     if (!cell) return;
     const seat = Number(cell.dataset.bsSeat);
-    const spec = state.held[seat];
-    if (!spec || !canSetup(seat)) return;
+    const ship = selectedShip(seat);
+    if (!ship || !canSetup(seat)) return;
     const at = Number(cell.dataset.bsSetup);
-    const horizontal = state.heldDir[seat];
-    const row = horizontal ? Math.floor(at / N) : Math.min(Math.floor(at / N), N - spec.size);
-    const col = horizontal ? Math.min(at % N, N - spec.size) : at % N;
-    const cells = shipCells(spec, row, col, horizontal);
+    if (ship.cells.includes(at)) return;
+    const cells = movedCells(ship, at);
     if (!cells) return;
-    const valid = validPlacement(state.boards[seat], cells, state.opts.adjacent);
+    const valid = validPlacement(state.boards[seat], cells, state.opts.adjacent, ship.id);
     cells.forEach((c) => {
       const node = rootRef.querySelector('[data-bs-setup="' + c + '"]');
       if (node) node.classList.add(valid ? "is-prev" : "is-prev-bad");
     });
+  }
+
+  /* مفتاح R يدوّر السفينة المختارة */
+  function onKey(event) {
+    if (!state || state.phase !== "setup" || !rootRef) return;
+    const key = String(event.key || "").toLowerCase();
+    if (key !== "r" && key !== "ق") return;
+    const tag = event.target && event.target.tagName;
+    if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+    const seat = viewInfo().seat;
+    if (canSetup(seat) && selectedShip(seat)) {
+      event.preventDefault();
+      rotateShip(seat);
+    }
   }
 
   function onClick(event) {
@@ -676,7 +738,7 @@
     const rotate = target.closest("[data-bs-rotate]");
     if (rotate) {
       const seat = Number(rotate.dataset.bsRotate);
-      if (canSetup(seat)) rotateHeld(seat);
+      if (canSetup(seat)) rotateShip(seat);
       return;
     }
     const random = target.closest("[data-bs-random]");
@@ -691,13 +753,26 @@
       if (canSetup(seat)) setReady(seat);
       return;
     }
+    const chip = target.closest("[data-bs-chip]");
+    if (chip) {
+      const seat = Number(chip.dataset.bsSeat);
+      if (canSetup(seat)) selectShip(seat, state.sel[seat] === chip.dataset.bsChip ? null : chip.dataset.bsChip);
+      return;
+    }
     const setupCell = target.closest("[data-bs-setup]");
     if (setupCell) {
       const seat = Number(setupCell.dataset.bsSeat);
       const at = Number(setupCell.dataset.bsSetup);
       if (!canSetup(seat)) return;
-      if (state.held[seat]) dropHeld(seat, at);
-      else pickUp(seat, at);
+      const ship = shipAt(seat, at);
+      if (ship) {
+        if (state.sel[seat] === ship.id) rotateShip(seat);
+        else selectShip(seat, ship.id);
+      } else if (state.sel[seat]) {
+        moveShip(seat, at);
+      } else {
+        apiRef.toast("اضغط على سفينة أولًا لاختيارها.", "warn");
+      }
       return;
     }
     const shot = target.closest("[data-bs-shot]");
@@ -745,7 +820,7 @@
         "حاملة طائرات (5)، بارجة (4)، طراد (3)، غواصة (3)، مدمرة (2).",
       ],
       setup: [
-        "يضع كل لاعب سفنه أفقيًا أو عموديًا داخل شبكته دون تداخل: اضغط سفينة لالتقاطها، ثم اضغط الخانة المطلوبة، واستخدم «تدوير» لتغيير الاتجاه (أو «توزيع عشوائي»).",
+        "يضع كل لاعب سفنه أفقيًا أو عموديًا داخل شبكته دون تداخل: اضغط سفينة لاختيارها، ثم اضغط خانة فارغة لنقلها، أو اضغطها مرة ثانية (أو زر «تدوير» أو مفتاح R) لتدويرها (أو «توزيع عشوائي»).",
         "يمكن ترك السفن متجاورة افتراضيًا، ويمكن منع التجاور من خيارات اللعبة.",
         "لا يرى أي لاعب أسطول خصمه أثناء التوزيع. وعند اللعب على جهاز واحد تظهر شاشة تمرير بين اللاعبين.",
         "عند جاهزية الطرفين تبدأ المعركة، ويطلق اللاعب الأول.",
@@ -784,9 +859,9 @@
           fire,
           setReady,
           randomize,
-          pickUp,
-          dropHeld,
-          rotateHeld,
+          selectShip,
+          moveShip,
+          rotateShip,
           aiStep,
           aiChoose,
           viewInfo,
@@ -799,6 +874,7 @@
       rootRef.addEventListener("click", onClick);
       rootRef.addEventListener("pointerover", previewDrop);
       rootRef.addEventListener("pointerleave", clearPreview);
+      document.addEventListener("keydown", onKey);
       return {
         netSnapshot() { return state ? BG.netCodec.encode(state) : null; },
         netLoad(data) {
@@ -807,8 +883,7 @@
           clearTimeout(timer);
           state = BG.netCodec.decode(data);
           state.opts = Object.assign({}, OPT_DEFAULTS, state.opts || {});
-          state.held = Array.isArray(state.held) ? state.held : [null, null];
-          state.heldDir = Array.isArray(state.heldDir) ? state.heldDir : [true, true];
+          state.sel = Array.isArray(state.sel) ? state.sel : [null, null];
           state.stats = Array.isArray(state.stats) ? state.stats : [{ shots: 0, hits: 0 }, { shots: 0, hits: 0 }];
           state.boards.forEach((board) => {
             board.ships.forEach((ship) => {
@@ -835,6 +910,7 @@
             rootRef.removeEventListener("pointerover", previewDrop);
             rootRef.removeEventListener("pointerleave", clearPreview);
           }
+          document.removeEventListener("keydown", onKey);
           rootRef = null;
           apiRef = null;
           state = null;

@@ -10,7 +10,8 @@
   const U = BG.util;
   const FX = BG.fx;
   const AI = BG.ai;
-  const GEO = window.RISK_GEO || null;
+  const GEO_DATA = window.RISK_GEO || null;
+  const REGIONAL_MAPS = window.RISK_MAPS || {};
 
   const PCOLORS = ["#e07a5f", "#5b9bd5", "#f2c14e", "#67b99a", "#b07cc6", "#ef9f4f"];
   const PLAYER_NAMES = ["القائد الأحمر", "القائد الأزرق", "القائد الذهبي", "القائد الأخضر", "القائد البنفسجي", "القائد البرتقالي"];
@@ -27,7 +28,7 @@
 
   /* ------------------------------ القارات والأقاليم ------------------------------ */
 
-  const CONTINENTS = {
+  const CLASSIC_CONTINENTS = {
     na: { name: "أمريكا الشمالية", short: "أمريكا الشمالية", bonus: 5, color: "#d98b63" },
     sa: { name: "أمريكا الجنوبية", short: "أمريكا الجنوبية", bonus: 2, color: "#d3b45c" },
     eu: { name: "أوروبا", short: "أوروبا", bonus: 5, color: "#69a7c9" },
@@ -36,7 +37,7 @@
     au: { name: "أوقيانوسيا", short: "أوقيانوسيا", bonus: 2, color: "#65b394" },
   };
 
-  const TERRITORIES = [
+  const CLASSIC_TERRITORIES = [
     { id: "alaska", name: "ألاسكا", short: "ألاسكا", c: "na" },
     { id: "nwt", name: "الشمال الغربي", short: "الشمال الغربي", c: "na" },
     { id: "greenland", name: "غرينلاند", short: "غرينلاند", c: "na" },
@@ -81,7 +82,7 @@
     { id: "eaustralia", name: "شرق أستراليا", short: "شرق أستراليا", c: "au" },
   ];
 
-  const EDGES = [
+  const CLASSIC_EDGES = [
     ["alaska", "nwt"], ["alaska", "alberta"], ["alaska", "kamchatka"],
     ["nwt", "alberta"], ["nwt", "ontario"], ["nwt", "greenland"],
     ["greenland", "ontario"], ["greenland", "quebec"], ["greenland", "iceland"],
@@ -128,78 +129,168 @@
 
   /* ------------------------------ المهمات السرية ------------------------------ */
 
-  const MISSION_LIBRARY = [
-    {
-      id: "conquer24",
+  function buildMissionLibrary() {
+    const n = TERRITORIES.length;
+    const list = [];
+    const codeList = Object.keys(CONTINENTS);
+
+    const conquerNeed = activeMapId === "classic" ? 24 : Math.max(8, Math.ceil(n * 0.6));
+    list.push({
+      id: "conquer",
       icon: "🌍",
-      title: "السيطرة على 24 إقليمًا",
-      detail: "امتلك 24 إقليمًا على الأقل في نهاية أي هجوم.",
+      title: "السيطرة على " + conquerNeed + " إقليمًا",
+      detail: "امتلك " + conquerNeed + " إقليمًا على الأقل في نهاية أي هجوم.",
       progress(p) {
-        return { have: countTerritories(p.index), need: 24, text: countTerritories(p.index) + " / 24 إقليم" };
+        return { have: countTerritories(p.index), need: conquerNeed, text: countTerritories(p.index) + " / " + conquerNeed + " إقليم" };
       },
-      check(p) { return countTerritories(p.index) >= 24; },
-    },
-    {
-      id: "defend18",
+      check(p) { return countTerritories(p.index) >= conquerNeed; },
+    });
+
+    const fortifiedNeed = Math.max(4, Math.ceil(n * 0.42));
+    list.push({
+      id: "fortified",
       icon: "🛡️",
-      title: "18 إقليمًا محصّنًا",
-      detail: "امتلك 18 إقليمًا على الأقل، وفي كل منها جيشان أو أكثر.",
+      title: fortifiedNeed + " إقليمًا محصّنًا",
+      detail: "امتلك " + fortifiedNeed + " إقليمًا على الأقل، وفي كل منها جيشان أو أكثر.",
       progress(p) {
         const have = territoriesOf(p.index).filter((id) => state.troops[id] >= 2).length;
-        return { have, need: 18, text: have + " / 18 إقليم محصّن" };
+        return { have, need: fortifiedNeed, text: have + " / " + fortifiedNeed + " إقليم محصّن" };
       },
       check(p) {
-        return territoriesOf(p.index).filter((id) => state.troops[id] >= 2).length >= 18;
+        return territoriesOf(p.index).filter((id) => state.troops[id] >= 2).length >= fortifiedNeed;
       },
-    },
-    {
-      id: "continents3",
-      icon: "🧭",
-      title: "السيطرة على ثلاث قارات",
-      detail: "املأ ثلاث قارات كاملة بجيوشك.",
+    });
+
+    if (codeList.length >= 3) {
+      list.push({
+        id: "continents3",
+        icon: "🧭",
+        title: "السيطرة على ثلاث مناطق",
+        detail: "املأ ثلاث مناطق كاملة بجيوشك.",
+        progress(p) {
+          const have = continentsOf(p.index).length;
+          return { have, need: 3, text: have + " / 3 مناطق" };
+        },
+        check(p) { return continentsOf(p.index).length >= 3; },
+      });
+    }
+
+    if (codeList.length >= 4) {
+      list.push({
+        id: "continents4",
+        icon: "👑",
+        title: "السيطرة على أربع مناطق",
+        detail: "املأ أربع مناطق كاملة بجيوشك.",
+        progress(p) {
+          const have = continentsOf(p.index).length;
+          return { have, need: 4, text: have + " / 4 مناطق" };
+        },
+        check(p) { return continentsOf(p.index).length >= 4; },
+      });
+    }
+
+    const comboNeed = Math.max(5, Math.ceil(n * 0.35));
+    list.push({
+      id: "two_plus",
+      icon: "🏰",
+      title: "منطقتان و" + comboNeed + " إقليمًا",
+      detail: "سيطر على منطقتين كاملتين وامتلك " + comboNeed + " إقليمًا على الأقل.",
       progress(p) {
-        const have = continentsOf(p.index).length;
-        return { have, need: 3, text: have + " / 3 قارات" };
-      },
-      check(p) { return continentsOf(p.index).length >= 3; },
-    },
-    {
-      id: "nafrica",
-      icon: "🌎",
-      title: "أمريكا الشمالية وأفريقيا",
-      detail: "سيطر على قارتي أمريكا الشمالية وأفريقيا بالكامل.",
-      progress(p) {
-        const c = continentsOf(p.index);
-        const have = (c.includes("na") ? 1 : 0) + (c.includes("af") ? 1 : 0);
-        return { have, need: 2, text: (c.includes("na") ? "✔ أمريكا الشمالية" : "— أمريكا الشمالية") + " · " + (c.includes("af") ? "✔ أفريقيا" : "— أفريقيا") };
+        const c = continentsOf(p.index).length;
+        const t = countTerritories(p.index);
+        return { have: (c >= 2 ? 1 : 0) + (t >= comboNeed ? 1 : 0), need: 2, text: c + " مناطق · " + t + " / " + comboNeed + " إقليم" };
       },
       check(p) {
-        const c = continentsOf(p.index);
-        return c.includes("na") && c.includes("af");
+        return continentsOf(p.index).length >= 2 && countTerritories(p.index) >= comboNeed;
       },
-    },
-    {
-      id: "eu_sa_asia",
-      icon: "🗺️",
-      title: "أوروبا وأمريكا الجنوبية و4 آسيوية",
-      detail: "سيطر على أوروبا وأمريكا الجنوبية، وامتلك 4 أقاليم في آسيا.",
-      progress(p) {
-        const c = continentsOf(p.index);
-        const asia = territoriesOf(p.index).filter((id) => TERR_BY_ID[id].c === "as").length;
-        const parts = [
-          c.includes("eu") ? "✔ أوروبا" : "— أوروبا",
-          c.includes("sa") ? "✔ أمريكا الجنوبية" : "— أمريكا الجنوبية",
-          asia + " / 4 آسيا",
-        ];
-        return { have: (c.includes("eu") ? 1 : 0) + (c.includes("sa") ? 1 : 0) + Math.min(1, Math.floor(asia / 4)), need: 3, text: parts.join(" · ") };
-      },
-      check(p) {
-        const c = continentsOf(p.index);
-        const asia = territoriesOf(p.index).filter((id) => TERR_BY_ID[id].c === "as").length;
-        return c.includes("eu") && c.includes("sa") && asia >= 4;
-      },
-    },
-    {
+    });
+
+    if (activeMapId === "classic") {
+      const named = [
+        {
+          id: "nafrica",
+          icon: "🌎",
+          title: "أمريكا الشمالية وأفريقيا",
+          detail: "سيطر على قارتي أمريكا الشمالية وأفريقيا بالكامل.",
+          check(p) {
+            const c = continentsOf(p.index);
+            return c.includes("na") && c.includes("af");
+          },
+          progress(p) {
+            const c = continentsOf(p.index);
+            return { have: (c.includes("na") ? 1 : 0) + (c.includes("af") ? 1 : 0), need: 2, text: (c.includes("na") ? "✔ أمريكا الشمالية" : "— أمريكا الشمالية") + " · " + (c.includes("af") ? "✔ أفريقيا" : "— أفريقيا") };
+          },
+        },
+        {
+          id: "asia_africa",
+          icon: "🐘",
+          title: "آسيا وأفريقيا",
+          detail: "سيطر على قارتي آسيا وأفريقيا بالكامل.",
+          check(p) {
+            const c = continentsOf(p.index);
+            return c.includes("as") && c.includes("af");
+          },
+          progress(p) {
+            const c = continentsOf(p.index);
+            return { have: (c.includes("as") ? 1 : 0) + (c.includes("af") ? 1 : 0), need: 2, text: (c.includes("as") ? "✔ آسيا" : "— آسيا") + " · " + (c.includes("af") ? "✔ أفريقيا" : "— أفريقيا") };
+          },
+        },
+        {
+          id: "eu_sa_asia",
+          icon: "🗺️",
+          title: "أوروبا وأمريكا الجنوبية و4 آسيوية",
+          detail: "سيطر على أوروبا وأمريكا الجنوبية، وامتلك 4 أقاليم في آسيا.",
+          check(p) {
+            const c = continentsOf(p.index);
+            const asia = territoriesOf(p.index).filter((id) => TERR_BY_ID[id].c === "as").length;
+            return c.includes("eu") && c.includes("sa") && asia >= 4;
+          },
+          progress(p) {
+            const c = continentsOf(p.index);
+            const asia = territoriesOf(p.index).filter((id) => TERR_BY_ID[id].c === "as").length;
+            return {
+              have: (c.includes("eu") ? 1 : 0) + (c.includes("sa") ? 1 : 0) + Math.min(1, Math.floor(asia / 4)),
+              need: 3,
+              text: (c.includes("eu") ? "✔ أوروبا" : "— أوروبا") + " · " + (c.includes("sa") ? "✔ أمريكا الجنوبية" : "— أمريكا الجنوبية") + " · " + asia + " / 4 آسيا",
+            };
+          },
+        },
+      ];
+      list.push(...named);
+    }
+
+    const pairs = [];
+    for (let i = 0; i < codeList.length; i++) {
+      for (let j = i + 1; j < codeList.length; j++) {
+        const a = codeList[i];
+        const b = codeList[j];
+        const count = (CONTINENT_TERRITORIES[a] || []).length + (CONTINENT_TERRITORIES[b] || []).length;
+        if (count >= Math.max(5, Math.ceil(n * 0.3))) pairs.push({ a, b, count });
+      }
+    }
+    pairs.sort((x, y) => y.count - x.count);
+    pairs.slice(0, Math.min(6, pairs.length)).forEach((pair, index) => {
+      const a = CONTINENTS[pair.a];
+      const b = CONTINENTS[pair.b];
+      if (!a || !b) return;
+      list.push({
+        id: "pair" + index,
+        icon: "🧩",
+        title: a.short + " و" + b.short,
+        detail: "سيطر على منطقتي " + a.name + " و" + b.name + " بالكامل.",
+        progress(p) {
+          const c = continentsOf(p.index);
+          const have = (c.includes(pair.a) ? 1 : 0) + (c.includes(pair.b) ? 1 : 0);
+          return { have, need: 2, text: (c.includes(pair.a) ? "✔ " : "— ") + a.short + " · " + (c.includes(pair.b) ? "✔ " : "— ") + b.short };
+        },
+        check(p) {
+          const c = continentsOf(p.index);
+          return c.includes(pair.a) && c.includes(pair.b);
+        },
+      });
+    });
+
+    list.push({
       id: "eliminate",
       icon: "🎯",
       title: "إقصاء قائد محدد",
@@ -214,47 +305,10 @@
         const target = p.mission && p.mission.target != null ? state.players[p.mission.target] : null;
         return !!(target && target.eliminated);
       },
-    },
-    {
-      id: "asia_africa",
-      icon: "🐘",
-      title: "آسيا وأفريقيا",
-      detail: "سيطر على قارتي آسيا وأفريقيا بالكامل.",
-      progress(p) {
-        const c = continentsOf(p.index);
-        return { have: (c.includes("as") ? 1 : 0) + (c.includes("af") ? 1 : 0), need: 2, text: (c.includes("as") ? "✔ آسيا" : "— آسيا") + " · " + (c.includes("af") ? "✔ أفريقيا" : "— أفريقيا") };
-      },
-      check(p) {
-        const c = continentsOf(p.index);
-        return c.includes("as") && c.includes("af");
-      },
-    },
-    {
-      id: "continents4",
-      icon: "👑",
-      title: "السيطرة على أربع قارات",
-      detail: "املأ أربع قارات كاملة بجيوشك.",
-      progress(p) {
-        const have = continentsOf(p.index).length;
-        return { have, need: 4, text: have + " / 4 قارات" };
-      },
-      check(p) { return continentsOf(p.index).length >= 4; },
-    },
-    {
-      id: "two_plus15",
-      icon: "🏰",
-      title: "قارتان و15 إقليمًا",
-      detail: "سيطر على قارتين كاملتين وامتلك 15 إقليمًا على الأقل.",
-      progress(p) {
-        const c = continentsOf(p.index).length;
-        const t = countTerritories(p.index);
-        return { have: (c >= 2 ? 1 : 0) + (t >= 15 ? 1 : 0), need: 2, text: c + " قارات · " + t + " / 15 إقليم" };
-      },
-      check(p) {
-        return continentsOf(p.index).length >= 2 && countTerritories(p.index) >= 15;
-      },
-    },
-  ];
+    });
+
+    return list;
+  }
 
   /* ------------------------------ الحالة العامة ------------------------------ */
 
@@ -277,21 +331,7 @@
   let suppressClick = false;
   let ready = false;
 
-  const TERR_BY_ID = {};
-  const ADJ = {};
-  const CONTINENT_TERRITORIES = {};
-  TERRITORIES.forEach((t) => { TERR_BY_ID[t.id] = t; ADJ[t.id] = []; });
-  EDGES.forEach(([a, b]) => {
-    if (!ADJ[a] || !ADJ[b]) return;
-    if (!ADJ[a].includes(b)) ADJ[a].push(b);
-    if (!ADJ[b].includes(a)) ADJ[b].push(a);
-  });
-  TERRITORIES.forEach((t) => {
-    if (!CONTINENT_TERRITORIES[t.c]) CONTINENT_TERRITORIES[t.c] = [];
-    CONTINENT_TERRITORIES[t.c].push(t.id);
-  });
-
-  const SEA_ROUTES = [
+  const CLASSIC_SEA_ROUTES = [
     ["alaska", "kamchatka"], ["brazil", "nafrica"], ["greenland", "iceland"],
     ["iceland", "britain"], ["iceland", "scandinavia"], ["britain", "neurope"],
     ["britain", "weurope"], ["britain", "scandinavia"], ["japan", "china"],
@@ -299,7 +339,114 @@
     ["newguinea", "eaustralia"], ["eafrica", "mideast"], ["madagascar", "eafrica"],
     ["madagascar", "safrica"],
   ];
-  const SEA_KEY = new Set(SEA_ROUTES.map(([a, b]) => [a, b].sort().join("|")));
+
+  const CLASSIC_TWEAKS = {
+    iceland: { x: 502, y: 96, anchor: "end" },
+    britain: { x: 512, y: 146, anchor: "end" },
+    scandinavia: { x: 622, y: 78, anchor: "middle" },
+    neurope: { x: 620, y: 140, anchor: "start" },
+    weurope: { x: 508, y: 212, anchor: "end" },
+    seurope: { x: 670, y: 222, anchor: "start" },
+    ukraine: { x: 700, y: 168, anchor: "start" },
+    egypt: { x: 690, y: 282, anchor: "start" },
+    mideast: { x: 735, y: 260, anchor: "start" },
+  };
+  const CLASSIC_MAP_NAMES = {
+    neurope: "شمال أوروبا",
+    weurope: "غرب أوروبا",
+    seurope: "جنوب أوروبا",
+  };
+  const CLASSIC_NAME_LEADERS = {
+    iceland: true,
+    britain: true,
+    neurope: true,
+    weurope: true,
+    seurope: true,
+    ukraine: true,
+    egypt: true,
+    mideast: true,
+  };
+
+  const CLASSIC_MAP = {
+    id: "classic",
+    name: "العالم الكلاسيكي",
+    short: "العالم",
+    icon: "🌍",
+    tagline: "خريطة العالم الكلاسيكية — 42 إقليمًا وست قارات وقواعد ريسك الأصلية.",
+    width: 1200,
+    height: 640,
+    continents: CLASSIC_CONTINENTS,
+    territories: CLASSIC_TERRITORIES,
+    edges: CLASSIC_EDGES,
+    seaRoutes: CLASSIC_SEA_ROUTES,
+    tweaks: CLASSIC_TWEAKS,
+    mapNames: CLASSIC_MAP_NAMES,
+    nameLeaders: CLASSIC_NAME_LEADERS,
+  };
+
+  const MAPS = { classic: CLASSIC_MAP };
+  Object.keys(REGIONAL_MAPS).forEach((id) => {
+    const def = REGIONAL_MAPS[id];
+    if (!def || !Array.isArray(def.territories)) return;
+    MAPS[id] = Object.assign({}, def, { id: def.id || id });
+  });
+  const MAP_ORDER = ["classic"].concat(Object.keys(REGIONAL_MAPS).filter((id) => MAPS[id]));
+
+  let activeMapId = "classic";
+  let activeMap = CLASSIC_MAP;
+  let TERRITORIES = CLASSIC_TERRITORIES;
+  let CONTINENTS = CLASSIC_CONTINENTS;
+  let SEA_ROUTES = CLASSIC_SEA_ROUTES;
+  let SEA_KEY = new Set();
+  let TERR_BY_ID = {};
+  let ADJ = {};
+  let CONTINENT_TERRITORIES = {};
+  let MISSION_LIBRARY = [];
+  let NAME_TWEAKS = CLASSIC_TWEAKS;
+  let MAP_NAMES = CLASSIC_MAP_NAMES;
+  let NAME_LEADERS = CLASSIC_NAME_LEADERS;
+  let GEO = null;
+  let MAP_W = 1200;
+  let MAP_H = 640;
+  let MAP_RATIO = MAP_W / MAP_H;
+
+  function activateMap(id) {
+    const def = MAPS[id] || MAPS.classic;
+    activeMapId = def.id;
+    activeMap = def;
+    GEO = GEO_DATA && GEO_DATA.maps
+      ? (GEO_DATA.maps[activeMapId] || GEO_DATA.maps.classic || null)
+      : (GEO_DATA && GEO_DATA.territories ? GEO_DATA : null);
+    TERRITORIES = def.territories;
+    CONTINENTS = def.continents;
+    SEA_ROUTES = def.seaRoutes || [];
+    NAME_TWEAKS = def.tweaks || {};
+    MAP_NAMES = def.mapNames || {};
+    NAME_LEADERS = def.nameLeaders || {};
+    TERR_BY_ID = {};
+    ADJ = {};
+    CONTINENT_TERRITORIES = {};
+    TERRITORIES.forEach((t) => {
+      TERR_BY_ID[t.id] = t;
+      ADJ[t.id] = [];
+    });
+    (def.edges || []).forEach(([a, b]) => {
+      if (!ADJ[a] || !ADJ[b]) return;
+      if (!ADJ[a].includes(b)) ADJ[a].push(b);
+      if (!ADJ[b].includes(a)) ADJ[b].push(a);
+    });
+    TERRITORIES.forEach((t) => {
+      if (!CONTINENT_TERRITORIES[t.c]) CONTINENT_TERRITORIES[t.c] = [];
+      CONTINENT_TERRITORIES[t.c].push(t.id);
+    });
+    SEA_KEY = new Set(SEA_ROUTES.map(([a, b]) => [a, b].sort().join("|")));
+    MAP_W = GEO ? GEO.width : def.width || 1200;
+    MAP_H = GEO ? GEO.height : def.height || 640;
+    MAP_RATIO = MAP_W / MAP_H;
+    MISSION_LIBRARY = buildMissionLibrary();
+  }
+
+  activateMap("classic");
 
   /* ------------------------------ تعريف اللعبة ------------------------------ */
 
@@ -319,9 +466,20 @@
     defaultPlayers: 3,
 
     options: {
-      hint: "خريطة العالم الكلاسيكية (42 إقليمًا) وقواعد ريسك الأصلية، مع مهمات سرية اختيارية.",
+      hint: "اختر خريطة العالم الكلاسيكية أو إحدى الخرائط الإقليمية الخمس. قواعد ريسك الأصلية نفسها في كل خريطة، مع مهمات سرية اختيارية.",
       defaults: Object.assign({}, RULE_DEFAULTS),
       fields: [
+        {
+          key: "map",
+          label: "خريطة اللعب",
+          type: "select",
+          wide: true,
+          choices: MAP_ORDER.map((id) => ({
+            value: id,
+            label: MAPS[id].name + " · " + MAPS[id].territories.length + " إقليمًا",
+          })),
+          hint: "الخريطة الكلاسيكية 42 إقليمًا و6 قارات. الخرائط الإقليمية 15–30 إقليمًا وأربع إلى سبع مناطق، وكل منها بإسقاط وحدود مستقلة.",
+        },
         {
           key: "victory",
           label: "شرط الفوز",
@@ -340,7 +498,7 @@
           label: "بطاقات القيادة",
           type: "select",
           choices: [
-            { value: "classic", label: "كلاسيكية: 42 بطاقة أراضٍ + جوكران" },
+            { value: "classic", label: "كلاسيكية: بطاقة لكل إقليم + جوكران" },
             { value: "simple", label: "مبسّطة: بلا أسماء أراضٍ" },
             { value: "off", label: "بلا بطاقات" },
           ],
@@ -391,9 +549,10 @@
       ],
       summary(options) {
         const o = Object.assign({}, RULE_DEFAULTS, options || {});
+        const map = MAPS[o.map] || CLASSIC_MAP;
         const win = o.victory === "mission" ? "مهمة سرية" : o.victory === "domination" ? "سيطرة 60%" : o.victory === "elimination" ? "إقصاء الجميع" : "سيطرة + مهمة";
         const cards = o.cards === "off" ? "بلا بطاقات" : o.cards === "simple" ? "بطاقات مبسطة" : "بطاقات كلاسيكية";
-        return "العالم الكلاسيكي · " + win + " · " + cards;
+        return map.name + " · " + win + " · " + cards;
       },
     },
 
@@ -438,6 +597,38 @@
       ],
     },
 
+    rulesFor(options) {
+      const o = Object.assign({}, RULE_DEFAULTS, options || {});
+      const map = MAPS[o.map] || CLASSIC_MAP;
+      const regions = Object.keys(map.continents);
+      const bonusText = regions.map((code) => map.continents[code].name + " " + map.continents[code].bonus).join("، ");
+      const setupLine = map.id === "classic"
+        ? "40 / 35 / 30 / 25 / 20 للاعبين 2–6"
+        : (map.armyBase || 24) + " كتيبة أساسية للاعبين اثنين، وتنقص " + (map.armyStep || 2) + " لكل لاعب إضافي";
+      const setupDetail = map.id === "classic"
+        ? "40 كتيبة للاعبين اثنين، وتنقص 5 لكل لاعب إضافي حتى 20"
+        : (map.armyBase || 24) + " كتيبة للاعبين اثنين، وتنقص " + (map.armyStep || 2) + " لكل لاعب إضافي حتى " + (map.armyMin || 10);
+      const setupSteps = (game.rules.setup || []).slice();
+      setupSteps[1] = "يضع كل قائد كتيبة واحدة في كل إقليم يملكه. ثم يوزّع كتائب الإعداد: " + setupDetail + " — شاملةً كتيبة كل إقليم.";
+      return Object.assign({}, game.rules, {
+        facts: [
+          ["الخريطة", map.territories.length + " إقليمًا · " + regions.length + " مناطق · Natural Earth"],
+          ["الكتائب", setupLine],
+          ["النرد", "3 للمهاجم · 2 للمدافع"],
+          ["البطاقات", map.territories.length + " بطاقة أراضٍ + جوكران · تصاعد 4/6/8…"],
+        ],
+        components: [
+          "خريطة " + map.name + " بـ" + map.territories.length + " إقليمًا و" + regions.length + " مناطق، مرسومة من بيانات Natural Earth الحقيقية.",
+          "جيش لكل قائد بلون واضح، وكل قطعة تمثل كتيبة واحدة.",
+          "نرد المعركة: حتى ثلاثة نرد للمهاجم ونردان للمدافع، مع اختيار عدد نرد المهاجم قبل كل ضربة.",
+          "بطاقات قيادة: " + map.territories.length + " بطاقة أراضٍ ورمز مشاة أو فرسان أو مدفعية، مع جوكرين.",
+          "مكافآت المناطق: " + bonusText + ".",
+          "مهمة سرية لكل قائد عند اختيار وضع المهمات، تُعرض في لوحة سرّية ولا يراها الخصوم.",
+        ],
+        setup: setupSteps,
+      });
+    },
+
     create(root, api) {
       rootRef = root;
       apiRef = api;
@@ -460,9 +651,9 @@
         };
       }
       if (rules.setup === "draft") {
-        apiRef.log("بدأت ريسك — العالم الكلاسيكي. اختيار الأراضي بالتبادل يبدأ الآن.", "accent");
+        apiRef.log("بدأت ريسك — " + activeMap.name + ". اختيار الأراضي بالتبادل يبدأ الآن.", "accent");
       } else {
-        apiRef.log("بدأت ريسك — العالم الكلاسيكي (" + TERRITORIES.length + " إقليمًا). الإعداد: " + setupRemaining(state.players[0]) + " كتيبة إضافية لكل قائد.", "accent");
+        apiRef.log("بدأت ريسك — " + activeMap.name + " (" + TERRITORIES.length + " إقليمًا). الإعداد: " + setupRemaining(state.players[0]) + " كتيبة إضافية لكل قائد.", "accent");
       }
       if (!apiRef.net) {
         requestAnimationFrame(() => {
@@ -476,10 +667,16 @@
         netLoad(data) {
           if (!data) return;
           BG.closeDialogs();
-          const mapChanged = !state || state.mapId !== (data.mapId || (data.rules && data.rules.map));
-          state = BG.netCodec.decode(data);
+          const decoded = BG.netCodec.decode(data);
+          const incomingMap = (decoded && decoded.mapId) || (decoded && decoded.rules && decoded.rules.map) || "classic";
+          const previousMap = state ? state.mapId : null;
+          state = decoded;
           state.rules = Object.assign({}, RULE_DEFAULTS, state.rules || {});
-          state.mapId = "classic";
+          const mapId = MAPS[incomingMap] ? incomingMap : "classic";
+          state.rules.map = mapId;
+          state.mapId = mapId;
+          activateMap(mapId);
+          const mapChanged = previousMap !== mapId;
           state.owner = state.owner || {};
           state.troops = state.troops || {};
           state.deck = state.deck || [];
@@ -539,6 +736,7 @@
   /* ------------------------------ بناء الحالة ------------------------------ */
 
   function buildState(rules, apiPlayers) {
+    activateMap(rules.map);
     const players = apiPlayers.map((p, i) => ({
       index: i,
       name: p.name || PLAYER_NAMES[i % PLAYER_NAMES.length],
@@ -566,7 +764,7 @@
 
     state = {
       rules: Object.assign({}, RULE_DEFAULTS, rules || {}),
-      mapId: "classic",
+      mapId: activeMapId,
       players,
       owner,
       troops,
@@ -715,7 +913,11 @@
   }
 
   function setupArmyTotal(count) {
-    return Math.max(20, 40 - (count - 2) * 5);
+    if (activeMapId === "classic") return Math.max(20, 40 - (count - 2) * 5);
+    const base = activeMap.armyBase || Math.max(18, Math.ceil(TERRITORIES.length * 0.9));
+    const step = activeMap.armyStep || 2;
+    const min = activeMap.armyMin || 10;
+    return Math.max(min, base - (count - 2) * step);
   }
 
   function setupRemaining(player) {
@@ -1895,10 +2097,6 @@
 
   /* ------------------------------ الخريطة والواجهة ------------------------------ */
 
-  const MAP_W = GEO ? GEO.width : 1200;
-  const MAP_H = GEO ? GEO.height : 640;
-  const MAP_RATIO = MAP_W / MAP_H;
-
   let mapViewport = null;
   let sideTop = null;
   let sideRest = null;
@@ -1970,32 +2168,6 @@
   }
 
   // ضبط مواضع الأسماء في المناطق المزدحمة (أوروبا أساسًا) ووصلها بخطوط رفيعة.
-  const NAME_TWEAKS = {
-    iceland: { x: 502, y: 96, anchor: "end" },
-    britain: { x: 512, y: 146, anchor: "end" },
-    scandinavia: { x: 622, y: 78, anchor: "middle" },
-    neurope: { x: 620, y: 140, anchor: "start" },
-    weurope: { x: 508, y: 212, anchor: "end" },
-    seurope: { x: 670, y: 222, anchor: "start" },
-    ukraine: { x: 700, y: 168, anchor: "start" },
-    egypt: { x: 690, y: 282, anchor: "start" },
-    mideast: { x: 735, y: 260, anchor: "start" },
-  };
-  const MAP_NAMES = {
-    neurope: "شمال أوروبا",
-    weurope: "غرب أوروبا",
-    seurope: "جنوب أوروبا",
-  };
-  const NAME_LEADERS = {
-    iceland: true,
-    britain: true,
-    neurope: true,
-    weurope: true,
-    seurope: true,
-    ukraine: true,
-    egypt: true,
-    mideast: true,
-  };
 
   function namePos(id, geo) {
     const tweak = NAME_TWEAKS[id];
@@ -2006,12 +2178,20 @@
 
   function leaderPath(id, pos, node) {
     if (!NAME_LEADERS[id]) return "";
+    const dy = node[1] - pos.y;
     let sx = pos.x;
-    let sy = pos.y - 4;
+    // إذا كان العقد أسفل الاسم نبدأ من حده السفلي، وإذا كان أعلاه نبدأ من حده العلوي.
+    let sy = dy > 2 ? pos.y + 6 : dy < -2 ? pos.y - 12 : pos.y - 4;
     if (pos.anchor === "end") sx = pos.x + 5;
     else if (pos.anchor === "start") sx = pos.x - 5;
-    else sy = pos.y + 6;
     return '<path class="risk-leader" d="M' + sx + " " + sy + " L" + node[0] + " " + node[1] + '"/>';
+  }
+
+  function displayName(t) {
+    if (!t) return "";
+    if (MAP_NAMES[t.id]) return MAP_NAMES[t.id];
+    if (activeMapId !== "classic" && t.short) return t.short;
+    return t.name;
   }
 
   function mapSVG() {
@@ -2019,7 +2199,7 @@
       return '<div class="risk-map-missing">تعذّر تحميل بيانات الخريطة. أعد تحميل الصفحة.</div>';
     }
     const parts = [];
-    parts.push('<svg class="risk-map" viewBox="0 0 ' + MAP_W + " " + MAP_H + '" role="img" aria-label="خريطة ريسك — العالم الكلاسيكي بـ42 إقليمًا" preserveAspectRatio="xMidYMid meet">');
+    parts.push('<svg class="risk-map" viewBox="0 0 ' + MAP_W + " " + MAP_H + '" style="aspect-ratio:' + MAP_W + " / " + MAP_H + '" role="img" aria-label="خريطة ريسك — ' + svgEscape(activeMap.name) + ' بـ' + TERRITORIES.length + ' إقليمًا" preserveAspectRatio="xMidYMid meet">');
 
     const defs = [];
     defs.push('<radialGradient id="riskSea" cx="50%" cy="42%" r="82%"><stop offset="0%" stop-color="#153843"/><stop offset="48%" stop-color="#0a2029"/><stop offset="100%" stop-color="#050e13"/></radialGradient>');
@@ -2039,10 +2219,20 @@
       parts.push('<path class="risk-graticule" d="' + GEO.graticule + '" fill="none" stroke="rgba(140,200,230,0.10)" stroke-width="1"/>');
     }
 
+    if (GEO.neutral && GEO.neutral.length) {
+      parts.push('<g class="risk-neutral-layer" aria-hidden="true">');
+      GEO.neutral.forEach((part) => {
+        if (!part || !part.d) return;
+        const clip = part.clip ? ' clip-path="url(#riskClip-' + part.clip + ')"' : "";
+        parts.push('<path class="risk-neutral" d="' + part.d + '"' + clip + "/>");
+      });
+      parts.push("</g>");
+    }
+
     parts.push('<g class="risk-cont-labels" aria-hidden="true">');
     Object.keys(GEO.continents || {}).forEach((code) => {
       const c = GEO.continents[code];
-      if (!c || !c.label || !CONTINENTS[code] || code === "eu") return;
+      if (!c || !c.label || !CONTINENTS[code] || (activeMapId === "classic" && code === "eu")) return;
       parts.push('<text class="risk-cont-label" x="' + c.label[0] + '" y="' + c.label[1] + '" text-anchor="middle">' + svgEscape(CONTINENTS[code].short) + "</text>");
     });
     parts.push("</g>");
@@ -2068,7 +2258,7 @@
       const b = GEO.territories[pair[1]];
       if (!a || !b) return;
       const d = curvePath(a.label, b.label, i % 2 ? -0.72 : 0.72);
-      parts.push('<path class="risk-sea-route" d="' + d + '" marker-end="url(#riskArrowFort)"/>');
+      parts.push('<path class="risk-sea-route" d="' + d + '" fill="none" stroke="rgba(143,232,196,0.32)" stroke-width="1.4" stroke-dasharray="5 6" marker-end="url(#riskArrowFort)"/>');
     });
     parts.push("</g>");
 
@@ -2088,7 +2278,7 @@
       const geo = GEO.territories ? GEO.territories[t.id] : null;
       if (!geo) return;
       const pos = namePos(t.id, geo);
-      parts.push('<text class="risk-name' + (NAME_TWEAKS[t.id] ? " is-tweaked" : "") + '" data-for="' + t.id + '" x="' + pos.x + '" y="' + pos.y + '" text-anchor="' + pos.anchor + '">' + svgEscape(MAP_NAMES[t.id] || t.name) + "</text>");
+      parts.push('<text class="risk-name' + (NAME_TWEAKS[t.id] ? " is-tweaked" : "") + '" data-for="' + t.id + '" x="' + pos.x + '" y="' + pos.y + '" text-anchor="' + pos.anchor + '">' + svgEscape(displayName(t)) + "</text>");
     });
     parts.push("</g>");
 
@@ -2176,8 +2366,8 @@
     board.className = "risk-board-wrap";
     board.innerHTML =
       '<div class="board-head risk-board-head">' +
-      '<span class="risk-head-icon" aria-hidden="true">🌍</span>' +
-      '<div class="board-head-copy"><span class="board-head-kicker">غرفة العمليات · خريطة العالم</span><strong>ريسك — السيطرة على العالم</strong><small class="risk-map-sub">42 إقليمًا · 6 قارات · Natural Earth</small></div>' +
+      '<span class="risk-head-icon" aria-hidden="true">' + (activeMap.icon || "🌍") + '</span>' +
+      '<div class="board-head-copy"><span class="board-head-kicker">غرفة العمليات · ' + svgEscape(activeMap.name) + '</span><strong>ريسك — ' + (activeMapId === "classic" ? "السيطرة على العالم" : "حرب " + svgEscape(activeMap.name)) + '</strong><small class="risk-map-sub">' + TERRITORIES.length + ' إقليمًا · ' + Object.keys(CONTINENTS).length + ' مناطق · Natural Earth</small></div>' +
       '<div class="risk-zoom" role="group" aria-label="تكبير الخريطة والتنقل">' +
       '<button type="button" data-zoom="-1" aria-label="تصغير الخريطة">−</button>' +
       '<span data-zoom-label>100%</span>' +
@@ -2186,7 +2376,7 @@
       "</div>" +
       "</div>" +
       '<div class="risk-continents" role="group" aria-label="الانتقال إلى قارة">' +
-      '<button type="button" class="risk-cont-chip is-world" data-focus="world"><span class="risk-cont-dot"></span><span>العالم</span></button>' +
+      '<button type="button" class="risk-cont-chip is-world" data-focus="world"><span class="risk-cont-dot"></span><span>' + (activeMapId === "classic" ? "العالم" : "الكل") + '</span></button>' +
       Object.keys(CONTINENTS).map((code) => {
         const info = CONTINENTS[code];
         return '<button type="button" class="risk-cont-chip" data-focus="' + code + '" style="--cc:' + info.color + '">' +

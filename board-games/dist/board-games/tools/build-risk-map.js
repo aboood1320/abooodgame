@@ -12,6 +12,7 @@ const fs = require("fs");
 const path = require("path");
 const os = require("os");
 const d3 = require("d3-geo");
+const REGIONAL = require("../js/games/risk-maps.js");
 
 const ROOT = path.resolve(__dirname, "..");
 const OUT = path.join(ROOT, "js", "games", "risk-map-data.js");
@@ -327,10 +328,7 @@ function roundBox(box) {
   return box.map((n) => Math.round(n * 10) / 10);
 }
 
-async function main() {
-  const countries = await fetchJson("countries", SOURCES.countries);
-  const admin1 = await fetchJson("admin1", SOURCES.admin1);
-
+async function buildClassic(countries, admin1) {
   const projection = d3.geoNaturalEarth1()
     .rotate([-10, 0])
     .fitExtent([[22, 22], [WIDTH - 22, HEIGHT - 22]], {
@@ -442,15 +440,254 @@ async function main() {
     continents,
     territories,
   };
+  data.stats = {
+    territories: Object.keys(territories).filter((id) => territories[id].parts.length).length,
+    missing: Object.keys(territories).filter((id) => !territories[id].parts.length),
+    unassigned,
+  };
+  return data;
+}
 
-  const js = "/* خريطة ريسك — بيانات Natural Earth (الملكية العامة). مولّدة آليًا. */\n" +
+/* ==========================================================================
+   الخرائط الإقليمية — تُبنى من نفس بيانات Natural Earth، مع إسقاط وحدود
+   مستقلة لكل خريطة، وتجميع الدول في أقاليم ريسك حسب ملف risk-maps.js.
+   ========================================================================== */
+
+function bboxContains(bbox, lon, lat, pad) {
+  const p = pad == null ? 0 : pad;
+  return lon >= bbox[0] - p && lon <= bbox[2] + p && lat >= bbox[1] - p && lat <= bbox[3] + p;
+}
+
+function fitProjection(projection, bbox, width, height, pad) {
+  projection.scale(1).translate([0, 0]);
+  const [lon0, lat0, lon1, lat1] = bbox;
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (let i = 0; i <= 16; i++) {
+    for (let j = 0; j <= 16; j++) {
+      const lon = lon0 + (lon1 - lon0) * (i / 16);
+      const lat = lat0 + (lat1 - lat0) * (j / 16);
+      const p = projection([lon, lat]);
+      if (!p) continue;
+      if (p[0] < minX) minX = p[0];
+      if (p[0] > maxX) maxX = p[0];
+      if (p[1] < minY) minY = p[1];
+      if (p[1] > maxY) maxY = p[1];
+    }
+  }
+  const innerW = width - pad * 2;
+  const innerH = height - pad * 2;
+  const scale = Math.min(innerW / Math.max(1e-6, maxX - minX), innerH / Math.max(1e-6, maxY - minY));
+  const usedW = (maxX - minX) * scale;
+  const usedH = (maxY - minY) * scale;
+  projection
+    .scale(scale)
+    .translate([pad + (innerW - usedW) / 2 - minX * scale, pad + (innerH - usedH) / 2 - minY * scale])
+    .clipExtent([[0, 0], [width, height]]);
+  return projection;
+}
+
+function bandClipPath(projection, lonRange, width, height) {
+  const geoPath = d3.geoPath(projection).digits(1);
+  const ring = [];
+  for (let lat = -85; lat <= 85; lat += 4) ring.push([lonRange[0], lat]);
+  for (let lat = 85; lat >= -85; lat -= 4) ring.push([lonRange[1], lat]);
+  ring.push(ring[0]);
+  return geoPath({ type: "Polygon", coordinates: [ring] });
+}
+
+function admin1Keys(feature) {
+  const p = feature.properties || {};
+  const postal = String(p.postal || p.POSTAL || "").toUpperCase();
+  const iso = String(p.iso_3166_2 || p.ISO_3166_2 || "").toUpperCase();
+  const suffix = iso.indexOf("-") >= 0 ? iso.split("-").pop() : "";
+  return [postal, suffix, iso].filter(Boolean);
+}
+
+function buildRegionalMap(map, countries, admin1) {
+  const width = map.width || 1200;
+  const height = map.height || 760;
+  const pad = map.padding == null ? 18 : map.padding;
+  const projection = fitProjection(d3.geoNaturalEarth1().rotate([-10, 0]), map.bbox, width, height, pad);
+  const geoPath = d3.geoPath(projection).digits(1);
+
+  const byTerritory = {};
+  map.territories.forEach((t) => { byTerritory[t.id] = []; });
+
+  const countryToTerritory = new Map();
+  const admin1ToTerritory = new Map();
+  const splitCountries = new Set();
+  map.territories.forEach((t) => {
+    (t.countries || []).forEach((code) => {
+      const key = String(code).toUpperCase();
+      if (countryToTerritory.has(key)) throw new Error(map.id + ": الدولة " + key + " معيّنة أكثر من مرة");
+      countryToTerritory.set(key, t.id);
+    });
+    Object.keys(t.admin1 || {}).forEach((code) => {
+      const key = String(code).toUpperCase();
+      splitCountries.add(key);
+      if (!admin1ToTerritory.has(key)) admin1ToTerritory.set(key, new Map());
+      t.admin1[key].forEach((code2) => {
+        const k2 = String(code2).toUpperCase();
+        if (admin1ToTerritory.get(key).has(k2)) throw new Error(map.id + ": المقاطعة " + key + "/" + k2 + " معيّنة أكثر من مرة");
+        admin1ToTerritory.get(key).set(k2, t.id);
+      });
+    });
+  });
+
+  const banded = new Set((map.bands || []).map((b) => b.territory));
+  splitCountries.forEach((code) => {
+    if (countryToTerritory.has(code)) throw new Error(map.id + ": الدولة " + code + " مقسّمة بالدول والمقاطعات معًا");
+  });
+
+  const neutral = [];
+  const neutralSkip = new Set((map.neutralSkip || []).map((code) => String(code).toUpperCase()));
+  const unassigned = [];
+  const missingAdmin1 = [];
+
+  for (const feature of countries.features) {
+    const code = String(feature.properties.ADM0_A3 || "").toUpperCase();
+    if (!code || code === "ATA" || code === "ATF" || code === "HMD" || code === "IOA" || code === "IOT") continue;
+    if (code === "RUS" && (map.bands || []).length) continue;
+    if (splitCountries.has(code)) continue;
+    const territory = countryToTerritory.get(code);
+    for (const poly of polygonFeatures(feature)) {
+      const centroid = d3.geoCentroid(poly);
+      if (!bboxContains(map.bbox, centroid[0], centroid[1], 8)) continue;
+      if (territory) byTerritory[territory].push(poly);
+      else if (!neutralSkip.has(code)) neutral.push(poly);
+    }
+    if (!territory && !neutralSkip.has(code) && bboxContains(map.bbox, d3.geoCentroid(feature)[0], d3.geoCentroid(feature)[1], 0)) {
+      unassigned.push(code);
+    }
+  }
+
+  for (const feature of admin1.features) {
+    const admin = String(feature.properties.adm0_a3 || "").toUpperCase();
+    if (!splitCountries.has(admin)) continue;
+    const keys = admin1Keys(feature);
+    const table = admin1ToTerritory.get(admin);
+    let territory = null;
+    for (const key of keys) {
+      if (table.has(key)) { territory = table.get(key); break; }
+    }
+    if (!territory) {
+      missingAdmin1.push(admin + "/" + keys.join("|") + " (" + (feature.properties.name || "?") + ")");
+      continue;
+    }
+    const centroid = d3.geoCentroid(feature);
+    if (!bboxContains(map.bbox, centroid[0], centroid[1], 8)) continue;
+    byTerritory[territory].push(feature);
+  }
+
+  const russiaPolys = [];
+  if ((map.bands || []).length) {
+    for (const feature of countries.features) {
+      if (String(feature.properties.ADM0_A3 || "").toUpperCase() !== "RUS") continue;
+      polygonFeatures(feature).forEach((poly) => russiaPolys.push(poly));
+    }
+  }
+  const russiaPath = russiaPolys.length ? geoPath({ type: "FeatureCollection", features: russiaPolys }) : "";
+  const clips = {};
+  (map.bands || []).forEach((band, i) => {
+    const key = "band-" + i;
+    clips[key] = bandClipPath(projection, band.lon, width, height);
+  });
+
+  const territories = {};
+  map.territories.forEach((t) => {
+    const parts = [];
+    if (byTerritory[t.id] && byTerritory[t.id].length) {
+      parts.push({ d: geoPath({ type: "FeatureCollection", features: byTerritory[t.id] }) });
+    }
+    (map.bands || []).forEach((band, i) => {
+      if (band.territory !== t.id || !russiaPath) return;
+      parts.push({ d: russiaPath, clip: "band-" + i });
+    });
+    const at = projection(t.label || d3.geoCentroid({ type: "FeatureCollection", features: byTerritory[t.id] || [] }));
+    const nameAt = t.nameAt ? projection(t.nameAt) : (at ? [at[0], at[1] - 18] : null);
+    territories[t.id] = {
+      parts,
+      label: at ? [Math.round(at[0] * 10) / 10, Math.round(at[1] * 10) / 10] : [0, 0],
+      name: nameAt ? [Math.round(nameAt[0] * 10) / 10, Math.round(nameAt[1] * 10) / 10] : [0, 0],
+      anchor: t.anchor || "middle",
+    };
+  });
+
+  const continents = {};
+  Object.keys(map.continents).forEach((code) => {
+    const ids = map.territories.filter((t) => t.c === code).map((t) => t.id);
+    const points = ids.map((id) => territories[id].label).filter(Boolean);
+    if (!points.length) return;
+    const xs = points.map((p) => p[0]);
+    const ys = points.map((p) => p[1]);
+    let x0 = Math.min(...xs) - 90;
+    let y0 = Math.min(...ys) - 70;
+    let x1 = Math.max(...xs) + 90;
+    let y1 = Math.max(...ys) + 70;
+    const minW = 230;
+    const minH = 170;
+    if (x1 - x0 < minW) { const cx = (x0 + x1) / 2; x0 = cx - minW / 2; x1 = cx + minW / 2; }
+    if (y1 - y0 < minH) { const cy = (y0 + y1) / 2; y0 = cy - minH / 2; y1 = cy + minH / 2; }
+    x0 = Math.max(0, x0); y0 = Math.max(0, y0); x1 = Math.min(width, x1); y1 = Math.min(height, y1);
+    const labelAt = [xs.reduce((a, b) => a + b, 0) / xs.length, ys.reduce((a, b) => a + b, 0) / ys.length];
+    continents[code] = {
+      box: [Math.round(x0), Math.round(y0), Math.round(x1 - x0), Math.round(y1 - y0)],
+      focus: [Math.round(x0), Math.round(y0), Math.round(x1 - x0), Math.round(y1 - y0)],
+      label: [Math.round(labelAt[0]), Math.round(labelAt[1])],
+      text: map.continents[code].name,
+    };
+  });
+
+  const graticule = d3.geoGraticule().step([10, 10])();
+  return {
+    source: "Natural Earth (public domain), projected with d3-geo Natural Earth I",
+    width,
+    height,
+    graticule: geoPath(graticule),
+    clips,
+    neutral: neutral.length ? [{ d: geoPath({ type: "FeatureCollection", features: neutral }) }] : [],
+    continents,
+    territories,
+    stats: { unassigned, missingAdmin1 },
+  };
+}
+
+async function main() {
+  const countries = await fetchJson("countries", SOURCES.countries);
+  const admin1 = await fetchJson("admin1", SOURCES.admin1);
+  const classic = await buildClassic(countries, admin1);
+  const classicStats = classic.stats;
+  delete classic.stats;
+  const maps = { classic };
+  const regionalStats = {};
+  for (const id of Object.keys(REGIONAL)) {
+    const map = Object.assign({}, REGIONAL[id], { id });
+    console.log("توليد خريطة " + map.name + " ...");
+    maps[id] = buildRegionalMap(map, countries, admin1);
+    regionalStats[id] = maps[id].stats;
+    delete maps[id].stats;
+  }
+
+  const data = {
+    version: 2,
+    source: "Natural Earth (public domain), projected with d3-geo Natural Earth I",
+    maps,
+  };
+  const js = "/* خرائط ريسك — بيانات Natural Earth (الملكية العامة). مولّدة آليًا. */\n" +
     "window.RISK_GEO = " + JSON.stringify(data) + ";\n";
   fs.writeFileSync(OUT, js, "utf8");
   console.log("كُتب " + path.relative(ROOT, OUT) + " (" + (Buffer.byteLength(js) / 1024).toFixed(1) + " KB)");
-  console.log("الأقاليم: " + Object.keys(territories).filter((id) => territories[id].parts.length).length + " / " + Object.keys(territories).length);
-  const missing = Object.keys(territories).filter((id) => !territories[id].parts.length);
-  if (missing.length) console.log("بلا أشكال: " + missing.join(", "));
-  if (unassigned.length) console.log("دول بلا تعيين مباشر (وُلدت بأقرب إقليم):\n  " + unassigned.slice(0, 80).join("\n  "));
+  console.log("  classic: " + classicStats.territories + "/" + Object.keys(maps.classic.territories).length + " إقليمًا" +
+    (classicStats.missing.length ? "، بلا أشكال: " + classicStats.missing.join(", ") : ""));
+  for (const id of Object.keys(REGIONAL)) {
+    const m = maps[id];
+    const st = regionalStats[id] || {};
+    const count = Object.keys(m.territories).length;
+    const filled = Object.keys(m.territories).filter((key) => m.territories[key].parts.length).length;
+    console.log("  " + id + ": " + count + " إقليمًا، " + filled + " بأشكال" +
+      (st.missingAdmin1 && st.missingAdmin1.length ? "، مقاطعات مفقودة: " + st.missingAdmin1.join("، ") : "") +
+      (st.unassigned && st.unassigned.length ? "، دول محايدة: " + st.unassigned.join(", ") : ""));
+  }
 }
 
 main().catch((err) => { console.error(err); process.exit(1); });
