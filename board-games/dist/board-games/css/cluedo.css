@@ -760,6 +760,9 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 7px;
 }
+.cluedo-action-row.is-single {
+  grid-template-columns: minmax(0, 1fr);
+}
 .cluedo-actions .cluedo-hint {
   margin-top: 3px;
 }

@@ -1164,3 +1164,18 @@ dialog.bg-rules-dialog { width: min(790px, calc(100vw - 30px)); }
   .game-card, .game-emblem, .game-open .ic, .bg-logo { transition: none; }
   .mtoken.active::before { animation: none; opacity: 0.35; }
 }
+
+/* Keep the return action readable on narrow screens. */
+@media (max-width: 760px) {
+  #gameView .game-toolbar #btnGameBack {
+    display: inline-flex;
+    width: auto;
+    min-width: 82px;
+    flex: 0 0 auto;
+    padding-inline: 10px;
+  }
+  #gameView .game-toolbar #btnGameBack span {
+    display: inline;
+    white-space: nowrap;
+  }
+}

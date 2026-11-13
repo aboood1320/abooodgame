@@ -639,7 +639,7 @@
     if (els.gameCrest) els.gameCrest.innerHTML = emblem(game);
     els.btnRules.hidden = false;
     if (els.btnFullscreen) {
-      els.btnFullscreen.hidden = false;
+      els.btnFullscreen.hidden = game.id === "monopoly";
       els.btnFullscreen.setAttribute("aria-pressed", document.fullscreenElement ? "true" : "false");
       const span = els.btnFullscreen.querySelector("span");
       if (span) span.textContent = document.fullscreenElement ? "إنهاء ملء الشاشة" : "ملء الشاشة";

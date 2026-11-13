@@ -2,9 +2,10 @@
 .bs { --accent: #7391a8; }
 /* ألواح كبيرة وواضحة، مع الحفاظ على مساحة كافية لعناصر التحكم. */
 .bs-setup-grid { display: grid; grid-template-columns: minmax(0, 1fr); justify-items: center; gap: 12px; }
-.bs-setup { display: flex; flex-direction: column; gap: 9px; width: min(100%, 620px); }
+.bs-setup { display: flex; flex-direction: column; gap: 9px; width: min(100%, 740px); }
 .bs-arena { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; align-items: start; justify-items: center; width: 100%; }
-.bs-side { display: flex; flex-direction: column; gap: 9px; width: min(100%, 620px); }
+.bs-side { display: flex; flex-direction: column; gap: 9px; width: min(100%, 640px); }
+.bs-setup .bs-grid.bs-board { width: min(100%, 740px); }
 
 /* إطار الشبكة المعدني مع الإحداثيات */
 .bs-grid.bs-board {
@@ -18,7 +19,7 @@
   background: linear-gradient(145deg, #2d4658, #16303f);
   border: 1px solid #3f6379;
   box-shadow: 0 8px 22px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.08);
-  width: min(100%, 620px);
+  width: min(100%, 640px);
   margin-inline: auto;
 }
 .bs-cols { display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); }
@@ -180,7 +181,7 @@ html.lite .bs-flame { animation: none; }
 }
 @media (max-width: 720px) {
   .bs-arena { grid-template-columns: minmax(0, 1fr); }
-  .bs-grid.bs-board { padding: 5px; gap: 2px; width: min(100%, 620px); }
+  .bs-grid.bs-board { padding: 5px; gap: 2px; width: min(100%, 740px); }
 }
 @media (max-width: 1199px) {
   .bs-arena { grid-template-columns: minmax(0, 1fr); }

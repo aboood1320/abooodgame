@@ -1556,7 +1556,7 @@
       '<button type="button" class="bg-btn danger" data-act="accuse"' + (canAccuse ? "" : " disabled") + '><span>⚖️ اتهام نهائي</span></button>' +
       "</div>" +
       '<button type="button" class="bg-btn" data-act="end"' + (canEnd ? "" : " disabled") + '><span>⏭️ إنهاء الدور</span></button>' +
-      '<div class="cluedo-action-row">' +
+      '<div class="cluedo-action-row is-single">' +
       '<button type="button" class="bg-btn" data-act="sheet"><span>📋 ورقة التحقيق</span></button>' +
       "</div>" +
       '<p class="cluedo-hint">' + (state.over ? "انتهى التحقيق." : state.phase === "move"
