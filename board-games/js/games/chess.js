@@ -2186,13 +2186,13 @@
     accent: "#b9a07e",
     cardClass: "card-chess",
     tagline: "اللعبة الملكية بمحرك Stockfish حقيقي، ساعة، وسجل حركات.",
-    players: "1–2",
-    counts: [1],
+    players: "2",
+    counts: [2],
     duration: "5–60 دقيقة",
     complexity: "عالية",
-    minPlayers: 1,
+    minPlayers: 2,
     maxPlayers: 2,
-    defaultPlayers: 1,
+    defaultPlayers: 2,
 
     options: {
       hint: "اختر ساعة المباراة. تُضاف الزيادة بعد كل حركة، ويمكنك اللعب بلا ساعة.",
@@ -2225,7 +2225,7 @@
         ["الرقعة", "8×8 = 64 مربعًا"],
         ["القطع", "16 لكل لاعب"],
         ["المحرك", "Stockfish 17.1 WASM"],
-        ["اللاعبون", "لاعب ضد الحاسوب أو لاعبان"],
+        ["اللاعبون", "لاعبان"],
       ],
       components: [
         "رقعة شطرنج 8×8 باللونين الفاتح والداكن",

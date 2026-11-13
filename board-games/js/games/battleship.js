@@ -176,7 +176,8 @@
     const want = state.over ? (state.winner == null ? 0 : state.winner) : state.phase === "setup" ? activeSetupSeat() : state.current;
     const holding = uiHold && Date.now() < uiHold.until ? uiHold.seat : null;
     const seat = holding != null ? holding : want;
-    const curtain = holding == null && !state.over && shownFor !== seat;
+    const hideSecrets = !!(BG.prefs && BG.prefs.hideSecrets);
+    const curtain = hideSecrets && holding == null && !state.over && shownFor !== seat;
     return { seat, curtain };
   }
 
@@ -185,7 +186,7 @@
     if (state.players[seat].isCpu) return false;
     if (state.ready[seat]) return false;
     if (isOnline()) return apiRef.net.seat === seat && activeSetupSeat() === seat;
-    if (isHotSeat()) return activeSetupSeat() === seat && shownFor === seat;
+    if (isHotSeat()) return activeSetupSeat() === seat && (!BG.prefs || !BG.prefs.hideSecrets || shownFor === seat);
     return true;
   }
 
@@ -779,6 +780,10 @@
     if (shot && shot.dataset.bsShot !== "") fire(Number(shot.dataset.bsShot));
   }
 
+  function onPrefsChange() {
+    if (state) render();
+  }
+
   /* ------------------------------ التسجيل ------------------------------ */
 
   const game = {
@@ -875,6 +880,7 @@
       rootRef.addEventListener("pointerover", previewDrop);
       rootRef.addEventListener("pointerleave", clearPreview);
       document.addEventListener("keydown", onKey);
+      document.addEventListener("bgprefschange", onPrefsChange);
       return {
         netSnapshot() { return state ? BG.netCodec.encode(state) : null; },
         netLoad(data) {
@@ -911,6 +917,7 @@
             rootRef.removeEventListener("pointerleave", clearPreview);
           }
           document.removeEventListener("keydown", onKey);
+          document.removeEventListener("bgprefschange", onPrefsChange);
           rootRef = null;
           apiRef = null;
           state = null;
