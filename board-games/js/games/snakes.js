@@ -30,6 +30,7 @@
   let state = null;
   let aiRunner = null;
   let moveTimer = null;
+  let specialTimer = null;
   let autoTimer = null;
 
   function cellCenter(n) {
@@ -74,7 +75,7 @@
       rolls: 0,
       exactFinish: opts.exactFinish !== false,
       sixAgain: opts.sixAgain !== false,
-      notice: "ارمِ النرد لتحريك قطعتك من الخانة ١.",
+      notice: "ارمِ النرد لتبدأ السباق من خارج اللوحة.",
       last: null,
       over: false,
       winner: null,
@@ -113,6 +114,8 @@
     if (!state || state.over || state.busy || state.phase !== "roll") return null;
     const player = cur();
     const value = 1 + Math.floor(Math.random() * 6);
+    clearTimeout(autoTimer);
+    autoTimer = null;
     state.dice = value;
     state.rolls += 1;
     player.rolls += 1;
@@ -126,12 +129,15 @@
     const target = player.pos + value;
     if (target > 100 && state.exactFinish) {
       state.busy = false;
-      state.phase = "roll";
+      state.phase = "pass";
       state.notice = player.name + " يحتاج رقمًا مضبوطًا للوصول إلى ١٠٠ — بقي في الخانة " + ar(player.pos) + ".";
       if (apiRef) apiRef.log("الرمية تتجاوز ١٠٠ — لا حركة في وضع الوصول المضبوط.", "warn");
       renderMotion();
       clearTimeout(autoTimer);
-      autoTimer = setTimeout(() => endTurn(value === 6 && state.sixAgain), 700);
+      autoTimer = setTimeout(() => {
+        autoTimer = null;
+        endTurn(value === 6 && state.sixAgain);
+      }, 700);
       return value;
     }
 
@@ -144,13 +150,23 @@
   }
 
   function animateSteps(player, target, done) {
+    if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      player.pos = target;
+      renderMotion();
+      if (FX) FX.sound("place");
+      done();
+      return;
+    }
     const step = () => {
       if (!state || state.over) return;
       if (player.pos < target) {
         player.pos += 1;
         if (FX && player.pos % 2 === 0) FX.sound("step");
         renderMotion();
-        moveTimer = setTimeout(step, 105);
+        moveTimer = setTimeout(() => {
+          moveTimer = null;
+          step();
+        }, 105);
         return;
       }
       if (FX) FX.sound("place");
@@ -191,7 +207,9 @@
       }
       state.busy = true;
       renderMotion();
-      setTimeout(() => {
+      clearTimeout(specialTimer);
+      specialTimer = setTimeout(() => {
+        specialTimer = null;
         if (!state || state.over) return;
         player.pos = jump.to;
         renderMotion();
@@ -212,7 +230,10 @@
     state.busy = false;
     renderMotion();
     clearTimeout(autoTimer);
-    autoTimer = setTimeout(() => endTurn(extra), 520);
+    autoTimer = setTimeout(() => {
+      autoTimer = null;
+      endTurn(extra);
+    }, 520);
   }
 
   function endTurn(extra) {
@@ -220,6 +241,7 @@
     const player = cur();
     state.phase = "roll";
     state.dice = null;
+    state.busy = false;
     if (extra) {
       state.notice = "دور إضافي لـ" + player.name + " بعد رمي ٦.";
       if (apiRef) apiRef.log("دور إضافي لـ<strong>" + esc(player.name) + "</strong> بعد ٦.", "accent");
@@ -241,6 +263,7 @@
     if (player.isCpu && cpuCanAct(player) && state.phase === "roll") {
       clearTimeout(autoTimer);
       autoTimer = setTimeout(() => {
+        autoTimer = null;
         if (!state || state.over || state.current !== player.index || state.phase !== "roll") return;
         roll();
       }, AI.delay(player.level));
@@ -250,7 +273,7 @@
   function win(player) {
     if (!state || state.over) return;
     state.over = true;
-    state.winner = player;
+    state.winner = player.index;
     state.phase = "end";
     state.notice = player.name + " وصل إلى الخانة ١٠٠!";
     state.standings = state.players.slice()
@@ -286,6 +309,7 @@
       const c = cellCenter(n);
       const classes = ["sn-cell"];
       if (n % 2 === 0) classes.push("is-alt");
+      if (n === 1) classes.push("is-start");
       if (n === 100) classes.push("is-finish");
       if (LADDERS[n]) classes.push("is-ladder");
       if (SNAKES[n]) classes.push("is-snake");
@@ -342,11 +366,13 @@
       list.forEach((item, i) => {
         const shift = (i - (list.length - 1) / 2) * 3.2;
         items.push(
-          '<button type="button" class="sn-pawn' + (isOnline() && item.player.index === localSeat() ? " is-mine" : "") + '"' +
+          '<span class="sn-pawn' +
+          (item.player.index === state.current && !state.over ? " is-current" : "") +
+          (state.over && state.winner === item.player.index ? " is-winner" : "") +
+          (isOnline() && item.player.index === localSeat() ? " is-mine" : "") + '"' +
           ' data-sn-pawn="' + item.player.index + '"' +
           ' style="left:' + (item.cell.x + shift * 0.75).toFixed(2) + "%;top:" + (item.cell.y + shift * 0.75).toFixed(2) + "%;--pc:" + item.player.color.css + '"' +
-          ' aria-label="قطعة ' + esc(item.player.name) + ' في الخانة ' + ar(item.player.pos) + '">' +
-          '<span class="sn-avatar" aria-hidden="true">' + U.escape(BG.playerProfile.avatarEmoji(item.player.profile)) + '</span></button>'
+          ' aria-hidden="true"><span class="sn-avatar">' + U.escape(BG.playerProfile.avatarEmoji(item.player.profile)) + '</span></span>'
         );
       });
     });
@@ -360,19 +386,21 @@
     const on = new Set(dots);
     let cells = "";
     for (let i = 0; i < 9; i++) cells += '<i class="ld-pip' + (on.has(i) ? " is-on" : "") + '"></i>';
-    return '<span class="ld-die' + (value ? " has-value" : "") + '">' + cells + "</span>";
+    return '<span class="ld-die' + (value ? " has-value" : "") + '" aria-hidden="true">' + cells + "</span>";
   }
 
   function playersHTML() {
     return state.players.map((player) => {
       const classes = ["sn-player", "p" + player.index];
       if (player.index === state.current && !state.over) classes.push("active");
+      if (state.over && state.winner === player.index) classes.push("winner");
       if (player.isCpu) classes.push("cpu");
       return (
-        '<div class="' + classes.join(" ") + '" style="--pc:' + player.color.css + '">' +
+        '<div class="' + classes.join(" ") + '" style="--pc:' + player.color.css + '"' +
+          (player.index === state.current && !state.over ? ' aria-current="step"' : "") + '>' +
         BG.playerProfile.playerHTML(player, "sn-player-avatar") +
         '<span class="sn-player-copy"><strong>' + esc(player.name) + "</strong>" +
-        "<small>الخانة " + ar(player.pos) + " · " + ar(player.rolls) + " رمية" + (player.isCpu ? " · 🤖" : "") + "</small></span>" +
+        "<small>" + (state.over && state.winner === player.index ? "فائز · " : "") + (player.pos === 0 ? "البداية" : "الخانة " + ar(player.pos)) + " · " + ar(player.rolls) + " رمية · 🪜 " + ar(player.ladders) + " · 🐍 " + ar(player.snakes) + (player.isCpu ? " · 🤖" : "") + "</small></span>" +
         '<span class="sn-progress"><i style="width:' + player.pos + '%"></i></span></div>'
       );
     }).join("");
@@ -394,25 +422,25 @@
       "</div></div>";
 
     const board =
-      '<section class="sn-board-wrap">' +
+      '<section class="sn-board-wrap" aria-label="لوحة السلم والثعبان">' +
       '<div class="sn-board-head"><span class="cg-kicker">لوحة المئة</span>' +
       '<span class="cg-count">' + (state.exactFinish ? "وصول مضبوط" : "وصول مباشر") + " · " + (state.sixAgain ? "٦ = دور إضافي" : "٦ عادي") + "</span></div>" +
-      '<div class="sn-board">' + boardHTML() + overlayHTML() + '<div class="sn-pawns">' + tokensHTML() + "</div></div>" +
-      '<p class="sn-rule-line">🪜 سلم يرفعك · 🐍 ثعبان ينزلك · تحتاج رقمًا مضبوطًا للوصول إلى ١٠٠ في وضع الوصول المضبوط.</p>' +
+      '<div class="sn-board" role="img" aria-label="لوحة مرقمة من ١ إلى ١٠٠؛ السلالم تصعد بك والثعابين تعيدك للخلف">' + boardHTML() + overlayHTML() + '<div class="sn-pawns">' + tokensHTML() + "</div></div>" +
+      '<p class="sn-rule-line">تظهر القطع غير المتحركة عند علامة البداية؛ يبدأ احتساب الحركة من الصفر. 🪜 السلم يصعد بك و🐍 الثعبان يعيدك للخلف. ' + (state.exactFinish ? "تحتاج رقمًا مضبوطًا للوصول إلى ١٠٠." : "تجاوز الخانة ١٠٠ مسموح.") + "</p>" +
       "</section>";
 
     const side =
       '<aside class="cg-side">' +
-      '<div class="cg-panel"><div class="cg-side-head"><span class="cg-kicker">اللاعبون</span></div>' +
+      '<div class="cg-panel"><div class="cg-side-head"><span class="cg-kicker">اللاعبون</span><span class="cg-count">' + ar(state.players.length) + " لاعبين</span></div>" +
       '<div class="sn-players">' + playersHTML() + "</div></div>" +
       '<div class="sn-actions">' +
-      '<button type="button" class="ld-roll' + (canRoll ? " is-live" : "") + '" data-sn-roll' + (canRoll ? "" : " disabled") + ">" +
-      dieHTML(state.dice) + "<span>" + (canRoll ? "ارمِ النرد" : state.busy ? "جارٍ التحريك…" : "بانتظار الدور") + "</span></button>" +
+      '<button type="button" class="ld-roll' + (canRoll ? " is-live" : "") + '" data-sn-roll aria-label="' + esc(canRoll ? "ارمِ النرد" : state.phase === "pass" ? "يتم تمرير الدور" : state.busy ? "جارٍ التحريك" : "بانتظار دورك") + '"' + (canRoll ? "" : " disabled") + ">" +
+      dieHTML(state.dice) + "<span>" + (canRoll ? "ارمِ النرد" : state.phase === "pass" ? "يتم تمرير الدور…" : state.busy ? "جارٍ التحريك…" : "بانتظار الدور") + "</span></button>" +
       "</div>" +
-      '<div class="sn-notice">' + esc(state.notice) + "</div>" +
-      '<div class="cg-panel sn-legend"><span class="cg-kicker">السلالم والثعابين</span>' +
-      '<p>' + Object.keys(LADDERS).map((n) => ar(n) + "→" + ar(LADDERS[n])).join(" · ") + "</p>" +
-      '<p class="is-snake">' + Object.keys(SNAKES).map((n) => ar(n) + "→" + ar(SNAKES[n])).join(" · ") + "</p></div>" +
+      '<div class="sn-notice" role="status" aria-live="polite" aria-atomic="true">' + esc(state.notice) + "</div>" +
+      '<div class="cg-panel sn-legend"><span class="cg-kicker">مسارات اللوحة</span>' +
+      '<div class="sn-routes"><strong>🪜 السلالم</strong><div class="sn-route-list">' + Object.keys(LADDERS).map((n) => '<span class="sn-route-chip">' + ar(n) + " → " + ar(LADDERS[n]) + "</span>").join("") + "</div></div>" +
+      '<div class="sn-routes is-snake"><strong>🐍 الثعابين</strong><div class="sn-route-list">' + Object.keys(SNAKES).map((n) => '<span class="sn-route-chip">' + ar(n) + " → " + ar(SNAKES[n]) + "</span>").join("") + "</div></div></div>' +
       "</aside>";
 
     rootRef.innerHTML =
@@ -428,6 +456,7 @@
     });
     render();
     if (!before.size || !rootRef.firstElementChild) return;
+    if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     rootRef.querySelectorAll("[data-sn-pawn]").forEach((el) => {
       const old = before.get(el.getAttribute("data-sn-pawn"));
       if (!old || !el.animate) return;
@@ -493,7 +522,7 @@
         "نرد واحد وقطعة لكل لاعب.",
       ],
       setup: [
-        "يبدأ جميع اللاعبين من خارج اللوحة (الخانة ٠) أو من الخانة ١ حسب اتفاقكم.",
+        "يبدأ جميع اللاعبين من خارج اللوحة (الخانة ٠).",
         "يبدأ اللاعب الأول ثم ينتقل الدور بالترتيب.",
         "يُرمى النرد مرة واحدة في كل دور، وتُحرَّك القطعة بعدد الخانات الظاهر.",
       ],
@@ -504,7 +533,7 @@
         "<strong>الدور الإضافي:</strong> في القاعدة الافتراضية، رمي ٦ يمنحك رميًا إضافيًا.",
         "<strong>الوصول:</strong> في وضع الوصول المضبوط يجب أن تكون الرمية الأخيرة مساوية تمامًا للمسافة المتبقية إلى ١٠٠؛ الرمية الزائدة لا تُحرّك القطعة.",
       ],
-      winning: "أول لاعب يصل إلى الخانة ١٠٠ يفوز. إذا كانت الرمية ستتجاوز ١٠٠ في وضع الوصول المضبوط، تبقى القطعة مكانها ويُمرَّر الدور.",
+      winning: "أول لاعب يصل إلى الخانة ١٠٠ يفوز. إذا تجاوزت الرمية ١٠٠ في وضع الوصول المضبوط، تبقى القطعة في مكانها؛ وإذا كان الدور الإضافي بعد رمية ٦ مفعّلًا، يحتفظ اللاعب بدوره.",
       notes: [
         "السلالم والثعابين موزّعة على اللوحة كما هي مرسومة، وتُطبَّق فور الوصول إلى خانتها.",
         "لا يوجد أسر أو تفاعل مباشر بين اللاعبين؛ اللعبة سباق حظ وتخطيط مسار.",
@@ -518,7 +547,11 @@
       apiRef = api;
       aiRunner = AI.runner();
       clearTimeout(moveTimer);
+      clearTimeout(specialTimer);
       clearTimeout(autoTimer);
+      moveTimer = null;
+      specialTimer = null;
+      autoTimer = null;
       state = newState(api.options || {});
       apiRef.log(
         "بدأت لعبة السلم والثعبان مع " + ar(state.players.length) + " لاعبين. " +
@@ -567,8 +600,13 @@
           if (!data) return;
           BG.closeDialogs();
           clearTimeout(moveTimer);
+          clearTimeout(specialTimer);
           clearTimeout(autoTimer);
+          moveTimer = null;
+          specialTimer = null;
+          autoTimer = null;
           state = BG.netCodec.decode(data);
+          if (state.winner && typeof state.winner === "object") state.winner = Number(state.winner.index);
           state.players.forEach((player) => {
             player.pos = Number(player.pos) || 0;
           });
@@ -579,6 +617,10 @@
         netOver() { return !!(state && state.over); },
         netResume() {
           if (!state) return;
+          if (state.phase === "pass") {
+            endTurn(state.sixAgain && state.dice === 6);
+            return;
+          }
           state.busy = false;
           if (state.phase === "wait") state.phase = "roll";
           renderMotion();
@@ -588,8 +630,10 @@
           if (aiRunner) aiRunner.clear();
           aiRunner = null;
           clearTimeout(moveTimer);
+          clearTimeout(specialTimer);
           clearTimeout(autoTimer);
           moveTimer = null;
+          specialTimer = null;
           autoTimer = null;
           if (rootRef) rootRef.removeEventListener("click", onClick);
           rootRef = null;
