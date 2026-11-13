@@ -29,8 +29,6 @@
   const ENGINE_URL = "vendor/stockfish/stockfish-17.1-lite-single.js";
   const REDUCED = "matchMedia" in window && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-  const LEVEL_NAME = { easy: "سهل", normal: "متوسط", hard: "صعب", expert: "خبير" };
-  const LEVEL_ELO = { easy: "250", normal: "1000", hard: "2000", expert: "3600" };
 
   const LEVEL_CFG = {
     easy: { elo: 1320, limit: true, movetime: 260, multipv: 5, style: "easy" },
@@ -305,7 +303,7 @@
             '<span class="ch-eval" data-ch-eval hidden></span>' +
           '</div>' +
           '<div class="ch-meta-row">' +
-            '<span class="ch-meta">المستوى <b data-ch-level>متوسط</b></span>' +
+            '<span class="ch-meta">المستوى <b data-ch-level>1000</b></span>' +
             '<span class="ch-meta">الساعة <b data-ch-tc>10 دقائق</b></span>' +
           '</div>' +
         '</section>' +
@@ -629,7 +627,7 @@
     }
 
     let meta;
-    if (seat.isCpu) meta = "مستوى " + (LEVEL_NAME[level] || "متوسط") + " · ~" + (LEVEL_ELO[level] || "1000") + " إيلو";
+    if (seat.isCpu) meta = "تصنيف ~" + BG.ai.chessRating(level) + " إيلو";
     else if (online()) meta = isYou ? "أنت · لاعب أونلاين" : "لاعب أونلاين";
     else meta = "لاعب";
     refs.meta.textContent = meta;
@@ -773,7 +771,7 @@
     }
 
     const cpuSide = isCpuSide("w") ? "w" : isCpuSide("b") ? "b" : null;
-    if (el.level) el.level.textContent = cpuSide ? LEVEL_NAME[levelOf(cpuSide)] || "متوسط" : "لاعبان";
+    if (el.level) el.level.textContent = cpuSide ? BG.ai.chessRating(levelOf(cpuSide)) : "لاعبان";
     if (el.tc) el.tc.textContent = timeLabel();
     if (el.engineBadge) {
       el.engineBadge.classList.toggle("is-offline", engineFailed);
@@ -2255,7 +2253,7 @@
       winning:
         "يفوز من ينفذ كش مات على ملك الخصم. وتُحسم المباراة أيضًا بالاستسلام أو نفاد الوقت أو التعادل بالجمود أو بقاعدة الخمسين حركة أو تكرار الوضع ثلاث مرات أو القطع غير الكافية للإماتة.",
       notes: [
-        "مستويات الحاسوب: سهل ~250، متوسط ~1000، صعب ~2000، خبير ~3600 إيلو، بمحرك Stockfish حقيقي.",
+        "تصنيفات الحاسوب: 250، 1000، 2000، و3600 إيلو، بمحرك Stockfish حقيقي.",
         "اسحب القطعة بالماوس أو اللمس، أو انقر عليها ثم انقر على المربع الهدف.",
         "زر «تراجع» يعيد حركتك وحركة الحاسوب الأخيرة معًا، وهو غير متاح في المباريات الأونلاين.",
         "يمكنك عكس اتجاه الرقعة، ونسخ سجل الحركات، واستخدام ملء الشاشة من شريط اللعبة.",

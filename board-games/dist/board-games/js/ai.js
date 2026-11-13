@@ -9,14 +9,25 @@
   const U = BG.util;
 
   const LEVELS = {
-    easy: { id: "easy", name: "سهل (250)", icon: "🌱", delay: [500, 800], noise: 0.7 },
-    normal: { id: "normal", name: "متوسط (1000)", icon: "⚖️", delay: [300, 500], noise: 0.15 },
-    hard: { id: "hard", name: "صعب (2000)", icon: "🔥", delay: [200, 350], noise: 0.01 },
-    expert: { id: "expert", name: "خبير (3600)", icon: "⚡", delay: [150, 280], noise: 0.0 },
+    easy: { id: "easy", name: "سهل", icon: "🌱", delay: [500, 800], noise: 0.7 },
+    normal: { id: "normal", name: "متوسط", icon: "⚖️", delay: [300, 500], noise: 0.15 },
+    hard: { id: "hard", name: "صعب", icon: "🔥", delay: [200, 350], noise: 0.01 },
+    expert: { id: "expert", name: "خبير", icon: "⚡", delay: [150, 280], noise: 0.0 },
   };
+
+  const CHESS_RATINGS = { easy: "250", normal: "1000", hard: "2000", expert: "3600" };
 
   function level(value) {
     return LEVELS[value] ? value : "normal";
+  }
+
+  function chessRating(value) {
+    return CHESS_RATINGS[level(value)];
+  }
+
+  function levelLabel(value, gameId) {
+    const id = level(value);
+    return gameId === "chess" ? chessRating(id) : LEVELS[id].name;
   }
 
   function isCpu(player) {
@@ -124,6 +135,8 @@
 
   BG.ai = {
     LEVELS,
+    chessRating,
+    levelLabel,
     level,
     isCpu,
     runner,

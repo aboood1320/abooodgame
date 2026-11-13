@@ -799,7 +799,9 @@
           '<label class="net-field"><span>مستوى الكمبيوتر</span><select data-net-level>' +
           ["easy", "normal", "hard"].map((id) => {
             const spec = BG.ai.LEVELS[id];
-            return '<option value="' + id + '"' + (id === state.level ? " selected" : "") + ">" + spec.icon + " " + spec.name + "</option>";
+            const chessRating = game && game.id === "chess";
+            const label = BG.ai.levelLabel(id, game && game.id);
+            return '<option value="' + id + '"' + (id === state.level ? " selected" : "") + ">" + label + "</option>";
           }).join("") +
           "</select></label>" +
           "</div>" +
