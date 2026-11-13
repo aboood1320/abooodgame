@@ -61,7 +61,7 @@
 <link rel="stylesheet" href="css/net.css?v=30" />
 <link rel="stylesheet" href="css/polish.css?v=32" />
 <link rel="stylesheet" href="css/upgrade.css?v=1" />
-<link rel="stylesheet" href="css/library.css?v=6" />
+<link rel="stylesheet" href="css/library.css?v=7" />
 <link rel="stylesheet" href="css/net2.css?v=2" />
 <link rel="stylesheet" href="css/monopoly.css?v=6" />
 <link rel="stylesheet" href="css/ludo.css?v=1" media="print" onload="this.media='all'" />
@@ -330,14 +330,21 @@
       </div>
 
       <div class="library-head" id="libraryHead">
-        <div>
-          <span class="section-kicker">اختر لعبتك</span>
-          <h2>مكتبة الألعاب</h2>
+        <div class="library-head-main">
+          <div class="library-head-copy">
+            <span class="section-kicker">اختر لعبتك</span>
+            <h2>مكتبة الألعاب</h2>
+          </div>
+          <button class="library-filter-toggle" id="libraryFiltersToggle" type="button" aria-expanded="false" aria-controls="libraryFilters">
+            <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16l-6.2 7.1v5.1l-3.6 1.8v-6.9L4 5Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+            <span>الفلاتر</span>
+            <span class="library-filter-badge" id="libraryFilterBadge" hidden>0</span>
+          </button>
         </div>
         <span class="library-count" id="libraryCount" aria-live="polite" aria-atomic="true"></span>
       </div>
 
-      <form class="library-tools" id="libraryFilters" role="search" onsubmit="return false">
+      <form class="library-tools" id="libraryFilters" role="search" onsubmit="return false" hidden>
         <label class="library-filter library-search">
           <span>ابحث عن لعبة</span>
           <input id="librarySearch" type="search" autocomplete="off" placeholder="الاسم أو الوصف" aria-controls="libraryGrid" />
@@ -483,7 +490,7 @@
 <script defer src="js/net.js?v=33"></script>
 <script defer src="js/library-art.js?v=1"></script>
 <script defer src="js/library-art-expansion.js?v=1"></script>
-<script defer src="js/app.js?v=42"></script>
+<script defer src="js/app.js?v=43"></script>
 <script defer src="js/online.js?v=42"></script>
 <script defer src="js/online-host.js?v=1"></script>
 <script defer src="js/site-extras.js?v=1"></script>

@@ -345,6 +345,16 @@
     const duration = document.getElementById("libraryDuration");
     const complexity = document.getElementById("libraryComplexity");
     const reset = document.getElementById("libraryReset");
+    const toggle = document.getElementById("libraryFiltersToggle");
+    const panel = document.getElementById("libraryFilters");
+    if (toggle && panel) {
+      toggle.addEventListener("click", () => {
+        const open = panel.hidden;
+        panel.hidden = !open;
+        toggle.setAttribute("aria-expanded", open ? "true" : "false");
+        if (!open) toggle.focus();
+      });
+    }
     [search, players, duration, complexity].forEach((control) => {
       if (!control) return;
       control.addEventListener(control === search ? "input" : "change", applyLibraryFilters);
@@ -385,6 +395,14 @@
     const countEl = document.getElementById("libraryCount");
     const empty = document.getElementById("libraryEmpty");
     const filtered = !!(query || playerCount || durationFilter || complexityFilter);
+    const badge = document.getElementById("libraryFilterBadge");
+    const toggle = document.getElementById("libraryFiltersToggle");
+    const activeFilterCount = [query, playerCount, durationFilter, complexityFilter].filter(Boolean).length;
+    if (badge) {
+      badge.textContent = String(activeFilterCount);
+      badge.hidden = activeFilterCount === 0;
+    }
+    if (toggle) toggle.classList.toggle("has-active-filters", activeFilterCount > 0);
     const resume = els.libraryGrid.querySelector(".resume-card");
     if (resume) resume.hidden = filtered;
     if (countEl) {

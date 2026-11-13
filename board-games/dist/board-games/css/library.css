@@ -466,10 +466,54 @@ body.library-mode .library-head {
   padding-bottom: 16px;
   border-bottom: 1px solid rgba(240, 206, 144, 0.1);
 }
-body.library-mode .library-head > div {
+body.library-mode .library-head-main {
+  display: flex;
+  align-items: center;
+  gap: clamp(14px, 2vw, 24px);
+  min-width: 0;
+}
+body.library-mode .library-head-copy {
   display: grid;
   gap: 4px;
 }
+body.library-mode .library-filter-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 42px;
+  padding: 0 14px;
+  border: 1px solid rgba(232, 192, 122, 0.28);
+  border-radius: 13px;
+  color: #f2d69c;
+  background: linear-gradient(145deg, rgba(232, 192, 122, 0.12), rgba(255, 255, 255, 0.035));
+  font: inherit;
+  font-size: 0.76rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: border-color 0.16s ease, background 0.16s ease, transform 0.16s ease;
+}
+body.library-mode .library-filter-toggle .ic { width: 17px; height: 17px; }
+body.library-mode .library-filter-toggle:hover,
+body.library-mode .library-filter-toggle[aria-expanded="true"] {
+  border-color: rgba(232, 192, 122, 0.6);
+  background: rgba(232, 192, 122, 0.18);
+}
+body.library-mode .library-filter-toggle:active { transform: translateY(1px); }
+body.library-mode .library-filter-toggle:focus-visible { outline: 2px solid #e8c07a; outline-offset: 3px; }
+body.library-mode .library-filter-badge {
+  display: inline-grid;
+  place-items: center;
+  min-width: 20px;
+  height: 20px;
+  padding-inline: 5px;
+  border-radius: 999px;
+  color: #1c150b;
+  background: #e8c07a;
+  font-size: 0.66rem;
+}
+body.library-mode .library-filter-badge[hidden] { display: none; }
+body.library-mode .library-tools[hidden] { display: none; }
 body.library-mode .section-kicker {
   color: #c89a52;
   font-size: 0.62rem;
