@@ -132,6 +132,7 @@
     els.gameLog = document.getElementById("gameLogList");
     els.gameLogCard = document.getElementById("gameLogCard");
     els.btnRules = document.getElementById("btnGameRules");
+    els.btnPlayers = document.getElementById("btnGamePlayers");
     els.btnNew = document.getElementById("btnGameNew");
     els.btnBack = document.getElementById("btnGameBack");
     els.btnSettings = document.getElementById("btnSettings");
@@ -169,6 +170,7 @@
     }
 
     els.btnRules.addEventListener("click", () => { if (currentGame) BG.openRules(currentGame, currentOptions); });
+    if (els.btnPlayers) els.btnPlayers.addEventListener("click", showPlayersDialog);
     if (els.btnFullscreen) els.btnFullscreen.addEventListener("click", toggleGameFullscreen);
     if (els.btnExitFullscreen) els.btnExitFullscreen.addEventListener("click", exitGameFullscreen);
     els.btnNew.addEventListener("click", () => {
@@ -181,6 +183,13 @@
     });
     els.btnBack.addEventListener("click", () => goLibrary());
     if (els.btnSettings) els.btnSettings.addEventListener("click", () => BG.openFxSettings());
+    document.addEventListener("bgprofilechange", (event) => {
+      if (!currentApi || !Array.isArray(currentApi.players)) return;
+      const index = currentApi.net && currentApi.net.enabled
+        ? Number(currentApi.net.seat)
+        : currentApi.players.findIndex((player) => !player.isCpu);
+      if (Number.isInteger(index) && index >= 0) updatePlayerProfile(index, event.detail);
+    });
     document.addEventListener("bgprefschange", () => {
       if (!isOnlineGame() || !instance) return;
       if (typeof instance.netResume !== "function") return;
@@ -478,6 +487,8 @@
           name: seat.name,
           type: seat.type,
           level: seat.level,
+          profile: seat.profile,
+          profileColor: seat.profileColor,
         })),
         state,
         at: Date.now(),
@@ -638,6 +649,7 @@
     els.gameView.style.setProperty("--accent", game.accent || "#f2b45e");
     if (els.gameCrest) els.gameCrest.innerHTML = emblem(game);
     els.btnRules.hidden = false;
+    if (els.btnPlayers) els.btnPlayers.hidden = true;
     if (els.btnFullscreen) {
       els.btnFullscreen.hidden = false;
       els.btnFullscreen.setAttribute("aria-pressed", document.fullscreenElement ? "true" : "false");
@@ -807,6 +819,7 @@
   function openSetup(game, previous) {
     if (isOnlineGame()) BG.online.shutdown();
     destroyInstance();
+    if (els.btnPlayers) els.btnPlayers.hidden = true;
     currentNet = null;
     currentOptions = Object.assign({}, (game.options && game.options.defaults) || {}, (previous && previous.options) || {});
     const savedSetup = BG.store.get("setup.v1", {}) || {};
@@ -1040,9 +1053,12 @@
     actions.children[1].addEventListener("click", () => {
       const players = [];
       let cpuCount = 0;
+      const firstHumanIndex = state.types.slice(0, state.count).findIndex((type) => type !== "cpu");
       for (let i = 0; i < state.count; i++) {
         const raw = (state.names[i] || "").trim();
         const type = state.types[i] === "cpu" ? "cpu" : "human";
+        const ownsProfile = type === "human" && i === firstHumanIndex;
+        const profile = ownsProfile ? BG.playerProfile.get() : BG.playerProfile.defaultFor(i, type === "cpu");
         if (type === "cpu") {
           cpuCount += 1;
           players.push({
@@ -1050,6 +1066,7 @@
             type,
             level: state.level,
             isCpu: true,
+            profile,
           });
         } else {
           players.push({
@@ -1057,6 +1074,8 @@
             type: "human",
             level: state.level,
             isCpu: false,
+            profile,
+            profileColor: ownsProfile ? profile.color : "",
           });
         }
       }
@@ -1091,15 +1110,23 @@
   /* ------------------------------ بدء اللعبة ------------------------------ */
 
   function buildRoster(seats) {
-    return (seats || []).map((seat, index) => {
+    const sourceSeats = seats || [];
+    const firstHumanIndex = sourceSeats.findIndex((seat) => !BG.ai.isCpu(typeof seat === "string" ? null : seat));
+    return sourceSeats.map((seat, index) => {
       const item = typeof seat === "string" ? { name: seat } : Object.assign({}, seat);
       const cpu = BG.ai.isCpu(item);
+      const profile = BG.playerProfile.normalize(item.profile || (index === firstHumanIndex && !cpu
+        ? BG.playerProfile.get()
+        : BG.playerProfile.defaultFor(index, cpu)));
       return {
         name: item.name || (cpu ? "الكمبيوتر " + (index + 1) : "اللاعب " + (index + 1)),
         type: cpu ? "cpu" : "human",
         level: BG.ai.level(item.level),
         isCpu: cpu,
         peerId: item.peerId || null,
+        profile,
+        avatar: BG.playerProfile.avatarEmoji(profile.avatar),
+        profileColor: item.profileColor || (!cpu && index === firstHumanIndex ? profile.color : ""),
       };
     });
   }
@@ -1142,6 +1169,7 @@
     BG.clear(els.stage);
     BG.clear(els.gameLog);
     els.btnNew.hidden = false;
+    if (els.btnPlayers) els.btnPlayers.hidden = !roster.length;
     els.gameStatus.textContent = "جارٍ اللعب";
     els.gameStatus.className = "game-status live";
     els.gameLogCard.hidden = false;
@@ -1514,6 +1542,66 @@
     return true;
   }
 
+  function updatePlayerProfile(index, value) {
+    if (!currentApi || !currentApi.players || !currentApi.players[index]) return false;
+    const profile = BG.playerProfile.normalize(value);
+    const roster = currentApi.players[index];
+    roster.profile = profile;
+    roster.avatar = BG.playerProfile.avatarEmoji(profile.avatar);
+    roster.profileColor = profile.color;
+    if (instance && typeof instance.netSnapshot === "function" && typeof instance.netLoad === "function" && !(currentNet && currentNet.spectate)) {
+      try {
+        const snapshot = instance.netSnapshot();
+        const player = snapshot && snapshot.players && snapshot.players[index];
+        if (player) {
+          player.profile = profile;
+          player.avatar = roster.avatar;
+          player.profileColor = profile.color;
+          if (Object.prototype.hasOwnProperty.call(player, "color")) player.color = profile.color;
+          instance.netLoad(snapshot);
+          if (typeof instance.netResume === "function") instance.netResume();
+        }
+      } catch (err) { /* يظل الملف محفوظًا حتى لو لم تدعم اللعبة تحديثًا فوريًا. */ }
+    }
+    return true;
+  }
+
+  function showPlayersDialog() {
+    if (!currentApi || !Array.isArray(currentApi.players)) return;
+    const players = currentApi.players;
+    const localIndex = currentApi.net && currentApi.net.enabled
+      ? Number(currentApi.net.seat)
+      : players.findIndex((player) => !player.isCpu);
+    const body = BG.el("div", { class: "game-player-roster" });
+    players.forEach((player, index) => {
+      const profile = BG.playerProfile.normalize(player.profile || BG.playerProfile.defaultFor(index, player.isCpu));
+      const row = BG.el("div", { class: "game-player-row", style: { "--profile-color": profile.color } });
+      row.appendChild(BG.el("span", {
+        class: "player-avatar",
+        text: BG.playerProfile.avatarEmoji(profile.avatar),
+        style: { "--profile-color": profile.color },
+        "aria-hidden": "true",
+      }));
+      const copy = BG.el("span", { class: "game-player-copy" });
+      copy.appendChild(BG.el("strong", { text: player.name || "اللاعب " + (index + 1) }));
+      copy.appendChild(BG.el("small", { text: (player.isCpu ? "كمبيوتر" : "لاعب") + (index === localIndex ? " · أنت" : "") }));
+      row.appendChild(copy);
+      row.appendChild(BG.el("span", {
+        class: "game-player-color",
+        title: "لون اللاعب " + profile.color,
+        "aria-label": "لون اللاعب " + profile.color,
+        style: { "--profile-color": profile.color },
+      }));
+      body.appendChild(row);
+    });
+    BG.openDialog({
+      title: "اللاعبون",
+      className: "player-roster-dialog",
+      body,
+      actions: [{ label: "تم", value: "ok", primary: true }],
+    });
+  }
+
   /* إعادة بناء نسخة اللعبة لمقعد محلي جديد (تبديل مواقع اللاعبين أثناء اللعب) */
   function netRebuild(newSeat) {
     if (!currentGame || !currentNet) return false;
@@ -1550,6 +1638,8 @@
 
   BG.app = {
     netPatchPlayer,
+    updatePlayerProfile,
+    showPlayersDialog,
     netRebuild,
     netPromoteToHost,
     netSetRole,

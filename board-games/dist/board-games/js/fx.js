@@ -992,11 +992,27 @@
     unlock();
     const body = document.createElement("div");
     body.className = "fx-settings";
+    const playerProfile = BG.playerProfile.get();
+    const profileSection =
+      '<section class="fx-profile-settings" aria-labelledby="fx-profile-title">' +
+      '<div class="fx-profile-head"><div><strong id="fx-profile-title">ملف اللاعب</strong><small>اختر صورتك ولونك؛ سيظهران في نافذة اللاعبين والألعاب التي تدعم ألوان المقاعد.</small></div>' +
+      '<div class="fx-profile-preview" data-profile-preview>' + BG.playerProfile.avatarHTML(playerProfile, "fx-profile-preview-avatar") + '<span><strong>اسم اللاعب</strong><small>معاينة الأفتار</small></span></div></div>' +
+      '<div class="fx-profile-label">اختر الأفتار</div><div class="fx-avatar-grid" role="group" aria-label="أفتار اللاعب">' +
+      BG.playerProfile.avatars.map((avatar) =>
+        '<button type="button" class="fx-avatar-choice' + (avatar.id === playerProfile.avatar ? " is-selected" : "") + '" data-profile-avatar="' + U.escape(avatar.id) + '" aria-label="' + U.escape(avatar.name) + '" aria-pressed="' + (avatar.id === playerProfile.avatar ? "true" : "false") + '"><span aria-hidden="true">' + U.escape(avatar.emoji) + '</span><small>' + U.escape(avatar.name) + "</small></button>"
+      ).join("") +
+      '</div><div class="fx-profile-color-head"><span class="fx-profile-label">اختر اللون</span><label class="fx-custom-color">لون مخصص <input type="color" data-profile-custom-color value="' + U.escape(playerProfile.color) + '" aria-label="اختر لونًا مخصصًا" /></label></div>' +
+      '<div class="fx-color-grid" role="group" aria-label="ألوان اللاعب">' +
+      BG.playerProfile.colors.map((color) =>
+        '<button type="button" class="fx-color-choice' + (color.value === playerProfile.color ? " is-selected" : "") + '" data-profile-color="' + U.escape(color.value) + '" style="--swatch-color:' + U.escape(color.value) + '" aria-label="' + U.escape(color.name) + '" aria-pressed="' + (color.value === playerProfile.color ? "true" : "false") + '"></button>'
+      ).join("") +
+      '</div></section>';
     body.innerHTML =
       '<div class="fx-intro">' +
       '<span class="fx-intro-icon">' + icon("i-speaker") + "</span>" +
       "<div><strong>تجربة صوتية وبصرية مصقولة</strong><p>مؤثرات مرخّصة بترخيص CC0 من Kenney، وحركات احترافية للأوراق والنرد والقطع والنتائج. تُحفظ اختياراتك على هذا الجهاز.</p></div>" +
       "</div>" +
+      profileSection +
       '<div class="fx-option">' +
       '<div class="fx-option-copy"><span class="fx-option-icon">' + icon("i-speaker") + "</span><div><strong>المؤثرات الصوتية</strong><small>نقرات، نرد، أوراق، فوز وخسارة</small></div></div>" +
       '<button type="button" class="fx-switch" data-toggle="sound" role="switch" aria-checked="' + (prefs.sound ? "true" : "false") + '"><span></span></button>' +
@@ -1046,6 +1062,43 @@
     const hideSecretsSwitch = body.querySelector('[data-toggle="hideSecrets"]');
     const packSelect = body.querySelector("[data-pack]");
     const musicSwitch = body.querySelector('[data-toggle="music"]');
+    const avatarChoices = Array.from(body.querySelectorAll("[data-profile-avatar]"));
+    const colorChoices = Array.from(body.querySelectorAll("[data-profile-color]"));
+    const customColor = body.querySelector("[data-profile-custom-color]");
+    const profilePreview = body.querySelector("[data-profile-preview]");
+    function syncPlayerProfile() {
+      const selected = BG.playerProfile.get();
+      avatarChoices.forEach((button) => {
+        const on = button.getAttribute("data-profile-avatar") === selected.avatar;
+        button.classList.toggle("is-selected", on);
+        button.setAttribute("aria-pressed", on ? "true" : "false");
+      });
+      colorChoices.forEach((button) => {
+        const on = button.getAttribute("data-profile-color") === selected.color;
+        button.classList.toggle("is-selected", on);
+        button.setAttribute("aria-pressed", on ? "true" : "false");
+      });
+      if (customColor) customColor.value = selected.color;
+      if (profilePreview) {
+        profilePreview.innerHTML = BG.playerProfile.avatarHTML(selected, "fx-profile-preview-avatar") +
+          '<span><strong>اسم اللاعب</strong><small>معاينة الأفتار</small></span>';
+      }
+    }
+    avatarChoices.forEach((button) => button.addEventListener("click", () => {
+      BG.playerProfile.set(Object.assign({}, BG.playerProfile.get(), { avatar: button.getAttribute("data-profile-avatar") }));
+      syncPlayerProfile();
+      sound("select");
+    }));
+    colorChoices.forEach((button) => button.addEventListener("click", () => {
+      BG.playerProfile.set(Object.assign({}, BG.playerProfile.get(), { color: button.getAttribute("data-profile-color") }));
+      syncPlayerProfile();
+      sound("select");
+    }));
+    if (customColor) customColor.addEventListener("change", () => {
+      BG.playerProfile.set(Object.assign({}, BG.playerProfile.get(), { color: customColor.value }));
+      syncPlayerProfile();
+      sound("select");
+    });
     if (packSelect) {
       packSelect.addEventListener("change", () => {
         setPack(packSelect.value);

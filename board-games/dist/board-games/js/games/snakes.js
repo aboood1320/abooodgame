@@ -46,7 +46,7 @@
     return (apiRef.players || []).slice(0, 4).map((player, index) => ({
       index,
       name: player.name || "اللاعب " + (index + 1),
-      color: COLORS[index],
+      color: player.profileColor || COLORS[index],
       type: player.type === "cpu" ? "cpu" : "human",
       level: AI.level(player.level),
       isCpu: AI.isCpu(player),

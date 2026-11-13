@@ -164,7 +164,7 @@
     const wonders = U.shuffle(WONDERS).slice(0, count);
     return XG.players(apiRef, count, colors).map((player, index) => ({
       ...player,
-      color: colors[index],
+      color: player.profileColor || colors[index],
       wonder: wonders[index],
       stages: 0,
       wonderVp: 0,

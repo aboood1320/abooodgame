@@ -29,7 +29,7 @@
       list.push({
         index,
         name: source && source.name ? source.name : "اللاعب " + (index + 1),
-        color: COLORS[index],
+        color: (source && source.profileColor) || COLORS[index],
         type: source && source.type === "cpu" ? "cpu" : "human",
         level: source ? BG.ai.level(source.level) : BG.ai.level(1),
         isCpu: source ? BG.ai.isCpu(source) : true,

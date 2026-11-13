@@ -397,23 +397,57 @@
     if (!game) return [];
     const humans = orderPeers(lobbyHumanPeers()).slice(0, game.maxPlayers);
     const total = clampSeatCount(game, count);
-    const seats = humans.map((peer, index) => ({
-      name: peer.name || "لاعب " + (index + 1),
-      type: "human",
-      level,
-      isCpu: false,
-      peerId: peer.id,
-    }));
+    const seats = humans.map((peer, index) => {
+      const profile = BG.playerProfile.normalize(peer.profile || (peer.id === BG.net.selfId
+        ? BG.playerProfile.get()
+        : BG.playerProfile.defaultFor(index, false)));
+      return {
+        name: peer.name || "لاعب " + (index + 1),
+        type: "human",
+        level,
+        isCpu: false,
+        peerId: peer.id,
+        profile,
+        profileColor: peer.profile ? profile.color : peer.id === BG.net.selfId ? profile.color : "",
+      };
+    });
     while (seats.length < total) {
+      const index = seats.length;
       seats.push({
-        name: "الكمبيوتر " + (seats.length + 1),
+        name: "الكمبيوتر " + (index + 1),
         type: "cpu",
         level,
         isCpu: true,
         peerId: null,
+        profile: BG.playerProfile.defaultFor(index, true),
       });
     }
     return seats;
+  }
+
+  function publishSelfProfile() {
+    if (!BG.net || !BG.net.selfId || !BG.playerProfile) return;
+    const profile = BG.playerProfile.get();
+    BG.net.setPeerProfile(BG.net.selfId, profile);
+    if (BG.net.isHost) BG.net.broadcast({ t: "profile", peerId: BG.net.selfId, profile });
+    else BG.net.send({ t: "profile", profile });
+  }
+
+  function updateSeatProfile(peerId, value) {
+    if (!peerId) return;
+    const profile = BG.playerProfile.normalize(value);
+    const update = (seats) => {
+      if (!Array.isArray(seats)) return -1;
+      const index = seats.findIndex((seat) => seat && seat.peerId === peerId);
+      if (index >= 0) {
+        seats[index].profile = profile;
+        seats[index].profileColor = profile.color;
+      }
+      return index;
+    };
+    update(state.config && state.config.seats);
+    const index = update(state.seats);
+    if (index >= 0 && state.inGame && BG.app && BG.app.updatePlayerProfile) BG.app.updatePlayerProfile(index, profile);
   }
 
   function startDisabledReason() {
@@ -884,13 +918,17 @@
       '<div class="net-player-list">' +
       peers.map((peer) => {
         const seatIndex = (seats || []).findIndex((seat) => seat.peerId === peer.id);
+        const seatProfile = seatIndex >= 0 && seats[seatIndex] && seats[seatIndex].profile;
+        const profile = BG.playerProfile.normalize(seatProfile || peer.profile || (peer.id === (BG.net && BG.net.selfId)
+          ? BG.playerProfile.get()
+          : BG.playerProfile.defaultFor(Math.max(0, seatIndex), false)));
         /* اللاعب نفسه متصل دائمًا؛ قائمة connectedPeers تضم الأقران البعيدين فقط. */
         const open = peer.id === (BG.net && BG.net.selfId) || openPeers.has(peer.id) || peer.host;
         const ms = BG.net && BG.net.latencyOf ? BG.net.latencyOf(peer.id) : null;
         const quality = BG.net && BG.net.latencyQuality ? BG.net.latencyQuality(ms) : "unknown";
         return (
           '<div class="net-player' + (peer.host ? " is-host" : "") + '">' +
-          '<span class="net-avatar" aria-hidden="true">' + (peer.host ? "👑" : "👤") + "</span>" +
+          BG.playerProfile.avatarHTML(profile, "net-avatar") +
           '<span class="net-player-name">' + esc(peer.name) + (peer.id === (BG.net && BG.net.selfId) ? " <small>(أنت)</small>" : "") + "</span>" +
           '<span class="net-player-meta">' + (seatIndex >= 0 ? "مقعد " + (seatIndex + 1) : "مشاهد") + " · " + (open ? "متصل" : "جارٍ الاتصال") + "</span>" +
           (peer.id !== (BG.net && BG.net.selfId)
@@ -1605,6 +1643,18 @@
     const from = event && event.from;
     const data = event && event.data;
     if (!data || !data.t) return;
+    if (data.t === "profile") {
+      const profile = BG.playerProfile.normalize(data.profile);
+      if (BG.net.isHost && from) {
+        BG.net.setPeerProfile(from, profile);
+        updateSeatProfile(from, profile);
+        BG.net.broadcast({ t: "profile", peerId: from, profile }, from);
+      } else if (data.peerId) {
+        BG.net.setPeerProfile(data.peerId, profile);
+        updateSeatProfile(data.peerId, profile);
+      }
+      return;
+    }
     if (state.isHost) onHostMessage(from, data);
     else onGuestMessage(from, data);
   }
@@ -2248,6 +2298,12 @@
 
   function bindNetworkEvents() {
     if (!BG.net) return;
+    document.addEventListener("bgprofilechange", (event) => {
+      if (!state.inRoom || !BG.net.role) return;
+      const profile = BG.playerProfile.normalize(event.detail);
+      updateSeatProfile(BG.net.selfId, profile);
+      publishSelfProfile();
+    });
     BG.net.on("room", () => {
       state.inRoom = true;
       state.name = state.name || savedName() || "اللاعب";
@@ -2257,6 +2313,7 @@
         state.seatCount = clampSeatCount(currentGameDef(), state.seatCount);
         state.config = { gameId: state.lobbyGame, seatCount: state.seatCount, level: state.level, seats: buildSeats(state.lobbyGame, state.seatCount, state.level) };
       }
+      publishSelfProfile();
       renderLobby();
     });
     BG.net.on("peers", () => {
@@ -2287,7 +2344,12 @@
         broadcastConfig();
       }
     });
-    BG.net.on("peer-open", () => {
+    BG.net.on("peer-open", (info) => {
+      if (state.inRoom && BG.net.isHost && info && info.id) {
+        BG.net.peers.forEach((peer) => {
+          if (peer.profile) BG.net.sendTo(info.id, { t: "profile", peerId: peer.id, profile: peer.profile });
+        });
+      }
       if (state.inRoom && BG.net.isHost && !state.inGame) broadcastConfig();
       if (state.inRoom && !state.inGame) renderLobby();
     });

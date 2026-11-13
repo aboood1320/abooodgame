@@ -128,7 +128,7 @@
       index,
       slot: slots[index],
       name: player.name || "اللاعب " + (index + 1),
-      color: COLORS[slots[index]],
+      color: player.profileColor || COLORS[slots[index]],
       type: player.type === "cpu" ? "cpu" : "human",
       level: AI.level(player.level),
       isCpu: AI.isCpu(player),

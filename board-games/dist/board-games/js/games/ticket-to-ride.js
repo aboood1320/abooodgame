@@ -115,7 +115,7 @@
         type: p.type === "cpu" ? "cpu" : "human",
         level: AI.level(p.level),
         isCpu: AI.isCpu(p),
-        color: PLAYER_COLORS[i % PLAYER_COLORS.length],
+        color: p.profileColor || PLAYER_COLORS[i % PLAYER_COLORS.length],
         score: 0,
         routeScore: 0,
         ticketScore: 0,

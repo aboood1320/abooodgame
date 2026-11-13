@@ -91,6 +91,25 @@
     });
   }
 
+  function mergePeerProfiles(nextPeers) {
+    const previous = new Map(peers.map((peer) => [peer.id, peer.profile]));
+    return (Array.isArray(nextPeers) ? nextPeers : []).map((peer) => {
+      const merged = Object.assign({}, peer);
+      if (!merged.profile && previous.has(merged.id)) merged.profile = previous.get(merged.id);
+      return merged;
+    });
+  }
+
+  function setPeerProfile(peerId, value) {
+    if (!peerId || !BG.playerProfile) return false;
+    const peer = peers.find((item) => item.id === peerId);
+    if (!peer) return false;
+    peer.profile = BG.playerProfile.normalize(value);
+    emit("peers", peers.slice());
+    if (role === "host" && mode === "cloud") broadcastCloudPeers();
+    return true;
+  }
+
   function on(name, fn) {
     if (!listeners[name]) listeners[name] = [];
     listeners[name].push(fn);
@@ -571,7 +590,7 @@
       roomCode = msg.code;
       selfId = msg.selfId;
       hostId = msg.hostId;
-      peers = msg.peers || [];
+      peers = mergePeerProfiles(msg.peers || []);
       roomStarted = true;
       if (!msg.host) hostConn = { pc: null, dc: makeRelayChannel(msg.hostId), peerId: msg.hostId, relay: true };
       startAppPing();
@@ -582,7 +601,7 @@
       return;
     }
     if (msg.t === "peers") {
-      peers = msg.peers || [];
+      peers = mergePeerProfiles(msg.peers || []);
       emit("peers", peers);
       return;
     }
@@ -1050,7 +1069,7 @@
     selfId = opened.id;
     hostId = opened.id;
     roomStarted = true;
-    peers = [{ id: selfId, name: (name || "المضيف").slice(0, 24), host: true }];
+    peers = mergePeerProfiles([{ id: selfId, name: (name || "المضيف").slice(0, 24), host: true }]);
     cloudPeer.on("connection", onCloudConnection);
     cloudPeer.on("disconnected", () => {
       setStatus("reconnecting");
@@ -1122,10 +1141,10 @@
     roomStarted = true;
     cloudConn = conn;
     hostConn = { dc: conn, peerId: target, cloud: true };
-    peers = [
+    peers = mergePeerProfiles([
       { id: target, name: "المضيف", host: true },
       { id: selfId, name: (name || "لاعب").slice(0, 24), host: false },
-    ];
+    ]);
 
     conn.on("data", (raw) => {
       let data;
@@ -1134,7 +1153,7 @@
       if (handlePingMessage(hostConn, data)) return;
       if (data.t === "__room") {
         if (Array.isArray(data.peers)) {
-          peers = data.peers;
+          peers = mergePeerProfiles(data.peers);
           const hostPeer = peers.find((item) => item.id === (data.hostId || target));
           if (hostPeer) {
             if (!hostPeer.name || hostPeer.name === "لاعب") hostPeer.name = "المضيف";
@@ -1455,6 +1474,7 @@
     broadcast,
     ready,
     connectedPeers,
+    setPeerProfile,
     ensureHostConnections,
     setMode,
     setTurn,

@@ -36,14 +36,21 @@
     },
 
     players(api, count, colors) {
-      return (api.players || []).slice(0, count).map((player, index) => ({
-        index,
-        name: player.name || "اللاعب " + (index + 1),
-        color: (colors && colors[index]) || "#d9a94e",
-        type: player.type === "cpu" ? "cpu" : "human",
-        level: BG.ai.level(player.level),
-        isCpu: BG.ai.isCpu(player),
-      }));
+      return (api.players || []).slice(0, count).map((player, index) => {
+        const isCpu = BG.ai.isCpu(player);
+        const profile = BG.playerProfile.normalize(player.profile || BG.playerProfile.defaultFor(index, isCpu));
+        return {
+          index,
+          name: player.name || "اللاعب " + (index + 1),
+          color: player.profileColor || (colors && colors[index]) || "#d9a94e",
+          profile,
+          avatar: BG.playerProfile.avatarEmoji(profile.avatar),
+          profileColor: player.profileColor || "",
+          type: player.type === "cpu" ? "cpu" : "human",
+          level: BG.ai.level(player.level),
+          isCpu,
+        };
+      });
     },
 
     /** ترتيب نهائي موحّد لشاشة النهاية */

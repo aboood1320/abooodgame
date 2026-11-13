@@ -57,7 +57,7 @@
 <link rel="stylesheet" href="css/cards.css?v=32" media="print" onload="this.media='all'" />
 <link rel="stylesheet" href="css/classic.css?v=33" media="print" onload="this.media='all'" />
 <link rel="stylesheet" href="css/theme-refresh.css?v=31" />
-<link rel="stylesheet" href="css/fx.css?v=30" />
+<link rel="stylesheet" href="css/fx.css?v=31" />
 <link rel="stylesheet" href="css/net.css?v=30" />
 <link rel="stylesheet" href="css/polish.css?v=32" />
 <link rel="stylesheet" href="css/upgrade.css?v=1" />
@@ -409,6 +409,7 @@
         </div>
         <span class="game-status" id="gameStatus">الإعداد</span>
         <div class="game-toolbar-actions">
+          <button class="bg-btn small" type="button" id="btnGamePlayers" aria-label="اللاعبون" hidden><span aria-hidden="true">👥</span><span>اللاعبون</span></button>
           <button class="bg-btn small" type="button" id="btnGameRules" aria-label="القواعد"><svg class="ic" aria-hidden="true"><use href="#i-book"/></svg><span>القواعد</span></button>
           <button class="bg-btn small" type="button" id="btnGameFullscreen" aria-label="ملء الشاشة"><svg class="ic" aria-hidden="true"><use href="#i-motion"/></svg><span>ملء الشاشة</span></button>
           <button class="bg-btn small primary" type="button" id="btnGameNew" aria-label="لعبة جديدة" hidden><svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg><span>لعبة جديدة</span></button>
@@ -434,10 +435,10 @@
   </footer>
 </div>
 
-<script defer src="js/core.js?v=34"></script>
-<script defer src="js/fx.js?v=32"></script>
+<script defer src="js/core.js?v=35"></script>
+<script defer src="js/fx.js?v=33"></script>
 <script defer src="js/ai.js?v=32"></script>
-<script defer src="js/games/expansion-common.js?v=1"></script>
+<script defer src="js/games/expansion-common.js?v=2"></script>
 <script defer src="js/data/arabic-words.js?v=30"></script>
 <script defer src="js/engine.js?v=1"></script>
 <script defer src="js/chess-ai.js?v=1"></script>
@@ -446,15 +447,15 @@
 <script defer src="js/games/catan.js?v=32"></script>
 <script defer src="js/games/ttr-art.js?v=1"></script>
 <script defer src="js/games/ttr-board.js?v=1"></script>
-<script defer src="js/games/ticket-to-ride.js?v=35"></script>
-<script defer src="js/games/carcassonne.js?v=31"></script>
+<script defer src="js/games/ticket-to-ride.js?v=36"></script>
+<script defer src="js/games/carcassonne.js?v=32"></script>
 <script defer src="js/games/risk-maps.js?v=7"></script>
 <script defer src="js/games/risk-map-data.js?v=38"></script>
-<script defer src="js/games/risk.js?v=39"></script>
-<script defer src="js/games/scrabble.js?v=34"></script>
+<script defer src="js/games/risk.js?v=40"></script>
+<script defer src="js/games/scrabble.js?v=35"></script>
 <script defer src="js/games/cluedo-art.js?v=1"></script>
-<script defer src="js/games/cluedo.js?v=38"></script>
-<script defer src="js/games/uno.js?v=36"></script>
+<script defer src="js/games/cluedo.js?v=39"></script>
+<script defer src="js/games/uno.js?v=37"></script>
 <script defer src="js/games/love-letter.js?v=1"></script>
 <script defer src="js/games/splendor.js?v=5"></script>
 <script defer src="js/games/pandemic.js?v=32"></script>
@@ -462,8 +463,8 @@
 <script defer src="js/games/waraq.js?v=32"></script>
 <script defer src="js/games/kootbositta.js?v=4"></script>
 <script defer src="js/games/domino.js?v=31"></script>
-<script defer src="js/games/ludo.js?v=33"></script>
-<script defer src="js/games/snakes.js?v=30"></script>
+<script defer src="js/games/ludo.js?v=34"></script>
+<script defer src="js/games/snakes.js?v=31"></script>
 <script defer src="js/games/checkers.js?v=30"></script>
 <script defer src="js/games/mancala.js?v=30"></script>
 <script defer src="js/games/yahtzee.js?v=1"></script>
@@ -474,26 +475,26 @@
 <script defer src="js/games/parcheesi.js?v=1"></script>
 <script defer src="js/games/sorry.js?v=1"></script>
 <script defer src="js/games/battleship.js?v=5"></script>
-<script defer src="js/games/seven-wonders.js?v=1"></script>
+<script defer src="js/games/seven-wonders.js?v=2"></script>
 <script defer src="js/games/azul.js?v=1"></script>
 <script defer src="js/games/wingspan.js?v=1"></script>
 <script defer src="js/games/dominion.js?v=1"></script>
 <script defer src="js/games/terraforming-mars.js?v=1"></script>
 <script defer src="js/games/no-thanks.js?v=1"></script>
 <script defer src="js/games/coup.js?v=1"></script>
-<script defer src="js/games/for-sale.js?v=1"></script>
-<script defer src="js/games/skull.js?v=1"></script>
+<script defer src="js/games/for-sale.js?v=2"></script>
+<script defer src="js/games/skull.js?v=2"></script>
 <script defer src="js/games/king-of-tokyo.js?v=1"></script>
 <script defer src="js/games/codenames.js?v=1"></script>
-<script defer src="js/games/takenoko.js?v=1"></script>
+<script defer src="js/games/takenoko.js?v=2"></script>
 <button type="button" id="btnExitFullscreen" class="fs-exit" aria-label="إنهاء ملء الشاشة" hidden><svg class="ic" aria-hidden="true"><use href="#i-motion"/></svg><span>إنهاء ملء الشاشة</span></button>
 <script defer src="js/relay-config.js?v=1"></script>
 <script defer src="js/sound-packs.js?v=1"></script>
-<script defer src="js/net.js?v=33"></script>
+<script defer src="js/net.js?v=34"></script>
 <script defer src="js/library-art.js?v=1"></script>
 <script defer src="js/library-art-expansion.js?v=1"></script>
-<script defer src="js/app.js?v=49"></script>
-<script defer src="js/online.js?v=45"></script>
+<script defer src="js/app.js?v=50"></script>
+<script defer src="js/online.js?v=46"></script>
 <script defer src="js/online-host.js?v=1"></script>
 <script defer src="js/site-extras.js?v=1"></script>
 <script defer src="js/pwa.js?v=30"></script>

@@ -1233,7 +1233,7 @@
         type: p.type === "cpu" ? "cpu" : "human",
         level: AI.level(p.level),
         isCpu: AI.isCpu(p),
-        color: COLORS[i % COLORS.length],
+        color: p.profileColor || COLORS[i % COLORS.length],
         score: 0,
         rack: [],
       }));

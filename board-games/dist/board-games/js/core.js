@@ -555,6 +555,86 @@
     },
   };
 
+  /* ------------------------------ ملف اللاعب ------------------------------ */
+
+  const PLAYER_PROFILE_KEY = "player-profile.v1";
+  const PLAYER_AVATARS = [
+    { id: "human", name: "إنسان", emoji: "🧑" },
+    { id: "cat", name: "قطة", emoji: "🐱" },
+    { id: "dog", name: "كلب", emoji: "🐶" },
+    { id: "car", name: "سيارة", emoji: "🚗" },
+    { id: "alien", name: "فضائي", emoji: "👽" },
+    { id: "rabbit", name: "أرنب", emoji: "🐰" },
+    { id: "fox", name: "ثعلب", emoji: "🦊" },
+    { id: "robot", name: "روبوت", emoji: "🤖" },
+    { id: "dinosaur", name: "ديناصور", emoji: "🦖" },
+    { id: "rocket", name: "مركبة فضائية", emoji: "🚀" },
+    { id: "panda", name: "باندا", emoji: "🐼" },
+    { id: "unicorn", name: "وحيد القرن", emoji: "🦄" },
+  ];
+  const PLAYER_COLORS = [
+    { name: "أزرق", value: "#4f86f7" },
+    { name: "مرجاني", value: "#e76f51" },
+    { name: "فيروزي", value: "#2a9d8f" },
+    { name: "ذهبي", value: "#e9c46a" },
+    { name: "بنفسجي", value: "#9b5de5" },
+    { name: "وردي", value: "#f15bb5" },
+    { name: "أخضر", value: "#70a288" },
+    { name: "برتقالي", value: "#f77f00" },
+    { name: "رمادي مزرق", value: "#577590" },
+    { name: "أحمر", value: "#ef476f" },
+    { name: "سماوي", value: "#00b4d8" },
+    { name: "بني", value: "#8d6e63" },
+  ];
+
+  function normalizePlayerProfile(value, fallback) {
+    const source = value && typeof value === "object" ? value : {};
+    const safeFallback = fallback && typeof fallback === "object" ? fallback : {};
+    const avatar = PLAYER_AVATARS.some((item) => item.id === source.avatar)
+      ? source.avatar
+      : PLAYER_AVATARS.some((item) => item.id === safeFallback.avatar) ? safeFallback.avatar : "human";
+    const color = /^#[0-9a-f]{6}$/i.test(String(source.color || ""))
+      ? String(source.color).toLowerCase()
+      : /^#[0-9a-f]{6}$/i.test(String(safeFallback.color || "")) ? String(safeFallback.color).toLowerCase() : PLAYER_COLORS[0].value;
+    return { avatar, color };
+  }
+
+  const playerProfile = (BG.playerProfile = {
+    avatars: PLAYER_AVATARS,
+    colors: PLAYER_COLORS,
+    normalize: normalizePlayerProfile,
+    get() {
+      return normalizePlayerProfile(BG.store.get(PLAYER_PROFILE_KEY, {}));
+    },
+    set(value) {
+      const next = normalizePlayerProfile(value);
+      BG.store.set(PLAYER_PROFILE_KEY, next);
+      document.dispatchEvent(new CustomEvent("bgprofilechange", { detail: Object.assign({}, next) }));
+      return next;
+    },
+    defaultFor(index, isCpu) {
+      return {
+        avatar: isCpu ? "robot" : "human",
+        color: PLAYER_COLORS[Math.abs(Number(index) || 0) % PLAYER_COLORS.length].value,
+      };
+    },
+    avatarEmoji(value) {
+      const id = value && typeof value === "object" ? value.avatar : value;
+      const avatar = PLAYER_AVATARS.find((item) => item.id === id) || PLAYER_AVATARS[0];
+      return avatar.emoji;
+    },
+    avatarName(value) {
+      const id = value && typeof value === "object" ? value.avatar : value;
+      const avatar = PLAYER_AVATARS.find((item) => item.id === id) || PLAYER_AVATARS[0];
+      return avatar.name;
+    },
+    avatarHTML(value, extraClass) {
+      const profile = normalizePlayerProfile(value);
+      const extra = String(extraClass || "").replace(/[^a-z0-9 _-]/gi, "").trim();
+      return '<span class="player-avatar' + (extra ? " " + extra : "") + '" style="--profile-color:' + profile.color + '" aria-hidden="true">' + U.escape(playerProfile.avatarEmoji(profile.avatar)) + "</span>";
+    },
+  });
+
   /* ------------------------------ التفضيلات العامة ------------------------------ */
 
   const PREFS_KEY = "prefs.v1";

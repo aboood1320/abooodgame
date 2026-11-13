@@ -538,7 +538,7 @@
       type: source.type === "cpu" ? "cpu" : "human",
       cpu: source.type === "cpu" || source.isCpu === true,
       level: AI.level(source.level),
-      color: PCOLORS[index % PCOLORS.length],
+      color: source.profileColor || PCOLORS[index % PCOLORS.length],
       hand: [],
       room: "hall",
       active: true,

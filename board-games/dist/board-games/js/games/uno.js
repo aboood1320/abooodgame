@@ -1102,7 +1102,7 @@
         type: player.type === "cpu" ? "cpu" : "human",
         level: AI.level(player.level),
         isCpu: AI.isCpu(player),
-        color: PCOLORS[index % PCOLORS.length],
+        color: player.profileColor || PCOLORS[index % PCOLORS.length],
         hand: [],
       }));
 

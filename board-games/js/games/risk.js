@@ -743,7 +743,7 @@
       type: p.type === "cpu" ? "cpu" : "human",
       level: AI.level(p.level),
       isCpu: AI.isCpu(p),
-      color: PCOLORS[i % PCOLORS.length],
+      color: p.profileColor || PCOLORS[i % PCOLORS.length],
       cards: [],
       eliminated: false,
       exchanges: 0,
