@@ -440,7 +440,7 @@
       '<div class="sn-notice" role="status" aria-live="polite" aria-atomic="true">' + esc(state.notice) + "</div>" +
       '<div class="cg-panel sn-legend"><span class="cg-kicker">مسارات اللوحة</span>' +
       '<div class="sn-routes"><strong>🪜 السلالم</strong><div class="sn-route-list">' + Object.keys(LADDERS).map((n) => '<span class="sn-route-chip">' + ar(n) + " → " + ar(LADDERS[n]) + "</span>").join("") + "</div></div>" +
-      '<div class="sn-routes is-snake"><strong>🐍 الثعابين</strong><div class="sn-route-list">' + Object.keys(SNAKES).map((n) => '<span class="sn-route-chip">' + ar(n) + " → " + ar(SNAKES[n]) + "</span>").join("") + "</div></div></div>' +
+      '<div class="sn-routes is-snake"><strong>🐍 الثعابين</strong><div class="sn-route-list">' + Object.keys(SNAKES).map((n) => '<span class="sn-route-chip">' + ar(n) + " → " + ar(SNAKES[n]) + "</span>").join("") + "</div></div></div>" +
       "</aside>";
 
     rootRef.innerHTML =
