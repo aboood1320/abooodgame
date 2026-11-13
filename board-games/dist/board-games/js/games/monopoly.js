@@ -2392,7 +2392,6 @@
       '<div class="mono-tools">' +
       '<button class="bg-btn small" data-act="toggleManage">' + (state.showManage ? "إخفاء العقارات" : "عقاراتي") + "</button>" +
       '<button class="bg-btn small" data-act="trade" ' + (canActNow() ? "" : "disabled") + ">تبادل</button>" +
-      '<button class="bg-btn small" data-act="fullscreen">ملء الشاشة</button>' +
       "</div></section>" +
 
       (state.showManage
@@ -2540,16 +2539,6 @@
     }
   }
 
-  function toggleFullscreen() {
-    const button = document.getElementById("btnGameFullscreen");
-    if (button) {
-      button.click();
-      return;
-    }
-    document.body.classList.toggle("fullscreen-game");
-    window.dispatchEvent(new Event("resize"));
-  }
-
   function render() {
     if (!rootRef || !state) return;
     const wrap = document.createElement("div");
@@ -2593,7 +2582,6 @@
         if (!state || state.over) return;
         const act = btn.dataset.act;
         if (act === "toggleManage") { state.showManage = !state.showManage; render(); return; }
-        if (act === "fullscreen") { toggleFullscreen(); return; }
         if (!canActNow()) return;
         if (act === "roll") onRoll();
         else if (act === "endTurn") endTurn();

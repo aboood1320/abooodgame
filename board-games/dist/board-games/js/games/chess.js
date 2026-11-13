@@ -556,6 +556,7 @@
       const cell = el.board.children[vis];
 
       let cls = "ch-sq " + ((dr + dc) % 2 === 0 ? "light" : "dark");
+      if (drag && drag.moved && drag.from === i) cls += " is-drag-source";
       if (i === selected) cls += " is-selected";
       if (lastMove && (i === lastMove.from || i === lastMove.to)) cls += " is-last";
       if (targets.has(i)) cls += p ? " is-capture" : " is-legal";
@@ -1085,6 +1086,7 @@
     if (drag && drag.ghost && drag.ghost.parentNode) drag.ghost.parentNode.removeChild(drag.ghost);
     drag = null;
     clearDropHighlight();
+    render();
   }
 
   function onFullscreenChange() {
@@ -1961,7 +1963,7 @@
     img.style.height = size * 0.92 + "px";
     img.style.left = a.c * size + size * 0.04 + "px";
     img.style.top = a.r * size + size * 0.04 + "px";
-    el.layout.appendChild(img);
+    el.board.appendChild(img);
     const dx = (b.c - a.c) * size;
     const dy = (b.r - a.r) * size;
 
@@ -2185,6 +2187,7 @@
     cardClass: "card-chess",
     tagline: "اللعبة الملكية بمحرك Stockfish حقيقي، ساعة، وسجل حركات.",
     players: "1–2",
+    counts: [1, 2],
     duration: "5–60 دقيقة",
     complexity: "عالية",
     minPlayers: 1,

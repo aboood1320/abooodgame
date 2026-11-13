@@ -1558,7 +1558,6 @@
       '<button type="button" class="bg-btn" data-act="end"' + (canEnd ? "" : " disabled") + '><span>⏭️ إنهاء الدور</span></button>' +
       '<div class="cluedo-action-row">' +
       '<button type="button" class="bg-btn" data-act="sheet"><span>📋 ورقة التحقيق</span></button>' +
-      '<button type="button" class="bg-btn" data-act="music"><span>' + (FX && FX.settings.music ? "🎵 إيقاف الموسيقى" : "🎵 تشغيل الموسيقى") + "</span></button>" +
       "</div>" +
       '<p class="cluedo-hint">' + (state.over ? "انتهى التحقيق." : state.phase === "move"
         ? "انقر غرفة مضاءة للانتقال، أو تخطَّ الحركة."
@@ -1762,13 +1761,6 @@
 
   /* ------------------------------ الأحداث ------------------------------ */
 
-  function toggleMusic() {
-    if (!FX) return;
-    FX.setMusic(!FX.settings.music);
-    render();
-    BG.toast(FX.settings.music ? "الموسيقى الخلفية تعمل." : "أُوقفت الموسيقى.", "good");
-  }
-
   function handleClick(event) {
     if (!state) return;
     if (FX) FX.unlock();
@@ -1781,7 +1773,6 @@
     if (action) {
       const act = action.getAttribute("data-act");
       if (act === "sheet") { openSheet(); return; }
-      if (act === "music") { toggleMusic(); return; }
       if (!canAct()) {
         BG.toast(state.over ? "انتهى التحقيق." : "انتظر دورك.", "warn");
         return;

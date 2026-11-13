@@ -126,12 +126,15 @@
     inset 0 -2px 0 rgba(120, 92, 48, 0.22);
   overflow: hidden;
   pointer-events: none;
+  direction: ltr;
+  transform: none !important;
 }
 .scrab-letter {
   font-size: calc(100cqw / 15 * 0.52);
   font-weight: 800;
   line-height: 1;
-  transform: translateY(1px);
+  direction: ltr;
+  transform: none !important;
 }
 .scrab-value {
   position: absolute;
@@ -295,6 +298,8 @@
   cursor: pointer;
   box-shadow: 0 4px 9px -4px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.8);
   transition: transform 0.13s ease, box-shadow 0.13s ease, opacity 0.13s ease;
+  direction: ltr;
+  transform-origin: center;
 }
 .scrab-rack-tile:hover,
 .scrab-rack-tile:focus-visible {

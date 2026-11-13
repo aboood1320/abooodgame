@@ -1,10 +1,10 @@
 /* معارك السفن v3 — رسومات: بحر متحرك، سفن SVG، انفجارات وتموّجات، إحداثيات وإطار معدني */
 .bs { --accent: #7391a8; }
-/* حجم معقول: اللوحة لا تمتد على كامل عرض الشاشة ولا تتجاوز ارتفاعها (كانت تملأ العرض فتصبح ضخمة) */
+/* ألواح كبيرة وواضحة، مع الحفاظ على مساحة كافية لعناصر التحكم. */
 .bs-setup-grid { display: grid; grid-template-columns: minmax(0, 1fr); justify-items: center; gap: 12px; }
 .bs-setup { display: flex; flex-direction: column; gap: 9px; width: min(100%, 500px); }
 .bs-arena { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-items: start; justify-items: center; }
-.bs-side { display: flex; flex-direction: column; gap: 9px; width: min(100%, 420px); }
+.bs-side { display: flex; flex-direction: column; gap: 9px; width: min(100%, 520px); }
 
 /* إطار الشبكة المعدني مع الإحداثيات */
 .bs-grid.bs-board {
@@ -18,9 +18,8 @@
   background: linear-gradient(145deg, #2d4658, #16303f);
   border: 1px solid #3f6379;
   box-shadow: 0 8px 22px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.08);
-  width: min(100%, 440px);
-  width: min(100%, 440px, max(230px, calc(100vh - 360px)));
-  width: min(100%, 440px, max(230px, calc(100dvh - 360px)));
+  width: min(100%, 500px, max(280px, calc(100vh - 280px)));
+  width: min(100%, 500px, max(280px, calc(100dvh - 280px)));
   margin-inline: auto;
 }
 .bs-cols { display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); }
@@ -182,5 +181,5 @@ html.lite .bs-flame { animation: none; }
 }
 @media (max-width: 720px) {
   .bs-arena { grid-template-columns: minmax(0, 1fr); }
-  .bs-grid.bs-board { padding: 5px; gap: 2px; width: min(100%, 440px); }
+  .bs-grid.bs-board { padding: 5px; gap: 2px; width: min(100%, 500px); }
 }
