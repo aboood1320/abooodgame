@@ -37,11 +37,10 @@ npm run build        # ينتج board-games/dist/board-games (+ حزمة zip إ�
 ├── netlify/              # دالة الغرف: relay-core.cjs (مشتركة) + functions/relay.mjs
 ├── netlify.toml          # إعداد النشر على Netlify
 ├── start-lan.bat         # تشغيل الخادم المحلي بنقرة (ويندوز)
-├── package.json          # npm start / npm run build
-├── tests/                # اختبارات المشروع
-└── app.js, engine.js,    # بقايا النسخة المستقلة القديمة للشطرنج (غير مستخدمة
-    ai.js, styles.css…    #   في الموقع الحالي؛ الشطرنج الحالي داخل board-games)
+└── package.json          # npm start / npm run build
 ```
+
+> النسخة المستقلة القديمة للشطرنج أُزيلت؛ لعبة الشطرنج الحالية موجودة داخل `board-games/`.
 
 ## ما الجديد
 
