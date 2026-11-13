@@ -274,7 +274,7 @@
   padding: 0;
   border: 0;
   border-radius: 50%;
-  background: radial-gradient(circle at 35% 30%, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.55));
+  background: color-mix(in srgb, var(--profile-color, #57907c) 72%, white);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
   color: #06110d;
   font-size: inherit;
@@ -282,8 +282,7 @@
   -webkit-backdrop-filter: blur(2px);
   backdrop-filter: blur(2px);
 }
-.mtoken .mtoken-art { display: block; width: 90%; height: 90%; line-height: 0; }
-.mtoken .mtoken-art svg { display: block; width: 100%; height: 100%; }
+.mtoken .mtoken-art { display: grid; place-items: center; width: 90%; height: 90%; line-height: 1; font-size: 1.25em; }
 .mtoken-num {
   position: absolute;
   right: -0.12em;
@@ -381,7 +380,7 @@
   background: color-mix(in srgb, var(--p) 30%, rgba(255, 255, 255, 0.1));
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--p) 60%, transparent);
 }
-.mturn-token svg { width: 100%; height: 100%; }
+.mturn-token { color: #fff; font-size: 1.18em; border: 1px solid color-mix(in srgb, var(--p) 65%, white); }
 .mturn > div { display: flex; flex-direction: column; align-items: flex-start; gap: 0.05em; min-width: 0; }
 .mturn > div > span { font-size: 0.72em; color: rgba(244, 236, 216, 0.5); }
 .mturn strong { color: var(--p); font-size: 1.05em; white-space: nowrap; }
@@ -528,7 +527,7 @@
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--p) 55%, transparent);
   flex: 0 0 auto;
 }
-.mrow-token svg { width: 100%; height: 100%; }
+.mrow-token { color: #fff; font-size: 1.15rem; border: 1px solid color-mix(in srgb, var(--profile-color, var(--p)) 75%, white); background: color-mix(in srgb, var(--profile-color, var(--p)) 46%, #101820); }
 .mrow-main { display: flex; flex-direction: column; gap: 1px; min-width: 0; flex: 1; }
 .mrow-main strong { font-size: 0.74rem; color: #f0ead9; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mrow-main small { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; color: rgba(240, 234, 217, 0.46); font-size: 0.6rem; }

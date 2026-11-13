@@ -44,7 +44,7 @@
 
   function makePlayers() {
     return XG.players(apiRef, 2, ["#d96a56", "#e7b958"]).map((player, index) => {
-      player.color = index === 0 ? "#d96a56" : "#e7b958";
+      player.color = player.profileColor || (index === 0 ? "#d96a56" : "#e7b958");
       return player;
     });
   }
@@ -254,11 +254,11 @@
         const at = r * COLS + c;
         const seat = state.board[at];
         const cls = "c4-cell" + (seat != null ? " is-p" + seat : "") + (winSet.has(at) ? " is-win" : "") + (state.last === at ? " is-last" : "");
-        cells += '<div class="' + cls + '" role="gridcell" aria-label="صف ' + ar(r + 1) + " عمود " + ar(c + 1) + '">' +
-          (seat != null ? "<span></span>" : "") + "</div>";
+        cells += '<div class="' + cls + '"' + (seat != null ? ' style="--pc:' + state.players[seat].color + '"' : "") + ' role="gridcell" aria-label="صف ' + ar(r + 1) + " عمود " + ar(c + 1) + '">' +
+          (seat != null ? '<span>' + U.escape(BG.playerProfile.avatarEmoji(state.players[seat].profile)) + "</span>" : "") + "</div>";
       }
     }
-    const chips = state.players.map((p) => XG.chip(esc(p.name), state.current === p.index && !state.over ? "دوره" : "", state.current === p.index ? "is-live" : "")).join("");
+    const chips = state.players.map((p) => XG.chip(BG.playerProfile.playerHTML(p, "c4-player-avatar") + esc(p.name), state.current === p.index && !state.over ? "دوره" : "", state.current === p.index ? "is-live" : "")).join("");
     rootRef.innerHTML =
       '<div class="xg c4">' +
       XG.bar("كونكت فور", "أربع قطع متصلة · 7 أعمدة × 6 صفوف", chips) +

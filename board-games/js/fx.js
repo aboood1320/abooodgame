@@ -995,7 +995,7 @@
     const playerProfile = BG.playerProfile.get();
     const profileSection =
       '<section class="fx-profile-settings" aria-labelledby="fx-profile-title">' +
-      '<div class="fx-profile-head"><div><strong id="fx-profile-title">ملف اللاعب</strong><small>اختر صورتك ولونك؛ سيظهران في نافذة اللاعبين والألعاب التي تدعم ألوان المقاعد.</small></div>' +
+      '<div class="fx-profile-head"><div><strong id="fx-profile-title">ملف اللاعب</strong><small>اختر أفتارك ولونك؛ سيظهران في لوحات اللاعبين الموجودة، وفي قطع الألعاب التي تدعم تخصيصها.</small></div>' +
       '<div class="fx-profile-preview" data-profile-preview>' + BG.playerProfile.avatarHTML(playerProfile, "fx-profile-preview-avatar") + '<span><strong>اسم اللاعب</strong><small>معاينة الأفتار</small></span></div></div>' +
       '<div class="fx-profile-label">اختر الأفتار</div><div class="fx-avatar-grid" role="group" aria-label="أفتار اللاعب">' +
       BG.playerProfile.avatars.map((avatar) =>

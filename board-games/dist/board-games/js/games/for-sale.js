@@ -356,7 +356,7 @@
 
   function playerPanel(player) {
     return '<article class="fs-player ' + (player.index === state.current ? "is-current" : "") + '" style="--pc:' + player.color + '">' +
-      '<div class="xg-spread"><span class="xg-row"><span class="xg-avatar">' + ar(player.index + 1) + "</span><strong>" + esc(player.name) + "</strong></span>" +
+      '<div class="xg-spread"><span class="xg-row">' + BG.playerProfile.playerHTML(player, "fs-player-avatar") + "<strong>" + esc(player.name) + "</strong></span>" +
       '<span class="fs-player-cash">' + money(player.cash) + "</span></div>" +
       '<div class="fs-player-stats"><span>🏠 ' + ar(player.properties.length) + "</span><span>💵 " + ar(currencyTotal(player)) + "</span>" +
       (state.phase === "auction" && player.bid ? '<span class="fs-player-bid">مزايدة ' + ar(player.bid) + "</span>" : "") + "</div>" +

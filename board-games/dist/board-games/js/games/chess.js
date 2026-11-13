@@ -618,7 +618,11 @@
 
     refs.node.dataset.side = side;
     refs.avatar.className = "ch-avatar is-" + side;
-    refs.avatar.innerHTML = '<img src="' + pieceSrc(side, "K") + '" alt="" draggable="false" />';
+    const profile = BG.playerProfile.normalize(seat.profile || BG.playerProfile.defaultFor(side === "w" ? 0 : 1, seat.isCpu));
+    const color = seat.profileColor || profile.color;
+    refs.avatar.textContent = BG.playerProfile.avatarEmoji(profile.avatar);
+    refs.avatar.style.backgroundColor = color;
+    refs.avatar.style.borderColor = color;
     refs.name.textContent = playerLabel(side);
     if (refs.you) refs.you.hidden = !isYou;
     if (refs.cpu) {

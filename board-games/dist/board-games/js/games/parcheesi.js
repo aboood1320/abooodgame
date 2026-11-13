@@ -362,7 +362,7 @@
       const yard = player.tokens.filter((t) => t.pos < 0).length;
       const track = player.tokens.filter((t) => t.pos >= 0 && t.pos < TRACK).length;
       return '<div class="pc-player ' + (state.current === player.index ? "is-current" : "") + '" style="--pc:' + player.color + '">' +
-        '<span class="xg-row"><span class="pc-swatch"></span><strong>' + esc(player.name) + "</strong></span>" +
+        '<span class="xg-row">' + BG.playerProfile.playerHTML(player, "pc-player-avatar") + "<strong>" + esc(player.name) + "</strong></span>" +
         '<span class="pc-counts">' + ar(yard) + " بداية · " + ar(track) + " مسار · " + ar(player.finished) + " بيت</span></div>";
     }).join("");
 

@@ -2902,7 +2902,7 @@
     const pct = Math.round((count / TERRITORIES.length) * 100);
     return (
       '<div class="risk-player' + (active ? " active" : "") + (p.eliminated ? " out" : "") + '" data-player="' + p.index + '" style="--p:' + p.color + '">' +
-      '<span class="risk-pdot">' + (p.index + 1) + "</span>" +
+      BG.playerProfile.playerHTML(p, "risk-player-avatar") +
       '<div class="risk-player-main"><div class="risk-player-top"><strong>' + U.escape(p.name) +
       (p.isCpu ? ' <i class="risk-cpu">كمبيوتر</i>' : "") + "</strong><b>" + (p.eliminated ? "—" : count + " إقليم") + "</b></div>" +
       '<div class="risk-player-bar"><i style="width:' + pct + '%"></i></div>' +

@@ -635,7 +635,7 @@
       : "";
     return (
       '<div class="xg-panel bs-setup">' +
-      '<div class="xg-spread"><h3>' + esc(player.name) + " — أسطوله</h3>" +
+      '<div class="xg-spread"><h3 class="xg-row">' + BG.playerProfile.playerHTML(player, "bs-player-avatar") + esc(player.name) + " — أسطوله</h3>" +
       '<span class="xg-chip ' + (state.ready[seat] ? "is-good" : "") + '">' + (state.ready[seat] ? "جاهز" : "قيد التوزيع") + "</span></div>" +
       gridHtml(seat, { own: true, place: interactive, sel: selShip ? selShip.id : null }) +
       (hint ? '<p class="bs-hint">' + hint + "</p>" : "") +
@@ -659,7 +659,7 @@
     if (view.curtain) {
       const name = state.players[me].name;
       body =
-        '<div class="xg-panel bs-curtain"><h3>🙈 ' + esc(name) + "</h3>" +
+        '<div class="xg-panel bs-curtain"><h3 class="xg-row">🙈 ' + BG.playerProfile.playerHTML(state.players[me], "bs-player-avatar") + esc(name) + "</h3>" +
         "<p>مرّر الجهاز إلى <strong>" + esc(name) + "</strong>، وتأكد أن خصمك لا ينظر إلى الشاشة، ثم اضغط الزر.</p>" +
         '<button type="button" class="xg-btn primary" data-bs-curtain="' + me + '">أنا ' + esc(name) + " — إظهار شاشتي</button></div>";
     } else if (setup) {
@@ -668,10 +668,10 @@
       const canShoot = state.phase === "battle" && !view.spectator && state.current === me && XG.canAct(apiRef, state, state.current, state.over);
       body =
         '<div class="bs-arena">' +
-        '<div class="xg-panel bs-side"><div class="xg-spread"><h3>أسطولي — ' + esc(state.players[me].name) + "</h3>" +
+        '<div class="xg-panel bs-side"><div class="xg-spread"><h3 class="xg-row">أسطولي — ' + BG.playerProfile.playerHTML(state.players[me], "bs-player-avatar") + esc(state.players[me].name) + "</h3>" +
         '<span class="xg-chip">' + ar(state.boards[me].ships.filter((s) => !s.sunk).length) + " سفن باقية</span></div>" +
         gridHtml(me, { own: true }) + '<div class="bs-fleet">' + fleetHtml(me, true) + "</div></div>" +
-        '<div class="xg-panel bs-side"><div class="xg-spread"><h3>مياه العدو — ' + esc(state.players[foe].name) + "</h3>" +
+        '<div class="xg-panel bs-side"><div class="xg-spread"><h3 class="xg-row">مياه العدو — ' + BG.playerProfile.playerHTML(state.players[foe], "bs-player-avatar") + esc(state.players[foe].name) + "</h3>" +
         '<span class="xg-chip ' + (canShoot ? "is-live" : "") + '">' + (state.over ? "انتهت" : canShoot ? "اختر هدفًا" : "انتظر دورك") + "</span></div>" +
         gridHtml(foe, { own: false, shoot: canShoot }) + '<div class="bs-fleet">' + fleetHtml(foe, false) + "</div></div>" +
         "</div>";

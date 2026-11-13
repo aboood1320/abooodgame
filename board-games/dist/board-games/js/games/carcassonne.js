@@ -1345,7 +1345,7 @@
         const active = pl.index === state.current && !state.over;
         return (
           '<div class="carc-player' + (active ? " active" : "") + '" data-player="' + pl.index + '" style="--p:' + pl.color + '">' +
-          '<span class="pdot">' + (pl.index + 1) + "</span>" +
+          BG.playerProfile.playerHTML(pl, "carc-player-avatar") +
           '<div class="carc-player-copy"><strong>' + U.escape(pl.name) + "</strong>" +
           "<small>" + pl.meeples + " رجال · " + pl.score + " نقطة</small></div>" +
           '<span class="carc-player-score">' + pl.score + "</span>" +

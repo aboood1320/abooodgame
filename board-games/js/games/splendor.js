@@ -694,7 +694,7 @@
         : "";
     return (
       '<div class="spl-player p' + (player.index % 6) + (active ? " active" : "") + (player.isCpu ? " is-cpu" : "") + '">' +
-      '<div class="spl-player-top"><span class="pdot">' + (player.index + 1) + "</span>" +
+      '<div class="spl-player-top">' + BG.playerProfile.playerHTML(player, "spl-player-avatar") +
       "<strong>" + U.escape(player.name) + (player.isCpu ? ' <small class="spl-cpu-tag">كمبيوتر</small>' : "") + "</strong>" +
       '<span class="spl-score" title="النقاط">' + scoreOf(player) + "</span></div>" +
       '<div class="spl-player-gems">' + gems + "</div>" +

@@ -43,18 +43,25 @@
   /* ------------------------------ الحالة ------------------------------ */
 
   function makePlayers() {
-    return (apiRef.players || []).slice(0, 4).map((player, index) => ({
-      index,
-      name: player.name || "اللاعب " + (index + 1),
-      color: player.profileColor || COLORS[index],
-      type: player.type === "cpu" ? "cpu" : "human",
-      level: AI.level(player.level),
-      isCpu: AI.isCpu(player),
-      pos: 0,
-      rolls: 0,
-      ladders: 0,
-      snakes: 0,
-    }));
+    return (apiRef.players || []).slice(0, 4).map((player, index) => {
+      const baseColor = COLORS[index];
+      const profile = BG.playerProfile.normalize(player.profile || BG.playerProfile.defaultFor(index, AI.isCpu(player)));
+      return {
+        index,
+        name: player.name || "اللاعب " + (index + 1),
+        profile,
+        avatar: BG.playerProfile.avatarEmoji(profile.avatar),
+        profileColor: player.profileColor || "",
+        color: player.profileColor ? Object.assign({}, baseColor, { css: player.profileColor }) : baseColor,
+        type: player.type === "cpu" ? "cpu" : "human",
+        level: AI.level(player.level),
+        isCpu: AI.isCpu(player),
+        pos: 0,
+        rolls: 0,
+        ladders: 0,
+        snakes: 0,
+      };
+    });
   }
 
   function newState(options) {
@@ -339,7 +346,7 @@
           ' data-sn-pawn="' + item.player.index + '"' +
           ' style="left:' + (item.cell.x + shift * 0.75).toFixed(2) + "%;top:" + (item.cell.y + shift * 0.75).toFixed(2) + "%;--pc:" + item.player.color.css + '"' +
           ' aria-label="قطعة ' + esc(item.player.name) + ' في الخانة ' + ar(item.player.pos) + '">' +
-          '<span></span></button>'
+          '<span class="sn-avatar" aria-hidden="true">' + U.escape(BG.playerProfile.avatarEmoji(item.player.profile)) + '</span></button>'
         );
       });
     });
@@ -363,7 +370,7 @@
       if (player.isCpu) classes.push("cpu");
       return (
         '<div class="' + classes.join(" ") + '" style="--pc:' + player.color.css + '">' +
-        '<span class="sn-swatch"></span>' +
+        BG.playerProfile.playerHTML(player, "sn-player-avatar") +
         '<span class="sn-player-copy"><strong>' + esc(player.name) + "</strong>" +
         "<small>الخانة " + ar(player.pos) + " · " + ar(player.rolls) + " رمية" + (player.isCpu ? " · 🤖" : "") + "</small></span>" +
         '<span class="sn-progress"><i style="width:' + player.pos + '%"></i></span></div>'

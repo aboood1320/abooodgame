@@ -614,7 +614,7 @@
 
   function playerPanel(player) {
     return '<article class="kt-player ' + (player.index === state.current ? "is-current " : "") + (player.alive ? "" : "is-out ") + (player.inTokyo ? "is-tokyo" : "") + '" style="--pc:' + player.color + '">' +
-      '<div class="xg-spread"><span class="xg-row"><span class="kt-monster">' + player.icon + "</span><strong>" + esc(player.name) + "</strong></span>" +
+      '<div class="xg-spread"><span class="xg-row"><span class="kt-monster">' + player.icon + "</span>" + BG.playerProfile.playerHTML(player, "kt-player-avatar") + "<strong>" + esc(player.name) + "</strong></span>" +
       '<span class="kt-vp">👑 ' + ar(player.vp) + "</span></div>" +
       healthBar(player) +
       '<div class="kt-player-stats"><span>⚡ ' + ar(player.energy) + '</span><span>🎴 ' + ar(player.powers.length) + "</span>" +

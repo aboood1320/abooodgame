@@ -406,7 +406,7 @@
       if (isOnline() && player.index === localSeat()) classes.push("mine");
       return (
         '<div class="' + classes.join(" ") + '">' +
-        '<span class="mc-swatch"></span>' +
+        BG.playerProfile.playerHTML(player, "mc-player-avatar") +
         '<span class="mc-player-copy"><strong>' + esc(player.name) + "</strong>" +
         "<small>" + ar(state.stores[player.index]) + " في المخزن" + (player.isCpu ? " · 🤖" : "") + "</small></span>" +
         '<span class="mc-store-chip">' + ar(state.stores[player.index]) + "</span></div>"

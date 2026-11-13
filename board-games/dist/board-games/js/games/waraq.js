@@ -1010,7 +1010,7 @@
       }
       return (
         '<div class="' + classes.join(" ") + '">' +
-        '<span class="pdot">' + (player.index + 1) + "</span>" +
+        BG.playerProfile.playerHTML(player, "wq-player-avatar") +
         '<span class="wq-player-copy"><strong>' + esc(player.name) + "</strong><small>" + (player.isCpu ? "🤖 " : "👤 ") + meta + "</small></span>" +
         (state.variant === "rummy" ? '<span class="wq-player-hand">' + ar(player.hand.length) + "</span>" : "") +
         "</div>"

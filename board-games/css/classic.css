@@ -631,6 +631,7 @@
   transform: rotate(-24deg);
   pointer-events: none;
 }
+.ld-token-avatar { position: relative; z-index: 1; font-size: 0.8em; line-height: 1; }
 .ld-token:hover { z-index: 6; box-shadow: 0 10px 18px -8px #000, inset 0 -3px 5px rgba(0, 0, 0, 0.4); }
 .ld-token.is-mine {
   box-shadow:
@@ -911,6 +912,7 @@
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.5);
 }
+.sn-pawn .sn-avatar { inset: 0; display: grid; place-items: center; width: auto; height: auto; transform: none; border-radius: inherit; background: transparent; font-size: 0.8em; line-height: 1; }
 .sn-pawn.is-mine { box-shadow: 0 0 0 2px rgba(255, 226, 176, 0.75), 0 5px 10px -5px #000; }
 
 .sn-players { display: flex; flex-direction: column; gap: 6px; }

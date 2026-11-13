@@ -991,7 +991,7 @@
       if (state.over && state.winner === index) classes.push("is-winner");
       return (
         '<div class="' + classes.join(" ") + '">' +
-        '<span class="tav-player-dot" aria-hidden="true"></span>' +
+        BG.playerProfile.playerHTML(player, "tav-player-avatar") +
         '<div class="tav-player-copy"><strong>' + escape(player.name) + "</strong>" +
         "<small>" + SIDES[index].name + " · " + (tavOption("matchTo7") ? ar(state.scores[index] || 0) + " نقطة · " : "") + SIDES[index].route + "</small></div>" +
         (active ? '<span class="tav-player-badge">الدور</span>' : "") +

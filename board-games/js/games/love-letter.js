@@ -879,7 +879,7 @@
       : "بطاقات: " + ar(player.hand.length) + (player.protected ? " · 🛡️ محمي" : "");
     return (
       '<div class="' + classes.join(" ") + '">' +
-      '<span class="ll-avatar" aria-hidden="true">' + (player.isCpu ? "🤖" : "🎭") + "</span>" +
+      BG.playerProfile.playerHTML(player, "ll-player-avatar") +
       '<div class="ll-player-copy"><strong>' + esc(player.name) + "</strong><small>" + esc(status) + "</small></div>" +
       '<span class="ll-tokens" title="رموز المحبة"><b>♥</b>' + ar(player.tokens) + "</span>" +
       "</div>"

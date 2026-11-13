@@ -1583,7 +1583,7 @@
       const shown = player.index === me ? [] : known.slice(0, 4);
       return '<div class="cluedo-player' + (active ? " active" : "") + (player.active ? "" : " out") +
         (player.index === me ? " is-me" : "") + '" style="--p:' + player.color + '">' +
-        '<span class="pdot">' + (player.index + 1) + "</span>" +
+        BG.playerProfile.playerHTML(player, "cluedo-player-avatar") +
         '<div class="cluedo-player-copy"><strong>' + E(player.name) +
         (player.cpu ? ' <span class="cluedo-cpu-tag">🤖 ' + E(LEVEL_NAMES[player.level] || "") + "</span>" : "") +
         (player.index === me ? ' <span class="cluedo-me-tag">أنت</span>' : "") + "</strong>" +

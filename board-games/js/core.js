@@ -602,7 +602,11 @@
   const playerProfile = (BG.playerProfile = {
     avatars: PLAYER_AVATARS,
     colors: PLAYER_COLORS,
+    roster: [],
     normalize: normalizePlayerProfile,
+    setRoster(players) {
+      this.roster = Array.isArray(players) ? players.slice() : [];
+    },
     get() {
       return normalizePlayerProfile(BG.store.get(PLAYER_PROFILE_KEY, {}));
     },
@@ -632,6 +636,19 @@
       const profile = normalizePlayerProfile(value);
       const extra = String(extraClass || "").replace(/[^a-z0-9 _-]/gi, "").trim();
       return '<span class="player-avatar' + (extra ? " " + extra : "") + '" style="--profile-color:' + profile.color + '" aria-hidden="true">' + U.escape(playerProfile.avatarEmoji(profile.avatar)) + "</span>";
+    },
+    playerHTML(player, extraClass) {
+      const item = player && typeof player === "object" ? player : {};
+      const seat = this.roster[Number(item.index)] || {};
+      const fallback = playerProfile.defaultFor(item.index, !!(item.isCpu || item.cpu));
+      const stored = normalizePlayerProfile(item.profile || seat.profile || {
+        avatar: item.avatarId || seat.avatarId || fallback.avatar,
+        color: fallback.color,
+      }, fallback);
+      const color = item.profileColor || seat.profileColor || (typeof item.color === "string" ? item.color : item.color && item.color.css) || stored.color;
+      const profile = normalizePlayerProfile({ avatar: stored.avatar, color }, fallback);
+      const extra = ["game-player-avatar", extraClass || ""].join(" ").trim();
+      return playerProfile.avatarHTML(profile, extra);
     },
   });
 

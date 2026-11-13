@@ -560,7 +560,7 @@
     const sci = "⚙️ " + ar(player.sciences.gear) + " · 🧭 " + ar(player.sciences.compass) + " · 📜 " + ar(player.sciences.tablet);
     const stages = player.wonder.stages.map((stage, index) => '<span class="sw-dot ' + (index < player.stages ? "is-on" : "") + '"></span>').join("");
     return '<article class="sw-player ' + (player.index === cur().index ? "is-current" : "") + '" style="--pc:' + player.color + '">' +
-      '<div class="xg-spread"><span class="sw-player-name"><span class="xg-avatar">' + ar(player.index + 1) + "</span>" + esc(player.name) + "</span>" +
+      '<div class="xg-spread"><span class="sw-player-name">' + BG.playerProfile.playerHTML(player, "sw-player-avatar") + esc(player.name) + "</span>" +
       '<strong class="sw-total">' + ar(totalScore(player)) + "</strong></div>" +
       '<div class="sw-player-wonder"><span>' + esc(player.wonder.name) + "</span><span class=\"sw-dots\">" + stages + "</span></div>" +
       '<div class="sw-player-stats">' +

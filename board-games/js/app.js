@@ -132,7 +132,6 @@
     els.gameLog = document.getElementById("gameLogList");
     els.gameLogCard = document.getElementById("gameLogCard");
     els.btnRules = document.getElementById("btnGameRules");
-    els.btnPlayers = document.getElementById("btnGamePlayers");
     els.btnNew = document.getElementById("btnGameNew");
     els.btnBack = document.getElementById("btnGameBack");
     els.btnSettings = document.getElementById("btnSettings");
@@ -170,7 +169,6 @@
     }
 
     els.btnRules.addEventListener("click", () => { if (currentGame) BG.openRules(currentGame, currentOptions); });
-    if (els.btnPlayers) els.btnPlayers.addEventListener("click", showPlayersDialog);
     if (els.btnFullscreen) els.btnFullscreen.addEventListener("click", toggleGameFullscreen);
     if (els.btnExitFullscreen) els.btnExitFullscreen.addEventListener("click", exitGameFullscreen);
     els.btnNew.addEventListener("click", () => {
@@ -649,7 +647,6 @@
     els.gameView.style.setProperty("--accent", game.accent || "#f2b45e");
     if (els.gameCrest) els.gameCrest.innerHTML = emblem(game);
     els.btnRules.hidden = false;
-    if (els.btnPlayers) els.btnPlayers.hidden = true;
     if (els.btnFullscreen) {
       els.btnFullscreen.hidden = false;
       els.btnFullscreen.setAttribute("aria-pressed", document.fullscreenElement ? "true" : "false");
@@ -819,7 +816,6 @@
   function openSetup(game, previous) {
     if (isOnlineGame()) BG.online.shutdown();
     destroyInstance();
-    if (els.btnPlayers) els.btnPlayers.hidden = true;
     currentNet = null;
     currentOptions = Object.assign({}, (game.options && game.options.defaults) || {}, (previous && previous.options) || {});
     const savedSetup = BG.store.get("setup.v1", {}) || {};
@@ -1163,13 +1159,13 @@
   function startGame(game, seats, cpuCount, options) {
     const opts = options || {};
     const roster = buildRoster(seats);
+    BG.playerProfile.setRoster(roster);
     const bots = typeof cpuCount === "number" ? cpuCount : roster.filter((seat) => seat.isCpu).length;
     currentOptions = Object.assign({}, (game.options && game.options.defaults) || {}, opts.options || {});
     destroyInstance();
     BG.clear(els.stage);
     BG.clear(els.gameLog);
     els.btnNew.hidden = false;
-    if (els.btnPlayers) els.btnPlayers.hidden = !roster.length;
     els.gameStatus.textContent = "جارٍ اللعب";
     els.gameStatus.className = "game-status live";
     els.gameLogCard.hidden = false;
@@ -1279,6 +1275,20 @@
     gameMount.hidden = false;
     return instance;
   }
+
+  function applyRosterProfile(player, seat) {
+    if (!player || !seat || !BG.playerProfile) return;
+    const profile = BG.playerProfile.normalize(seat.profile);
+    player.profile = profile;
+    player.avatar = BG.playerProfile.avatarEmoji(profile.avatar);
+    player.profileColor = seat.profileColor || "";
+    if (!seat.profileColor) return;
+    if (typeof player.color === "string") player.color = seat.profileColor;
+    else if (player.color && typeof player.color === "object" && typeof player.color.css === "string") {
+      player.color.css = seat.profileColor;
+    }
+  }
+
 
   function showGameOver(o, online) {
     const data = Object.assign({ title: "انتهت اللعبة", text: "", winner: "", standings: [] }, o || {});
@@ -1553,53 +1563,14 @@
       try {
         const snapshot = instance.netSnapshot();
         const player = snapshot && snapshot.players && snapshot.players[index];
-        if (player) {
-          player.profile = profile;
-          player.avatar = roster.avatar;
-          player.profileColor = profile.color;
-          if (Object.prototype.hasOwnProperty.call(player, "color")) player.color = profile.color;
+        if (player) applyRosterProfile(player, roster);
+        if (snapshot) {
           instance.netLoad(snapshot);
           if (typeof instance.netResume === "function") instance.netResume();
         }
       } catch (err) { /* يظل الملف محفوظًا حتى لو لم تدعم اللعبة تحديثًا فوريًا. */ }
     }
     return true;
-  }
-
-  function showPlayersDialog() {
-    if (!currentApi || !Array.isArray(currentApi.players)) return;
-    const players = currentApi.players;
-    const localIndex = currentApi.net && currentApi.net.enabled
-      ? Number(currentApi.net.seat)
-      : players.findIndex((player) => !player.isCpu);
-    const body = BG.el("div", { class: "game-player-roster" });
-    players.forEach((player, index) => {
-      const profile = BG.playerProfile.normalize(player.profile || BG.playerProfile.defaultFor(index, player.isCpu));
-      const row = BG.el("div", { class: "game-player-row", style: { "--profile-color": profile.color } });
-      row.appendChild(BG.el("span", {
-        class: "player-avatar",
-        text: BG.playerProfile.avatarEmoji(profile.avatar),
-        style: { "--profile-color": profile.color },
-        "aria-hidden": "true",
-      }));
-      const copy = BG.el("span", { class: "game-player-copy" });
-      copy.appendChild(BG.el("strong", { text: player.name || "اللاعب " + (index + 1) }));
-      copy.appendChild(BG.el("small", { text: (player.isCpu ? "كمبيوتر" : "لاعب") + (index === localIndex ? " · أنت" : "") }));
-      row.appendChild(copy);
-      row.appendChild(BG.el("span", {
-        class: "game-player-color",
-        title: "لون اللاعب " + profile.color,
-        "aria-label": "لون اللاعب " + profile.color,
-        style: { "--profile-color": profile.color },
-      }));
-      body.appendChild(row);
-    });
-    BG.openDialog({
-      title: "اللاعبون",
-      className: "player-roster-dialog",
-      body,
-      actions: [{ label: "تم", value: "ok", primary: true }],
-    });
   }
 
   /* إعادة بناء نسخة اللعبة لمقعد محلي جديد (تبديل مواقع اللاعبين أثناء اللعب) */
@@ -1639,7 +1610,6 @@
   BG.app = {
     netPatchPlayer,
     updatePlayerProfile,
-    showPlayersDialog,
     netRebuild,
     netPromoteToHost,
     netSetRole,

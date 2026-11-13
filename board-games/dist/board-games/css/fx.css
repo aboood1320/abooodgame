@@ -142,22 +142,7 @@
 }
 .fx-color-choice:hover,
 .fx-color-choice.is-selected { outline: 2px solid #effff8; outline-offset: 2px; }
-.player-roster-dialog { max-width: 480px; }
-.game-player-roster { display: grid; gap: 8px; min-width: min(360px, 72vw); }
-.game-player-row {
-  display: flex;
-  align-items: center;
-  gap: 11px;
-  min-width: 0;
-  padding: 9px 11px;
-  border: 1px solid color-mix(in srgb, var(--profile-color, #4f86f7) 38%, rgba(255, 255, 255, 0.1));
-  border-radius: 12px;
-  background: color-mix(in srgb, var(--profile-color, #4f86f7) 8%, rgba(255, 255, 255, 0.025));
-}
-.game-player-copy { display: grid; min-width: 0; gap: 2px; flex: 1 1 auto; }
-.game-player-copy strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.82rem; }
-.game-player-copy small { color: var(--muted); font-size: 0.68rem; }
-.game-player-color { flex: 0 0 auto; width: 12px; height: 12px; border: 1px solid rgba(255, 255, 255, 0.4); border-radius: 50%; background: var(--profile-color); }
+.game-player-avatar { width: 30px; height: 30px; border-width: 1px; font-size: 1rem; }
 
 .fx-intro {
   display: flex;

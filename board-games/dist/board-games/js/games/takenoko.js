@@ -1134,7 +1134,7 @@
   function playerMat(player) {
     const active = player.index === state.current;
     return '<article class="tk-player' + (active ? " is-current" : "") + '" style="--pc:' + player.color + '">' +
-      '<div class="xg-spread"><span class="xg-row"><span class="xg-avatar">' + ar(player.index + 1) + "</span><strong>" + esc(player.name) + "</strong></span>" +
+      '<div class="xg-spread"><span class="xg-row">' + BG.playerProfile.playerHTML(player, "tk-player-avatar") + "<strong>" + esc(player.name) + "</strong></span>" +
       '<span class="tk-player-score">' + ar(playerScore(player)) + " نقطة</span></div>" +
       '<div class="tk-player-stats"><span>🎴 ' + ar(player.completed.length) + " هدف</span><span>🖐️ " + ar(player.hand.length) + "</span>" +
       (state.emperorHolder === player.index ? '<span class="tk-emperor">👑 إمبراطور</span>' : "") + "</div>" +

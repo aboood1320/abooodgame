@@ -305,7 +305,7 @@
     }).join("");
     return (
       '<div class="xg-panel yz-card ' + (active ? "is-active" : "") + '" style="--pc:' + player.color + '">' +
-      '<div class="xg-spread"><span class="xg-row"><span class="xg-avatar">' + ar(player.index + 1) + "</span><strong>" + esc(player.name) + "</strong></span>" +
+      '<div class="xg-spread"><span class="xg-row">' + BG.playerProfile.playerHTML(player, "yz-player-avatar") + "<strong>" + esc(player.name) + "</strong></span>" +
       '<span class="xg-chip">' + ar(total(player.card)) + "</span></div>" +
       '<table class="xg-table"><thead><tr><th>الخانة</th><th>النقاط</th></tr></thead><tbody>' + rows + "</tbody></table>" +
       '<p class="xg-note">المجموع العلوي: <strong>' + ar(upper) + "</strong> / ٦٣ " + (bonus(player.card) ? '<span class="xg-good">· المكافأة ✓</span>' : "") + "</p>" +

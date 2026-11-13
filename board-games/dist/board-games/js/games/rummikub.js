@@ -480,7 +480,7 @@
     const playerRows = state.players.map((p) => {
       const shown = p.hand.reduce((sum, tile) => sum + (tile.joker ? 30 : tile.num), 0);
       return '<div class="rk-player ' + (state.current === p.index ? "is-current" : "") + '" style="--pc:' + p.color + '">' +
-        '<span class="xg-row"><span class="rk-swatch"></span><strong>' + esc(p.name) + "</strong></span>" +
+        '<span class="xg-row">' + BG.playerProfile.playerHTML(p, "rk-player-avatar") + "<strong>" + esc(p.name) + "</strong></span>" +
         '<span class="rk-counts">' + ar(p.hand.length) + " قطعة · " + (p.hasMelded ? "أنزل" : "لم يُنزل") + "</span></div>";
     }).join("");
 

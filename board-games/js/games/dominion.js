@@ -359,7 +359,7 @@
 
     const playerRows = state.players.map((p) => (
       '<div class="dmn-player ' + (p.index === state.current ? "is-current" : "") + '">' +
-      '<span class="xg-row"><span class="xg-avatar">' + ar(p.index + 1) + "</span><strong>" + esc(p.name) + "</strong></span>" +
+      '<span class="xg-row">' + BG.playerProfile.playerHTML(p, "dmn-player-avatar") + "<strong>" + esc(p.name) + "</strong></span>" +
       '<span class="dmn-counts">يد ' + ar(p.hand.length) + " · سطح " + ar(p.draw.length + p.discard.length + p.played.length) + "</span></div>"
     )).join("");
 

@@ -211,7 +211,7 @@
   function playerPanel(player) {
     const cards = player.cards.slice().sort((a, b) => a - b);
     return '<article class="nt-player ' + (player.index === state.current ? "is-current" : "") + '" style="--pc:' + player.color + '">' +
-      '<div class="xg-spread"><span class="xg-row"><span class="xg-avatar">' + ar(player.index + 1) + "</span><strong>" + esc(player.name) + "</strong></span>" +
+      '<div class="xg-spread"><span class="xg-row">' + BG.playerProfile.playerHTML(player, "nt-player-avatar") + "<strong>" + esc(player.name) + "</strong></span>" +
       '<span class="nt-score">' + ar(scoreOf(player)) + "</span></div>" +
       '<div class="nt-player-stats"><span>🎟️ ' + ar(player.cards.length) + "</span><span>🪙 " + ar(player.chips) + "</span></div>" +
       '<div class="nt-player-cards">' + (cards.length ? cards.map((card) => '<span class="nt-mini">' + ar(card) + "</span>").join("") : '<span class="xg-muted">لا بطاقات</span>') + "</div>" +

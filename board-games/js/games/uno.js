@@ -816,7 +816,7 @@
       const uno = player.hand.length === 1;
       return (
         '<div class="uno-player' + (active ? " active" : "") + (uno ? " is-uno" : "") + '" style="--p:' + player.color + '">' +
-        '<span class="pdot">' + (player.index + 1) + "</span>" +
+        BG.playerProfile.playerHTML(player, "uno-player-avatar") +
         '<div class="uno-player-copy"><strong>' + U.escape(player.name) + "</strong>" +
         "<small>" + player.hand.length + " بطاقة" + (unoOption("matchTo500") ? " · " + (state.scores[player.index] || 0) + " نقطة" : "") + "</small></div>" +
         (uno ? '<span class="uno-badge">أونو!</span>' : "") +

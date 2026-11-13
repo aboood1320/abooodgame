@@ -491,7 +491,7 @@
       const kings = state.board.filter((piece) => piece && piece.seat === player.index && piece.king).length;
       return (
         '<div class="' + classes.join(" ") + '">' +
-        '<span class="ck-swatch"></span>' +
+        BG.playerProfile.playerHTML(player, "ck-player-avatar") +
         '<span class="ck-player-copy"><strong>' + esc(player.name) + "</strong>" +
         "<small>" + ar(pieces) + " قطعة · " + ar(kings) + " ملك" + (player.isCpu ? " · 🤖" : "") + "</small></span>" +
         '<span class="ck-count">' + ar(pieces) + "</span></div>"

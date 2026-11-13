@@ -435,7 +435,7 @@
     const remaining = (seat) => state.board.filter((piece) => piece && piece.seat === seat).length;
     const playerRows = state.players.map((player) => (
       '<div class="xg-spread st-player ' + (state.current === player.index ? "is-current" : "") + '" style="--pc:' + player.color + '">' +
-      '<span class="xg-row"><span class="xg-avatar">' + ar(player.index + 1) + "</span><span>" + esc(player.name) + "</span></span>" +
+      '<span class="xg-row">' + BG.playerProfile.playerHTML(player, "st-player-avatar") + "<span>" + esc(player.name) + "</span></span>" +
       '<span class="xg-chip">' + ar(remaining(player.index)) + " قطعة</span></div>"
     )).join("");
 

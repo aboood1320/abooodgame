@@ -742,7 +742,7 @@
 
     const playerRows = state.players.map((p) => (
       '<div class="tm-player ' + (p.index === state.current ? "is-current" : "") + '" style="--pc:' + p.color + '">' +
-      '<div class="xg-spread"><span class="xg-row"><span class="xg-avatar">' + ar(p.index + 1) + "</span><strong>" + esc(p.name) + "</strong></span>" +
+      '<div class="xg-spread"><span class="xg-row">' + BG.playerProfile.playerHTML(p, "tm-player-avatar") + "<strong>" + esc(p.name) + "</strong></span>" +
       '<span class="xg-chip">' + ar(totalScore(p)) + "</span></div>" +
       '<div class="tm-player-tr">TR <strong>' + ar(p.tr) + "</strong> · " + (p.corp ? esc(p.corp.name) : "") + "</div>" +
       '<div class="tm-player-res">' + Object.keys(RES_AR).map((key) => '<span title="' + RES_AR[key] + '">' + RES_ICON[key] + ar(p.resources[key]) + "</span>").join("") + "</div>" +

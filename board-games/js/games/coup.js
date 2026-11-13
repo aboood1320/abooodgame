@@ -491,7 +491,7 @@
     const seen = state.players[viewSeat()];
     const showRoles = seen && seen.index === player.index;
     return '<article class="cp-player ' + (isCurrent ? "is-current" : "") + (player.alive ? "" : " is-out") + '" style="--pc:' + player.color + '">' +
-      '<div class="xg-spread"><span class="xg-row"><span class="xg-avatar">' + ar(player.index + 1) + "</span><strong>" + esc(player.name) + "</strong></span>" +
+      '<div class="xg-spread"><span class="xg-row">' + BG.playerProfile.playerHTML(player, "cp-player-avatar") + "<strong>" + esc(player.name) + "</strong></span>" +
       '<span class="cp-coins">🪙 ' + ar(player.coins) + "</span></div>" +
       '<div class="cp-roles">' +
       player.revealed.map((role) => roleChip(role, false)).join("") +

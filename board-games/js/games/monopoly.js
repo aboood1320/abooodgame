@@ -354,6 +354,10 @@
         type: p.type === "cpu" ? "cpu" : "human",
         level: AI.level(p.level),
         isCpu: AI.isCpu(p),
+        profile: p.profile,
+        avatar: p.avatar,
+        profileColor: p.profileColor || "",
+        color: p.profileColor || PLAYER_COLORS[i % PLAYER_COLORS.length],
         money: startMoney,
         pos: 0,
         inJail: false,
@@ -1982,7 +1986,7 @@
       cell.style.gridColumn = String(col);
       if (owner) {
         cell.style.setProperty("--owner", "var(--p" + (owner.index % 6) + ")");
-        cell.style.setProperty("--owner-color", PLAYER_COLORS[owner.index % PLAYER_COLORS.length]);
+        cell.style.setProperty("--owner-color", owner.color || PLAYER_COLORS[owner.index % PLAYER_COLORS.length]);
       }
       cell.title = space.name + (space.price ? " — " + U.money(space.price) : "") + (owner ? " — " + owner.name : "");
 
@@ -2045,7 +2049,9 @@
         t.className = "mtoken p" + (p.index % 6) + (state.current === p.index ? " active" : "") + (p.inJail && i === 10 ? " jailed" : "");
         t.setAttribute("data-fx-piece", "mp-" + p.index);
         t.setAttribute("data-fx-enter", "pop");
-        t.innerHTML = '<span class="mtoken-art">' + tokenArt(p.index).svg + '</span><b class="mtoken-num">' + (p.index + 1) + "</b>";
+        t.style.setProperty("--profile-color", p.color || PLAYER_COLORS[p.index % PLAYER_COLORS.length]);
+        t.style.setProperty("--p", p.color || PLAYER_COLORS[p.index % PLAYER_COLORS.length]);
+        t.innerHTML = '<span class="mtoken-art">' + U.escape(BG.playerProfile.avatarEmoji(p.profile)) + '</span><b class="mtoken-num">' + (p.index + 1) + "</b>";
         t.title = p.name;
         tokens.appendChild(t);
       });
@@ -2060,7 +2066,7 @@
     const isRollPhase = state.phase === "roll" && p && !AI.isCpu(p) && canActNow();
     center.innerHTML =
       '<div class="mcenter-brand"><span class="mcenter-star">✦</span><div class="mlogo">MONOPOLY<span>نُبلاء المدينة</span></div><span class="mcenter-star">✦</span></div>' +
-      (p ? '<div class="mturn"><span class="mturn-token p' + (p.index % 6) + '">' + tokenArt(p.index).svg + '</span><div><span>دور</span><strong class="p' + (p.index % 6) + '">' + U.escape(p.name) + '</strong><small>' + (p.inJail ? "في السجن" : "على الرقعة") + "</small></div><b>" + U.money(p.money) + "</b></div>" : "") +
+      (p ? '<div class="mturn"><span class="mturn-token p' + (p.index % 6) + '" style="--p:' + (p.color || PLAYER_COLORS[p.index % PLAYER_COLORS.length]) + '">' + U.escape(BG.playerProfile.avatarEmoji(p.profile)) + '</span><div><span>دور</span><strong class="p' + (p.index % 6) + '" style="color:' + (p.color || PLAYER_COLORS[p.index % PLAYER_COLORS.length]) + '">' + U.escape(p.name) + '</strong><small>' + (p.inJail ? "في السجن" : "على الرقعة") + "</small></div><b>" + U.money(p.money) + "</b></div>" : "") +
       '<div class="mdice' + (isRollPhase ? " mdice-action" : "") + '"' + (isRollPhase ? ' data-act="roll" role="button" tabindex="0" title="ارمِ النرد"' : "") + ">" +
       (state.dice ? dieMarkup(state.dice[0]) + dieMarkup(state.dice[1]) : '<span class="mdice-empty">' + (isRollPhase ? "اضغط لرمي النرد" : "بانتظار النرد") + "</span>") +
       "</div>" +
@@ -2362,8 +2368,8 @@
           const isYou = local != null && local === pl.index;
           const active = state.current === pl.index && !state.over;
           return (
-            '<div class="mrow p' + (pl.index % 6) + (active ? " active" : "") + (pl.bankrupt ? " bankrupt" : "") + '">' +
-            '<span class="mrow-token p' + (pl.index % 6) + '">' + tokenArt(pl.index).svg + "</span>" +
+            '<div class="mrow p' + (pl.index % 6) + (active ? " active" : "") + (pl.bankrupt ? " bankrupt" : "") + '" style="--p:' + (pl.color || PLAYER_COLORS[pl.index % PLAYER_COLORS.length]) + '">' +
+            '<span class="mrow-token p' + (pl.index % 6) + '" style="--profile-color:' + (pl.color || PLAYER_COLORS[pl.index % PLAYER_COLORS.length]) + '">' + U.escape(BG.playerProfile.avatarEmoji(pl.profile)) + "</span>" +
             '<div class="mrow-main"><strong>' + U.escape(pl.name) + (isYou ? ' <em class="mono-you">أنت</em>' : "") + "</strong><small>" +
             (pl.bankrupt
               ? "مفلس"

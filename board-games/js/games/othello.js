@@ -268,7 +268,7 @@
       const value = player.index === 0 ? score.black : score.white;
       return (
         '<div class="ot-score ' + (state.current === player.index ? "is-current" : "") + '" style="--pc:' + player.color + '">' +
-        '<span class="xg-row"><span class="ot-dot ' + (player.index === 0 ? "black" : "white") + '"></span><span>' + esc(player.name) + "</span></span>" +
+        '<span class="xg-row">' + BG.playerProfile.playerHTML(player, "ot-player-avatar") + "<span>" + esc(player.name) + "</span></span>" +
         "<strong>" + ar(value) + "</strong></div>"
       );
     }).join("");

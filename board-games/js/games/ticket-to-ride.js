@@ -1674,7 +1674,7 @@
     const viewer = p.index === viewerSeat() && !p.isCpu;
     const done = p.tickets.filter((t) => isConnected(p, t.a, t.b)).length;
     return '<li class="ttr-player' + (active ? " active" : "") + (viewer ? " viewer" : "") + '" style="--pc:' + p.color + '">' +
-      '<span class="ttr-pdot" aria-hidden="true"></span>' +
+      BG.playerProfile.playerHTML(p, "ttr-player-avatar") +
       '<div class="ttr-pinfo">' +
       '<strong>' + U.escape(p.name) + (viewer ? '<em class="ttr-you">أنت</em>' : "") + "</strong>" +
       '<small>' + p.trains + " قطار · " + p.tickets.length + " تذكرة" +

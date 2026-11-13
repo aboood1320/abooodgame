@@ -280,6 +280,9 @@
         type: p.type === "cpu" ? "cpu" : "human",
         level: AI.level(p.level),
         isCpu: AI.isCpu(p),
+        profile: p.profile,
+        avatar: p.avatar,
+        profileColor: p.profileColor || "",
         res: { wood: 0, brick: 0, sheep: 0, wheat: 0, ore: 0 },
         dev: [],
         knights: 0,
@@ -1490,7 +1493,7 @@
       const va = geometry.vertices[h.a] && geometry.vertices[h.a].building;
       const vb = geometry.vertices[h.b] && geometry.vertices[h.b].building;
       const owner = va ? va.owner : vb ? vb.owner : null;
-      const ring = owner == null ? "#c8a75c" : PCOLORS[owner % 6];
+      const ring = owner == null ? "#c8a75c" : playerColor(owner);
       const dx = h.x - h.ex;
       const dy = h.y - h.ey;
       const len = Math.hypot(dx, dy) || 1;
@@ -1519,7 +1522,7 @@
       const fresh = state.fxBuild && state.fxBuild.kind === "road" && state.fxBuild.id === e.id;
       parts.push('<g class="cat-built cat-road-built' + (fresh ? " is-fresh" : "") + '" data-edge="' + e.id + '" data-fx-piece="cat-r-' + e.id + '" data-fx-enter="rise">');
       parts.push('<line x1="' + a.x + '" y1="' + a.y + '" x2="' + b.x + '" y2="' + b.y + '" stroke="#0a1116" stroke-width="10" stroke-linecap="round"/>');
-      parts.push('<line x1="' + a.x + '" y1="' + a.y + '" x2="' + b.x + '" y2="' + b.y + '" stroke="' + PCOLORS[e.owner % 6] + '" stroke-width="6" stroke-linecap="round"/>');
+      parts.push('<line x1="' + a.x + '" y1="' + a.y + '" x2="' + b.x + '" y2="' + b.y + '" stroke="' + playerColor(e.owner) + '" stroke-width="6" stroke-linecap="round"/>');
       parts.push('<line x1="' + a.x + '" y1="' + a.y + '" x2="' + b.x + '" y2="' + b.y + '" stroke="rgba(255,255,255,.42)" stroke-width="1.6" stroke-linecap="round" stroke-dasharray="4 5"/>');
       parts.push("</g>");
     });
@@ -1527,7 +1530,7 @@
     // المباني
     geometry.vertices.forEach((v) => {
       if (!v.building) return;
-      const color = PCOLORS[v.building.owner % 6];
+      const color = playerColor(v.building.owner);
       const fresh = state.fxBuild && state.fxBuild.kind === "settlement" && state.fxBuild.id === v.id;
       parts.push('<g class="cat-built cat-building' + (fresh ? " is-fresh" : "") + '" data-vertex="' + v.id + '" data-fx-piece="cat-b-' + v.id + '" data-fx-enter="drop">');
       if (v.building.type === "city") {
@@ -1648,12 +1651,17 @@
     const badges = [];
     if (p.hasLongest) badges.push('<span class="cbadge road">🛣️ أطول طريق</span>');
     if (p.hasArmy) badges.push('<span class="cbadge army">⚔️ أكبر جيش</span>');
-    return '<div class="cat-prow p' + (p.index % 6) + (state.current === p.index ? " active" : "") + '">' +
-      '<span class="pdot">' + (p.index + 1) + "</span>" +
+    return '<div class="cat-prow p' + (p.index % 6) + (state.current === p.index ? " active" : "") + '" style="--p:' + playerColor(p.index) + '">' +
+      BG.playerProfile.playerHTML(p, "catan-player-avatar") +
       '<div class="cat-pmain"><strong>' + U.escape(p.name) + "</strong><small>🏠 " + p.settlements + " · 🏛️ " + p.cities + " · 🛣️ " + roadCount(p) + " · ⚔️ " + p.knights + "</small>" +
       (badges.length ? '<div class="cbadges">' + badges.join("") + "</div>" : "") + "</div>" +
       '<span class="cat-vp"><b>' + publicVP(p) + "</b><small>نقطة ظاهرة</small></span>" +
       "</div>";
+  }
+
+  function playerColor(index) {
+    const player = state && state.players && state.players[index];
+    return player && player.profileColor || PCOLORS[index % PCOLORS.length];
   }
 
   function sideHTML() {

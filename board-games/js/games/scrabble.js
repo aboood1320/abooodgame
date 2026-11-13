@@ -1004,7 +1004,7 @@
         : player.rack.length + " أحجار · مخفي";
       return (
         '<div class="scrab-player' + (active ? " active" : "") + '" data-player="' + player.index + '" style="--p:' + player.color + '">' +
-        '<span class="pdot">' + (player.index + 1) + "</span>" +
+        BG.playerProfile.playerHTML(player, "scrab-player-avatar") +
         '<div class="scrab-player-copy"><strong>' + U.escape(player.name) + "</strong>" +
         "<small>" + rackInfo + "</small></div>" +
         '<span class="scrab-player-score">' + player.score + "</span>" +

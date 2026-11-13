@@ -449,7 +449,7 @@
     const foodTotal = FOODS.reduce((sum, food) => sum + seen.food[food], 0);
     const playerRows = state.players.map((p) => (
       '<div class="wg-player ' + (p.index === state.current ? "is-current" : "") + '" style="--pc:' + p.color + '">' +
-      '<div class="xg-spread"><span class="xg-row"><span class="xg-avatar">' + ar(p.index + 1) + "</span><strong>" + esc(p.name) + "</strong></span>" +
+      '<div class="xg-spread"><span class="xg-row">' + BG.playerProfile.playerHTML(p, "wg-player-avatar") + "<strong>" + esc(p.name) + "</strong></span>" +
       '<span class="wg-player-score">' + ar(totalScore(p)) + "</span></div>" +
       '<div class="wg-player-stats"><span>🐦 ' + ar(birdPoints(p)) + "</span><span>🥚 " + ar(totalEggs(p)) + "</span><span>🏁 " + ar(p.goalVp) + "</span>" +
       '<span>🎯 ' + ar(p.actionsLeft) + "</span></div>" +

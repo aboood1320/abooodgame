@@ -385,7 +385,7 @@
     const lines = state.pending ? legalLines(player, state.pending.color) : [];
     const playerRows = state.players.map((p) => (
       '<div class="az-score-row ' + (p.index === state.current ? "is-current" : "") + '">' +
-      '<span class="xg-row"><span class="az-mini-wall">' + wallHtml(p, true) + "</span><strong>" + esc(p.name) + "</strong></span>" +
+      '<span class="xg-row">' + BG.playerProfile.playerHTML(p, "az-player-avatar") + '<span class="az-mini-wall">' + wallHtml(p, true) + "</span><strong>" + esc(p.name) + "</strong></span>" +
       '<span class="xg-chip">' + ar(p.score) + "</span></div>"
     )).join("");
 

@@ -501,7 +501,7 @@
       if (isOnline() && player.index === localSeat()) classes.push("mine");
       return (
         '<div class="' + classes.join(" ") + '">' +
-        '<span class="dm-dot-color"></span>' +
+        BG.playerProfile.playerHTML(player, "dm-player-avatar") +
         '<span class="dm-player-copy"><strong>' + esc(player.name) + "</strong>" +
         "<small>" + ar(player.hand.length) + " أحجار · " + ar(handPips(player)) + " نقطة" +
         (player.isCpu ? " · 🤖" : "") + "</small></span>" +

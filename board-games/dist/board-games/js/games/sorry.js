@@ -390,7 +390,7 @@
       const yard = player.tokens.filter((t) => t.pos < 0).length;
       const track = player.tokens.filter((t) => t.pos >= 0 && t.pos < TRACK).length;
       return '<div class="sy-player ' + (state.current === player.index ? "is-current" : "") + '" style="--pc:' + player.color + '">' +
-        '<span class="xg-row"><span class="sy-swatch"></span><strong>' + esc(player.name) + "</strong></span>" +
+        '<span class="xg-row">' + BG.playerProfile.playerHTML(player, "sy-player-avatar") + "<strong>" + esc(player.name) + "</strong></span>" +
         '<span class="sy-counts">' + ar(yard) + " بداية · " + ar(track) + " مسار · " + ar(player.finished) + " بيت</span></div>";
     }).join("");
 

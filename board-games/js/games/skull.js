@@ -441,7 +441,7 @@
     const canFlip = state.phase === "flip" && state.flip && state.flip.ownDone &&
       state.flip.player !== player.index && player.placed && !player.revealed;
     return '<article class="sk-player ' + (isCurrent ? "is-current " : "") + (isFlipper ? "is-flipper " : "") + (player.alive ? "" : "is-out") + '" style="--pc:' + player.color + '">' +
-      '<div class="xg-spread"><span class="xg-row"><span class="xg-avatar">' + ar(player.index + 1) + "</span><strong>" + esc(player.name) + "</strong></span>" +
+      '<div class="xg-spread"><span class="xg-row">' + BG.playerProfile.playerHTML(player, "sk-player-avatar") + "<strong>" + esc(player.name) + "</strong></span>" +
       '<span class="sk-score">🌹 ' + ar(player.score) + "</span></div>" +
       '<div class="sk-mat">' +
       (player.placed
