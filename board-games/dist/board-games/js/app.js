@@ -140,6 +140,17 @@
     els.heroBrowse = document.getElementById("heroBrowse");
     els.heroRandom = document.getElementById("heroRandom");
 
+    const skipToContent = document.getElementById("skipToContent");
+    if (skipToContent) {
+      skipToContent.addEventListener("click", () => {
+        const main = document.getElementById("mainContent");
+        if (!main) return;
+        main.focus({ preventScroll: true });
+        const reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        main.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "start" });
+      });
+    }
+
     renderLibrary();
     bindLibraryFilters();
 
@@ -353,6 +364,12 @@
         panel.hidden = !open;
         toggle.setAttribute("aria-expanded", open ? "true" : "false");
         if (!open) toggle.focus();
+      });
+      panel.addEventListener("keydown", (event) => {
+        if (event.key !== "Escape" || panel.hidden) return;
+        panel.hidden = true;
+        toggle.setAttribute("aria-expanded", "false");
+        toggle.focus();
       });
     }
     [search, players, duration, complexity].forEach((control) => {

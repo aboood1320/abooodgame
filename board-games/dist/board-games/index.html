@@ -61,7 +61,7 @@
 <link rel="stylesheet" href="css/net.css?v=30" />
 <link rel="stylesheet" href="css/polish.css?v=32" />
 <link rel="stylesheet" href="css/upgrade.css?v=1" />
-<link rel="stylesheet" href="css/library.css?v=7" />
+<link rel="stylesheet" href="css/library.css?v=8" />
 <link rel="stylesheet" href="css/net2.css?v=2" />
 <link rel="stylesheet" href="css/monopoly.css?v=6" />
 <link rel="stylesheet" href="css/ludo.css?v=1" media="print" onload="this.media='all'" />
@@ -137,6 +137,8 @@
 
 <div class="bg-app">
 
+  <button type="button" class="skip-link" id="skipToContent">تجاوز إلى المحتوى</button>
+
   <header class="bg-topbar">
     <a class="bg-brand" href="./" title="ألعاب الطاولة — المكتبة">
       <span class="bg-logo" aria-hidden="true"><svg class="ic"><use href="#i-dice"/></svg></span>
@@ -154,7 +156,7 @@
     </nav>
   </header>
 
-  <main>
+  <main id="mainContent" tabindex="-1">
 
     <!-- ================= المكتبة ================= -->
     <section id="libraryView" class="library-view">
@@ -165,7 +167,7 @@
         <div class="hero-copy">
           <span class="eyebrow"><svg class="ic" aria-hidden="true"><use href="#i-spark"/></svg>أربعون لعبة — كلاسيكيات عائلية ومختارات BGG</span>
           <h1>ليلة ألعاب <span class="hero-gold">لا تُنسى</span></h1>
-          <p>مكتبة مصمّمة بعناية لعشّاق الطاولة: عشرون كلاسيكية عائلية وعشرون مختارة من BGG، دليل قواعد مفصّل بالعربية، وواجهات تجعل الدور سهلًا وواضحًا. العب مع أصدقائك على الجهاز نفسه، أو أنشئ غرفة عالمية يلعب فيها كلٌّ من مكانه، والمعلومات السرّية تبقى مخفية حتى تضغط «إظهار».</p>
+          <p>أربعون لعبة تجمع الكلاسيكيات العائلية ومختارات من BGG، مع قواعد عربية واضحة. العبوا معًا على جهاز واحد أو عبر الإنترنت، مع أدوات تحفظ سرية المعلومات الخاصة.</p>
           <div class="hero-actions">
             <button class="hero-btn primary" type="button" id="heroBrowse">
               <span>استكشف المكتبة</span>
@@ -490,7 +492,7 @@
 <script defer src="js/net.js?v=33"></script>
 <script defer src="js/library-art.js?v=1"></script>
 <script defer src="js/library-art-expansion.js?v=1"></script>
-<script defer src="js/app.js?v=43"></script>
+<script defer src="js/app.js?v=44"></script>
 <script defer src="js/online.js?v=42"></script>
 <script defer src="js/online-host.js?v=1"></script>
 <script defer src="js/site-extras.js?v=1"></script>
