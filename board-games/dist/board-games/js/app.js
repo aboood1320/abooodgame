@@ -923,15 +923,15 @@
     levelBox.innerHTML = '<label>مستوى الكمبيوتر</label>';
     const levelSeg = BG.el("div", { class: "seg" });
     Object.values(BG.ai.LEVELS).forEach((spec) => {
-      const chessRating = game.id === "chess";
+      const isChess = game.id === "chess";
       const label = BG.ai.levelLabel(spec.id, game.id);
       const b = BG.el("button", {
         type: "button",
         class: "seg-btn level-btn" + (spec.id === state.level ? " active" : ""),
         text: label,
         "aria-pressed": spec.id === state.level ? "true" : "false",
-        title: chessRating ? "تصنيف إيلو " + label : "مستوى الكمبيوتر: " + label,
-        "aria-label": chessRating ? "تصنيف إيلو " + label : "مستوى الكمبيوتر: " + label,
+        title: isChess ? "تصنيف إيلو: " + label : "مستوى الكمبيوتر: " + label,
+        "aria-label": isChess ? "تصنيف إيلو: " + label : "مستوى الكمبيوتر: " + label,
       });
       b.addEventListener("click", () => {
         state.level = spec.id;

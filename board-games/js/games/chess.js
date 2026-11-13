@@ -303,7 +303,7 @@
             '<span class="ch-eval" data-ch-eval hidden></span>' +
           '</div>' +
           '<div class="ch-meta-row">' +
-            '<span class="ch-meta">المستوى <b data-ch-level>1000</b></span>' +
+            '<span class="ch-meta">المستوى <b data-ch-level>⚖️ متوسط (1000)</b></span>' +
             '<span class="ch-meta">الساعة <b data-ch-tc>10 دقائق</b></span>' +
           '</div>' +
         '</section>' +
@@ -627,7 +627,7 @@
     }
 
     let meta;
-    if (seat.isCpu) meta = "تصنيف ~" + BG.ai.chessRating(level) + " إيلو";
+    if (seat.isCpu) meta = BG.ai.levelLabel(level, "chess") + " إيلو";
     else if (online()) meta = isYou ? "أنت · لاعب أونلاين" : "لاعب أونلاين";
     else meta = "لاعب";
     refs.meta.textContent = meta;
@@ -771,7 +771,7 @@
     }
 
     const cpuSide = isCpuSide("w") ? "w" : isCpuSide("b") ? "b" : null;
-    if (el.level) el.level.textContent = cpuSide ? BG.ai.chessRating(levelOf(cpuSide)) : "لاعبان";
+    if (el.level) el.level.textContent = cpuSide ? BG.ai.levelLabel(levelOf(cpuSide), "chess") : "لاعبان";
     if (el.tc) el.tc.textContent = timeLabel();
     if (el.engineBadge) {
       el.engineBadge.classList.toggle("is-offline", engineFailed);
@@ -2253,7 +2253,7 @@
       winning:
         "يفوز من ينفذ كش مات على ملك الخصم. وتُحسم المباراة أيضًا بالاستسلام أو نفاد الوقت أو التعادل بالجمود أو بقاعدة الخمسين حركة أو تكرار الوضع ثلاث مرات أو القطع غير الكافية للإماتة.",
       notes: [
-        "تصنيفات الحاسوب: 250، 1000، 2000، و3600 إيلو، بمحرك Stockfish حقيقي.",
+        "مستويات الحاسوب: 🌱 سهل (250)، ⚖️ متوسط (1000)، 🔥 صعب (2000)، ⚡ خبير (3600) إيلو، بمحرك Stockfish حقيقي.",
         "اسحب القطعة بالماوس أو اللمس، أو انقر عليها ثم انقر على المربع الهدف.",
         "زر «تراجع» يعيد حركتك وحركة الحاسوب الأخيرة معًا، وهو غير متاح في المباريات الأونلاين.",
         "يمكنك عكس اتجاه الرقعة، ونسخ سجل الحركات، واستخدام ملء الشاشة من شريط اللعبة.",

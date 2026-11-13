@@ -798,8 +798,6 @@
           '<label class="net-field"><span>عدد المقاعد</span><select data-net-count>' + (countOptions || "<option>2</option>") + "</select></label>" +
           '<label class="net-field"><span>مستوى الكمبيوتر</span><select data-net-level>' +
           ["easy", "normal", "hard"].map((id) => {
-            const spec = BG.ai.LEVELS[id];
-            const chessRating = game && game.id === "chess";
             const label = BG.ai.levelLabel(id, game && game.id);
             return '<option value="' + id + '"' + (id === state.level ? " selected" : "") + ">" + label + "</option>";
           }).join("") +

@@ -27,7 +27,9 @@
 
   function levelLabel(value, gameId) {
     const id = level(value);
-    return gameId === "chess" ? chessRating(id) : LEVELS[id].name;
+    const spec = LEVELS[id];
+    const rating = gameId === "chess" ? " (" + chessRating(id) + ")" : "";
+    return spec.icon + " " + spec.name + rating;
   }
 
   function isCpu(player) {
