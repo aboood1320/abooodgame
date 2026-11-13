@@ -5,7 +5,7 @@
    ========================================================================== */
 "use strict";
 
-const VERSION = "1.8.0";
+const VERSION = "1.9.1";
 const CACHE = "bg-shell-v" + VERSION + "-r1";
 const OFFLINE_URL = "index.html";
 
@@ -48,6 +48,7 @@ const CORE = [
   "vendor/chess/pieces/bN.svg",
   "vendor/chess/pieces/bP.svg",
   "css/net2.css",
+  "css/monopoly.css",
   "css/ludo.css",
   "css/expansion.css",
   "css/yahtzee.css",

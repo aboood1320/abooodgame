@@ -216,15 +216,20 @@
     return { dialog, close, promise, body, foot };
   };
 
-  BG.confirm = function (title, body, yesLabel, noLabel) {
-    return BG.openDialog({
+  BG.confirm = function (title, body, yesLabel, noLabel, options) {
+    const opts = options || {};
+    const dlg = BG.openDialog({
       title,
       body: typeof body === "string" ? "<p>" + body + "</p>" : body,
       actions: [
         { label: noLabel || "إلغاء", value: "no" },
         { label: yesLabel || "تأكيد", value: "yes", primary: true },
       ],
-    }).promise.then((value) => value === "yes");
+      className: opts.className || "",
+    });
+    // حوارات الشبكة يجب ألا تختفي عند وصول لقطة جديدة قبل أن يجيب اللاعب.
+    if (opts.keep) dlg.dialog.setAttribute("data-sync-keep", "1");
+    return dlg.promise.then((value) => value === "yes");
   };
 
   BG.alert = function (title, body, label) {

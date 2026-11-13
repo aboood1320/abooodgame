@@ -1000,6 +1000,9 @@
       confirmTrade(seat, text) {
         return BG.online.confirmTrade(seat, text);
       },
+      auctionBid(seat, payload) {
+        return BG.online.auctionBid(seat, payload);
+      },
     };
   }
 

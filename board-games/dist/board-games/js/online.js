@@ -50,6 +50,7 @@
     pendingAsks: new Map(),
     pendingRefutes: new Map(),
     pendingTrades: new Map(),
+    pendingAuctions: new Map(),
     starting: false,
     pendingInvite: "",
     inviteTried: false,
@@ -1602,6 +1603,20 @@
       pending.resolve(!!data.ok);
       return;
     }
+    if (data.t === "ask-auction") {
+      hostAskAuction(data.seat, data.payload).then((bid) => {
+        BG.net.sendTo(from, { t: "auction-result", id: data.id, bid: Number(bid) || 0 });
+      });
+      return;
+    }
+    if (data.t === "auction-response" || data.t === "auction-result") {
+      const pending = state.pendingAuctions.get(data.id);
+      if (!pending) return;
+      state.pendingAuctions.delete(data.id);
+      clearTimeout(pending.timer);
+      pending.resolve(Math.max(0, Number(data.bid) || 0));
+      return;
+    }
     if (data.t === "sync-failed") {
       state.synced[from] = false;
       return;
@@ -1680,6 +1695,20 @@
       state.pendingTrades.delete(data.id);
       clearTimeout(pending.timer);
       pending.resolve(!!data.ok);
+      return;
+    }
+    if (data.t === "auction-request") {
+      promptLocalAuction(data.payload).then((bid) => {
+        BG.net.send({ t: "auction-response", id: data.id, bid: Number(bid) || 0 });
+      });
+      return;
+    }
+    if (data.t === "auction-result" || data.t === "auction-response") {
+      const pending = state.pendingAuctions.get(data.id);
+      if (!pending) return;
+      state.pendingAuctions.delete(data.id);
+      clearTimeout(pending.timer);
+      pending.resolve(Math.max(0, Number(data.bid) || 0));
       return;
     }
     if (data.t === "abort") {
@@ -1810,11 +1839,64 @@
 
   function hostConfirmTrade(seat, text) {
     if (seat === state.localSeat) {
-      return BG.confirm("عرض تبادل جديد", text || "", "أوافق", "أرفض");
+      return BG.confirm("عرض تبادل جديد", text || "", "أوافق", "أرفض", { keep: true });
     }
     const target = state.seats[seat];
     if (!target || !target.peerId) return Promise.resolve(false);
     return requestRemoteTrade(target.peerId, text);
+  }
+
+  /* ============================== المزاد عبر الأجهزة ============================== */
+
+  function promptLocalAuction(payload) {
+    const instance = BG.app && BG.app.instance;
+    if (instance && typeof instance.netAuctionPrompt === "function") {
+      return instance.netAuctionPrompt(payload || {});
+    }
+    return Promise.resolve(0);
+  }
+
+  function requestRemoteAuction(peerId, payload) {
+    return new Promise((resolve) => {
+      const id = "u" + (++state.askSeq);
+      const timer = setTimeout(() => {
+        state.pendingAuctions.delete(id);
+        resolve(0);
+      }, 60000);
+      state.pendingAuctions.set(id, { resolve, timer });
+      const ok = BG.net.sendTo(peerId, { t: "auction-request", id, payload });
+      if (!ok) {
+        clearTimeout(timer);
+        state.pendingAuctions.delete(id);
+        resolve(0);
+      }
+    });
+  }
+
+  function hostAskAuction(seat, payload) {
+    if (seat === state.localSeat) return promptLocalAuction(payload);
+    const target = state.seats[seat];
+    if (!target || !target.peerId) return Promise.resolve(0);
+    return requestRemoteAuction(target.peerId, payload);
+  }
+
+  function auctionBid(seat, payload) {
+    if (!state.inGame) return Promise.resolve(0);
+    if (state.isHost) return hostAskAuction(seat, payload);
+    return new Promise((resolve) => {
+      const id = "u" + (++state.askSeq);
+      const timer = setTimeout(() => {
+        state.pendingAuctions.delete(id);
+        resolve(0);
+      }, 60000);
+      state.pendingAuctions.set(id, { resolve, timer });
+      const ok = BG.net.send({ t: "ask-auction", id, seat, payload });
+      if (!ok) {
+        clearTimeout(timer);
+        state.pendingAuctions.delete(id);
+        resolve(0);
+      }
+    });
   }
 
   function confirmTrade(seat, text) {
@@ -1900,6 +1982,7 @@
     state.pendingAsks.clear();
     state.pendingRefutes.clear();
     state.pendingTrades.clear();
+    state.pendingAuctions.clear();
     hideOverlay();
     buildHud();
     ensureWaiting();
@@ -2011,6 +2094,7 @@
     state.pendingAsks.clear();
     state.pendingRefutes.clear();
     state.pendingTrades.clear();
+    state.pendingAuctions.clear();
     state.config = null;
     removeHud();
     if (state.waiting && state.waiting.parentNode) state.waiting.parentNode.removeChild(state.waiting);
@@ -2229,6 +2313,7 @@
     gameOver,
     askRefutation,
     confirmTrade,
+    auctionBid,
     returnToLobby,
     shutdown,
     abortGame,
