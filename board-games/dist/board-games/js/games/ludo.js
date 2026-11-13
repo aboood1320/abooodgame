@@ -124,23 +124,16 @@
   function makePlayers() {
     const list = (apiRef.players || []).slice(0, 4);
     const slots = slotsFor(list.length);
-    return list.map((player, index) => {
-      const baseColor = COLORS[slots[index]];
-      const profile = BG.playerProfile.normalize(player.profile || BG.playerProfile.defaultFor(index, AI.isCpu(player)));
-      return {
-        index,
-        slot: slots[index],
-        name: player.name || "اللاعب " + (index + 1),
-        profile,
-        avatar: BG.playerProfile.avatarEmoji(profile.avatar),
-        profileColor: player.profileColor || "",
-        color: player.profileColor ? Object.assign({}, baseColor, { css: player.profileColor }) : baseColor,
-        type: player.type === "cpu" ? "cpu" : "human",
-        level: AI.level(player.level),
-        isCpu: AI.isCpu(player),
-        tokens: [0, 1, 2, 3].map((i) => ({ id: "t" + index + "_" + i, index: i, pos: -1 })),
-      };
-    });
+    return list.map((player, index) => ({
+      index,
+      slot: slots[index],
+      name: player.name || "اللاعب " + (index + 1),
+      color: COLORS[slots[index]],
+      type: player.type === "cpu" ? "cpu" : "human",
+      level: AI.level(player.level),
+      isCpu: AI.isCpu(player),
+      tokens: [0, 1, 2, 3].map((i) => ({ id: "t" + index + "_" + i, index: i, pos: -1 })),
+    }));
   }
 
   function newState() {
@@ -606,7 +599,7 @@
       if (player.isCpu) classes.push("cpu");
       return (
         '<div class="' + classes.join(" ") + '" style="--pc:' + player.color.css + '">' +
-        BG.playerProfile.playerHTML(player, "ld-player-avatar") +
+        '<span class="ld-swatch"></span>' +
         '<span class="ld-player-copy"><strong>' + esc(player.name) + "</strong>" +
         "<small>" + ar(homeCount(player)) + "/٤ في البيت" + (player.isCpu ? " · 🤖" : "") + "</small></span>" +
         '<span class="ld-home-dots">' + player.tokens.map((token) =>
@@ -676,7 +669,7 @@
           el = document.createElement("button");
           el.type = "button";
           el.setAttribute("data-ld-token", item.token.id);
-          el.innerHTML = '<span class="ld-token-avatar" aria-hidden="true"></span>';
+          el.innerHTML = PAWN_SVG;
           layer.appendChild(el);
           tokenEls.set(item.token.id, el);
         }
@@ -689,8 +682,6 @@
           (item.token.pos >= FINISH ? " is-home" : "") + (inBase ? " is-base" : "");
         if (el.className !== classes) el.className = classes;
         el.setAttribute("data-player", String(item.player.index));
-        const avatar = el.querySelector(".ld-token-avatar");
-        if (avatar) avatar.textContent = BG.playerProfile.avatarEmoji(item.player.profile);
         el.style.left = left.toFixed(2) + "%";
         el.style.top = top.toFixed(2) + "%";
         el.style.setProperty("--pc", item.player.color.css);
@@ -984,8 +975,7 @@
           state.players.forEach((player, i) => {
             player.tokens = Array.isArray(player.tokens) ? player.tokens : [];
             if (typeof player.slot !== "number") player.slot = slots[i];
-            const baseColor = COLORS[player.slot];
-            player.color = player.profileColor ? Object.assign({}, baseColor, { css: player.profileColor }) : baseColor;
+            player.color = COLORS[player.slot];
           });
           state.opts = Object.assign({}, OPT_DEFAULTS, state.opts || {});
           state.busy = false;
