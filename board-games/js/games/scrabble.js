@@ -964,7 +964,7 @@
         );
       }
     }
-    return '<div class="scrab-board" dir="ltr">' + cells.join("") + "</div>";
+    return '<div class="scrab-board" dir="rtl">' + cells.join("") + "</div>";
   }
 
   function rackHTML() {

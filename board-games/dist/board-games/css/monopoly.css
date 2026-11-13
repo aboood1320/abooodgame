@@ -664,11 +664,35 @@
 
 .mono-tools {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 6px;
   padding: 9px 11px 0;
 }
 .mono-tools .bg-btn { min-width: 0; padding-inline: 6px; font-size: 0.66rem; }
+
+@media (min-width: 521px) {
+  .mcenter {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-areas:
+      "brand brand"
+      "turn dice"
+      "divider divider"
+      "notice notice"
+      "card card"
+      "foot foot";
+    align-content: center;
+    justify-items: center;
+    gap: clamp(7px, 1.35cqw, 16px);
+  }
+  .mcenter-brand { grid-area: brand; }
+  .mcenter > .mturn { grid-area: turn; width: 100%; }
+  .mcenter > .mdice { grid-area: dice; min-width: 0; width: 100%; }
+  .mcenter > .mcenter-divider { grid-area: divider; }
+  .mcenter > .mnotice { grid-area: notice; width: min(100%, 46ch); }
+  .mcenter > .mcard { grid-area: card; width: min(100%, 42ch); }
+  .mcenter > .mcenter-foot { grid-area: foot; }
+}
 
 /* ------------------------------ إدارة العقارات ------------------------------ */
 

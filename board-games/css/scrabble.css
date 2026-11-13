@@ -37,7 +37,7 @@
 
 .scrab-board {
   container-type: inline-size;
-  direction: ltr;
+  direction: rtl;
   display: grid;
   grid-template-columns: repeat(15, minmax(0, 1fr));
   grid-template-rows: repeat(15, minmax(0, 1fr));
@@ -126,14 +126,14 @@
     inset 0 -2px 0 rgba(120, 92, 48, 0.22);
   overflow: hidden;
   pointer-events: none;
-  direction: ltr;
+  direction: rtl;
   transform: none !important;
 }
 .scrab-letter {
   font-size: calc(100cqw / 15 * 0.52);
   font-weight: 800;
   line-height: 1;
-  direction: ltr;
+  direction: rtl;
   transform: none !important;
 }
 .scrab-value {

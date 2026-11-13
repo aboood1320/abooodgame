@@ -916,7 +916,8 @@
    الرقعة كامل ارتفاع الشاشة تقريبًا، ونضبط حجمها حسب ارتفاع النافذة. */
 @media (min-width: 981px) {
   body:has(.chess-layout) .game-toolbar {
-    display: none;
+    display: flex;
+    margin-bottom: 8px;
   }
   body:has(.chess-layout) .game-stage {
     margin-top: 0;

@@ -2187,7 +2187,7 @@
     cardClass: "card-chess",
     tagline: "اللعبة الملكية بمحرك Stockfish حقيقي، ساعة، وسجل حركات.",
     players: "1–2",
-    counts: [1, 2],
+    counts: [1],
     duration: "5–60 دقيقة",
     complexity: "عالية",
     minPlayers: 1,
