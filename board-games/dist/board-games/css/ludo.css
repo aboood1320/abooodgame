@@ -71,11 +71,6 @@ html.lite .ld-tokens .ld-target {
   z-index: 5;
 }
 
-/* الدور الحالي: توهّج على عنصر زائف يتحرك بالشفافية فقط (لا إعادة رسم للظل) */
-.ld-base.is-turn {
-  position: relative;
-}
-
 @media (hover: none) {
   /* على اللمس لا يوجد hover: نُظهر حدًا واضحًا للقطع المتاحة */
   .ld-token.is-movable {
