@@ -342,7 +342,25 @@
     const humans = Math.min(lobbyHumanPeers().length, game.maxPlayers);
     const min = Math.max(game.minPlayers || 2, humans, 2);
     const max = game.maxPlayers || 4;
-    return Math.min(max, Math.max(min, Number(value) || min));
+    const allowed = Array.isArray(game.counts) && game.counts.length
+      ? game.counts.map(Number).filter((count) => Number.isInteger(count) && count >= min && count <= max)
+      : Array.from({ length: Math.max(0, max - min + 1) }, (_, index) => min + index);
+    if (!allowed.length) return Math.min(max, Math.max(min, Number(value) || min));
+    const wanted = Number(value) || min;
+    return allowed.reduce((best, count) =>
+      Math.abs(count - wanted) < Math.abs(best - wanted) ? count : best,
+      allowed[0]
+    );
+  }
+
+  function availableSeatCounts(game, humans) {
+    if (!game) return [];
+    const min = Math.max(game.minPlayers || 2, humans || 0, 2);
+    const max = game.maxPlayers || 4;
+    const source = Array.isArray(game.counts) && game.counts.length
+      ? game.counts.map(Number)
+      : Array.from({ length: Math.max(0, max - min + 1) }, (_, index) => min + index);
+    return source.filter((count, index) => Number.isInteger(count) && count >= min && count <= max && source.indexOf(count) === index).sort((a, b) => a - b);
   }
 
   /* فتح لوحة المضيف. إن لم تكن وحدة online-host.js محمّلة (نسخة قديمة مخزّنة، أو ملف لم يُرفع) نحمّلها الآن
@@ -746,11 +764,11 @@
     const gamesOptions = BG.games.map((item) => '<option value="' + item.id + '"' + (item.id === state.lobbyGame ? " selected" : "") + ">" + esc(item.name) + "</option>").join("");
     const countOptions = game
       ? (() => {
-          const list = [];
-          const min = Math.max(game.minPlayers || 2, humans, 2);
-          const max = game.maxPlayers || 4;
-          const current = clampSeatCount(game, state.seatCount || min);
-          for (let n = min; n <= max; n++) list.push('<option value="' + n + '"' + (n === current ? " selected" : "") + ">" + n + " لاعبين</option>");
+          const counts = availableSeatCounts(game, humans);
+          const current = clampSeatCount(game, state.seatCount || counts[0]);
+          const list = counts.map((n) =>
+            '<option value="' + n + '"' + (n === current ? " selected" : "") + ">" + n + " لاعبين</option>"
+          );
           return list.join("");
         })()
       : "";

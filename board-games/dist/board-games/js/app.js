@@ -141,6 +141,7 @@
     els.heroRandom = document.getElementById("heroRandom");
 
     renderLibrary();
+    bindLibraryFilters();
 
     if (els.heroBrowse) {
       els.heroBrowse.addEventListener("click", () => {
@@ -167,7 +168,7 @@
       }
       openSetup(currentGame, lastSetup);
     });
-    els.btnBack.addEventListener("click", goLibrary);
+    els.btnBack.addEventListener("click", () => goLibrary());
     if (els.btnSettings) els.btnSettings.addEventListener("click", () => BG.openFxSettings());
     document.addEventListener("bgprefschange", () => {
       if (!isOnlineGame() || !instance) return;
@@ -252,11 +253,12 @@
       const old = els.libraryGrid.querySelector(".resume-card");
       if (old) old.remove();
       renderResumeCard();
+      applyLibraryFilters();
       return;
     }
     BG.clear(els.libraryGrid);
     const count = BG.games.length;
-    const countLabel = count === 1 ? "لعبة واحدة" : count + " ألعاب";
+    const countLabel = formatGameCount(count);
     const countEl = document.getElementById("libraryCount");
     if (countEl) countEl.textContent = countLabel + " · جميعها جاهزة للعب";
     const heroCount = document.getElementById("heroGameCount");
@@ -270,6 +272,7 @@
         type: "button",
         class: "game-card " + (game.cardClass || ""),
         style: { "--accent": tone, "--delay": index * 35 + "ms" },
+        dataset: { gameId: game.id },
         "aria-label": "افتح لعبة " + game.name,
       });
 
@@ -303,7 +306,93 @@
       els.libraryGrid.appendChild(card);
     });
     libraryBuilt = true;
+    applyLibraryFilters();
 
+  }
+
+  function formatGameCount(count) {
+    const n = Number(count) || 0;
+    const digits = n.toLocaleString("ar-EG");
+    if (n === 0) return "لا توجد ألعاب";
+    if (n === 1) return "لعبة واحدة";
+    if (n === 2) return "لعبتان";
+    if (n >= 3 && n <= 10) return digits + " ألعاب";
+    return digits + " لعبة";
+  }
+
+  function durationMinutes(game) {
+    const text = String(game.duration || "").replace(/[٠-٩]/g, (digit) => String("٠١٢٣٤٥٦٧٨٩".indexOf(digit)));
+    const values = (text.match(/\d+/g) || []).map(Number).filter(Number.isFinite);
+    if (!values.length) return 0;
+    return values.reduce((sum, value) => sum + value, 0) / values.length;
+  }
+
+  function complexityGroup(game) {
+    const value = U.normalizeArabic(game.complexity || "");
+    if (value.includes("سهله") || value.includes("خفيفه")) return "easy";
+    if (value.includes("متوسطه")) return "medium";
+    return "advanced";
+  }
+
+  function supportsPlayerCount(game, count) {
+    if (Array.isArray(game.counts) && game.counts.length) return game.counts.map(Number).includes(count);
+    return count >= (game.minPlayers || 2) && count <= (game.maxPlayers || 6);
+  }
+
+  function bindLibraryFilters() {
+    const search = document.getElementById("librarySearch");
+    const players = document.getElementById("libraryPlayers");
+    const duration = document.getElementById("libraryDuration");
+    const complexity = document.getElementById("libraryComplexity");
+    const reset = document.getElementById("libraryReset");
+    [search, players, duration, complexity].forEach((control) => {
+      if (!control) return;
+      control.addEventListener(control === search ? "input" : "change", applyLibraryFilters);
+    });
+    if (reset) reset.addEventListener("click", () => {
+      if (search) search.value = "";
+      if (players) players.value = "";
+      if (duration) duration.value = "";
+      if (complexity) complexity.value = "";
+      applyLibraryFilters();
+      if (search) search.focus();
+    });
+  }
+
+  function applyLibraryFilters() {
+    if (!els.libraryGrid) return;
+    const query = U.normalizeArabic((document.getElementById("librarySearch") || {}).value || "").toLowerCase();
+    const playerCount = Number((document.getElementById("libraryPlayers") || {}).value) || 0;
+    const durationFilter = (document.getElementById("libraryDuration") || {}).value || "";
+    const complexityFilter = (document.getElementById("libraryComplexity") || {}).value || "";
+    let visible = 0;
+    BG.games.forEach((game) => {
+      const card = els.libraryGrid.querySelector('[data-game-id="' + game.id + '"]');
+      if (!card) return;
+      const searchable = U.normalizeArabic([game.name, game.en, game.tagline, game.players, game.duration, game.complexity].join(" ")).toLowerCase();
+      const minutes = durationMinutes(game);
+      const matchesDuration = !durationFilter ||
+        (durationFilter === "short" && minutes <= 30) ||
+        (durationFilter === "medium" && minutes > 30 && minutes <= 60) ||
+        (durationFilter === "long" && minutes > 60);
+      const show = (!query || searchable.includes(query)) &&
+        (!playerCount || supportsPlayerCount(game, playerCount)) &&
+        matchesDuration &&
+        (!complexityFilter || complexityGroup(game) === complexityFilter);
+      card.hidden = !show;
+      if (show) visible += 1;
+    });
+    const countEl = document.getElementById("libraryCount");
+    const empty = document.getElementById("libraryEmpty");
+    const filtered = !!(query || playerCount || durationFilter || complexityFilter);
+    const resume = els.libraryGrid.querySelector(".resume-card");
+    if (resume) resume.hidden = filtered;
+    if (countEl) {
+      countEl.textContent = filtered
+        ? (visible ? formatGameCount(visible) : "لا توجد ألعاب مطابقة") + " من " + formatGameCount(BG.games.length)
+        : formatGameCount(BG.games.length) + " · جاهزة للعب";
+    }
+    if (empty) empty.hidden = visible > 0;
   }
 
   /* ------------------------------ حفظ ومتابعة ------------------------------ */

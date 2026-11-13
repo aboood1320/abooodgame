@@ -23,6 +23,10 @@
 </script>
 <meta name="description" content="ألعاب طاولة عربية احترافية: مونوبولي، كاتان، تيكيت تو رايد، كاركاسون، ريسك، سكرابل، كلودو، أونو، وباء، طاولة الزهر، الورق، دومينو، لودو، السلم والثعبان، الداما، والمنقلة — بأدلة قواعد كاملة ولعب محلي وعالمي." />
 <meta name="theme-color" content="#100b07" />
+<meta property="og:type" content="website" />
+<meta property="og:locale" content="ar_AR" />
+<meta property="og:title" content="ألعاب الطاولة — نُبلاء" />
+<meta property="og:description" content="أربعون لعبة طاولة عربية مع قواعد مفصّلة، لعب محلي، وخصوم من الذكاء الاصطناعي." />
 <title>ألعاب الطاولة — نُبلاء</title>
 <link rel="manifest" href="manifest.webmanifest" />
 <link rel="icon" type="image/svg+xml" href="assets/brand/icon.svg" />
@@ -57,7 +61,7 @@
 <link rel="stylesheet" href="css/net.css?v=30" />
 <link rel="stylesheet" href="css/polish.css?v=32" />
 <link rel="stylesheet" href="css/upgrade.css?v=1" />
-<link rel="stylesheet" href="css/library.css?v=5" />
+<link rel="stylesheet" href="css/library.css?v=6" />
 <link rel="stylesheet" href="css/net2.css?v=2" />
 <link rel="stylesheet" href="css/monopoly.css?v=4" />
 <link rel="stylesheet" href="css/ludo.css?v=1" media="print" onload="this.media='all'" />
@@ -174,8 +178,8 @@
           </div>
           <div class="hero-pills">
             <span><svg class="ic" aria-hidden="true"><use href="#i-book"/></svg>دليل عربي كامل</span>
-            <span><svg class="ic" aria-hidden="true"><use href="#i-users"/></svg>2–6 لاعبين</span>
-            <span><svg class="ic" aria-hidden="true"><use href="#i-lock"/></svg>خصوصية محلية</span>
+            <span><svg class="ic" aria-hidden="true"><use href="#i-users"/></svg>١–٨ لاعبين بحسب اللعبة</span>
+            <span><svg class="ic" aria-hidden="true"><use href="#i-lock"/></svg>معلومات خاصة حسب اللعبة</span>
           </div>
         </div>
 
@@ -330,16 +334,52 @@
           <span class="section-kicker">اختر لعبتك</span>
           <h2>مكتبة الألعاب</h2>
         </div>
-        <span class="library-count" id="libraryCount"></span>
+        <span class="library-count" id="libraryCount" aria-live="polite" aria-atomic="true"></span>
       </div>
 
+      <form class="library-tools" id="libraryFilters" role="search" onsubmit="return false">
+        <label class="library-filter library-search">
+          <span>ابحث عن لعبة</span>
+          <input id="librarySearch" type="search" autocomplete="off" placeholder="الاسم أو الوصف" aria-controls="libraryGrid" />
+        </label>
+        <label class="library-filter">
+          <span>عدد اللاعبين</span>
+          <select id="libraryPlayers" aria-controls="libraryGrid">
+            <option value="">أي عدد</option>
+            <option value="1">لاعب واحد</option><option value="2">لاعبان</option>
+            <option value="3">٣ لاعبين</option><option value="4">٤ لاعبين</option>
+            <option value="5">٥ لاعبين</option><option value="6">٦ لاعبين</option>
+            <option value="7">٧ لاعبين</option><option value="8">٨ لاعبين</option>
+          </select>
+        </label>
+        <label class="library-filter">
+          <span>مدة اللعب</span>
+          <select id="libraryDuration" aria-controls="libraryGrid">
+            <option value="">أي مدة</option>
+            <option value="short">حتى ٣٠ دقيقة تقريبًا</option>
+            <option value="medium">٣٠–٦٠ دقيقة تقريبًا</option>
+            <option value="long">أكثر من ٦٠ دقيقة تقريبًا</option>
+          </select>
+        </label>
+        <label class="library-filter">
+          <span>مستوى الصعوبة</span>
+          <select id="libraryComplexity" aria-controls="libraryGrid">
+            <option value="">أي مستوى</option>
+            <option value="easy">سهل</option><option value="medium">متوسط</option>
+            <option value="advanced">متقدم</option>
+          </select>
+        </label>
+        <button class="library-filter-reset" id="libraryReset" type="button">مسح الفلاتر</button>
+      </form>
+
       <div class="library-grid" id="libraryGrid"></div>
+      <p class="library-empty" id="libraryEmpty" role="status" aria-live="polite" hidden>لا توجد ألعاب تطابق اختياراتك. غيّر الفلاتر أو امسحها لعرض الألعاب.</p>
 
       <div class="library-note">
         <span class="note-icon" aria-hidden="true"><svg class="ic"><use href="#i-lock"/></svg></span>
         <div>
           <strong>الخصوصية أولًا</strong>
-          <p>في ألعاب المعلومات المخفية (سكرابل، كلودو، أونو، كاتان، تيكيت تو رايد، ريسك، الورق) لا تُعرض أوراق اللاعب أو موارده إلا بعد الضغط على «إظهار»، وتُخفى تلقائيًا عند انتقال الدور.</p>
+          <p>تختلف المعلومات الخاصة وطريقة التعامل معها بين الألعاب؛ راجع القواعد قبل البدء، واستخدم زر «إظهار/إخفاء» حين يتوفر. عند تمرير جهاز واحد، تأكد من إخفاء يد اللاعب أو شاشة إعداد القطع قبل تسليمه.</p>
         </div>
       </div>
     </section>
@@ -443,8 +483,8 @@
 <script defer src="js/net.js?v=33"></script>
 <script defer src="js/library-art.js?v=1"></script>
 <script defer src="js/library-art-expansion.js?v=1"></script>
-<script defer src="js/app.js?v=41"></script>
-<script defer src="js/online.js?v=41"></script>
+<script defer src="js/app.js?v=42"></script>
+<script defer src="js/online.js?v=42"></script>
 <script defer src="js/online-host.js?v=1"></script>
 <script defer src="js/site-extras.js?v=1"></script>
 <script defer src="js/pwa.js?v=30"></script>

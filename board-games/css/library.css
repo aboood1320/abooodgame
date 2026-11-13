@@ -503,6 +503,71 @@ body.library-mode .library-count::before {
   box-shadow: 0 0 10px rgba(216, 169, 92, 0.8);
 }
 
+/* ------------------------------ البحث والتصفية ------------------------------ */
+
+body.library-mode .library-tools {
+  display: grid;
+  grid-template-columns: minmax(190px, 1.5fr) repeat(3, minmax(135px, 1fr)) auto;
+  align-items: end;
+  gap: 12px;
+  margin: 0 6px 22px;
+  padding: 14px;
+  border: 1px solid rgba(240, 206, 144, 0.12);
+  border-radius: 20px;
+  background: rgba(255, 236, 201, 0.035);
+}
+body.library-mode .library-filter {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+  color: #c9b899;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+body.library-mode .library-filter input,
+body.library-mode .library-filter select {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid rgba(240, 206, 144, 0.2);
+  border-radius: 12px;
+  color: #f7eedb;
+  background: #21150c;
+  font: inherit;
+}
+body.library-mode .library-filter input::placeholder { color: #95816a; }
+body.library-mode .library-filter input:focus-visible,
+body.library-mode .library-filter select:focus-visible,
+body.library-mode .library-filter-reset:focus-visible {
+  outline: 2px solid #e8c07a;
+  outline-offset: 2px;
+}
+body.library-mode .library-filter-reset {
+  min-height: 44px;
+  padding: 0 15px;
+  border: 1px solid rgba(240, 206, 144, 0.2);
+  border-radius: 12px;
+  color: #f3d496;
+  background: rgba(232, 192, 122, 0.08);
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+body.library-mode .library-filter-reset:hover {
+  border-color: rgba(240, 206, 144, 0.42);
+  background: rgba(232, 192, 122, 0.14);
+}
+body.library-mode .library-empty {
+  margin: 0 6px 24px;
+  padding: 24px;
+  border: 1px dashed rgba(240, 206, 144, 0.28);
+  border-radius: 18px;
+  color: #c3b195;
+  text-align: center;
+}
+
 /* ------------------------------ شبكة البطاقات ------------------------------ */
 
 body.library-mode .library-grid {
@@ -1189,6 +1254,12 @@ body.library-mode .game-card:nth-child(5n) .la-spark {
     align-items: flex-start;
     flex-direction: column;
   }
+  body.library-mode .library-tools {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  body.library-mode .library-search {
+    grid-column: 1 / -1;
+  }
 }
 
 @media (max-width: 620px) {
@@ -1242,6 +1313,15 @@ body.library-mode .game-card:nth-child(5n) .la-spark {
   body.library-mode .library-grid {
     grid-template-columns: 1fr;
     gap: 16px;
+  }
+  body.library-mode .library-tools {
+    grid-template-columns: 1fr;
+    gap: 10px;
+    margin-inline: 0;
+    padding: 12px;
+  }
+  body.library-mode .library-search {
+    grid-column: auto;
   }
   body.library-mode .resume-card {
     grid-template-columns: auto minmax(0, 1fr);

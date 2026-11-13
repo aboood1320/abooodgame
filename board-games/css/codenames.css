@@ -1,4 +1,4 @@
-/* كودنيمز — لوحة كلمات وفريقان */
+/* كودنيمز v2 — لوحة كلمات وفريقان، مخبر بشري، سجل تلميحات، قلب البطاقة */
 .cn { --accent: #c77c64; }
 
 .cn-layout {
@@ -19,7 +19,7 @@
 .cn-turn { font-size: 0.72rem; font-weight: 800; }
 .cn-clue-box {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 9px;
   margin: 7px 0 5px;
   padding: 10px 12px;
@@ -43,6 +43,38 @@
   color: #fff;
 }
 
+/* نقاط التخمين المتبقية */
+.cn-pips { display: inline-flex; gap: 4px; margin-inline-start: auto; }
+.cn-pips i {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--team, #c77c64) 85%, #fff);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35);
+}
+.cn-pips i.is-used { background: transparent; box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--team, #c77c64) 60%, transparent); }
+
+/* نموذج تلميح المخبر البشري */
+.cn-form { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 4px; align-items: center; }
+.cn-input,
+.cn-select {
+  min-height: 40px;
+  padding: 6px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(246, 242, 232, 0.22);
+  background: rgba(9, 18, 22, 0.55);
+  color: inherit;
+  font: inherit;
+  font-size: 1rem;
+}
+.cn-input { flex: 1 1 180px; min-width: 0; }
+.cn-select { width: 72px; }
+.cn-select option { color: #111; background: #fff; }
+.cn-input:focus-visible,
+.cn-select:focus-visible { outline: 2px solid #ffe08a; outline-offset: 1px; }
+.cn-error { margin: 2px 0 4px; font-size: 0.72rem; font-weight: 700; color: #ff9d8c; }
+
+/* لوحة الكلمات */
 .cn-board {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
@@ -72,7 +104,7 @@
 }
 .cn-card:hover:not(:disabled):not(.is-revealed) { transform: translateY(-2px); border-color: #ffe08a; }
 .cn-card:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
-.cn-card:disabled { cursor: default; }
+.cn-card:disabled { cursor: default; opacity: 1; }
 .cn-word { font-size: 0.82rem; font-weight: 800; line-height: 1.35; }
 .cn-tag { font-size: 0.5rem; font-weight: 800; opacity: 0.9; }
 .cn-card.is-revealed { cursor: default; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12), 0 8px 16px -14px #000; }
@@ -81,12 +113,44 @@
 .cn-card.is-neutral { background: linear-gradient(160deg, #6f6757, #46402f); border-color: #9c927c; }
 .cn-card.is-assassin { background: linear-gradient(160deg, #2b2436, #171220); border-color: #8a7dbb; color: #e3d8ff; }
 .cn-card.is-assassin .cn-tag { color: #ffb3a8; }
+
+/* وضع المفتاح: نقطة لونية في الركن بدل تلوين البطاقة كلها (تبقى الكلمة مقروءة) */
+.cn-keydot {
+  position: absolute;
+  top: 5px;
+  inset-inline-end: 5px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1.5px rgba(0, 0, 0, 0.5);
+}
+.cn-card.is-key-red .cn-keydot { background: #ef7d5f; }
+.cn-card.is-key-blue .cn-keydot { background: #55c0a8; }
+.cn-card.is-key-neutral .cn-keydot { background: #b9ae92; }
+.cn-card.is-key-assassin .cn-keydot { background: #111; box-shadow: 0 0 0 1.5px #b7a9e8, 0 0 8px rgba(183, 169, 232, 0.9); }
 .cn-card.is-key-red { border-color: rgba(217, 138, 111, 0.65); }
 .cn-card.is-key-blue { border-color: rgba(124, 179, 168, 0.65); }
 .cn-card.is-key-neutral { border-color: rgba(156, 146, 124, 0.55); }
 .cn-card.is-key-assassin { border-color: #8a7dbb; background-image: radial-gradient(80% 60% at 50% 0%, rgba(138, 125, 187, 0.28), transparent 70%), linear-gradient(160deg, #26363c, #152227); }
 
+/* قلب البطاقة عند الكشف */
+.cn-card.is-fresh { animation: cnFlip 0.55s ease; }
+@keyframes cnFlip {
+  0% { transform: rotateY(90deg) scale(0.9); opacity: 0.4; }
+  100% { transform: rotateY(0) scale(1); opacity: 1; }
+}
+
 .cn-key-btn { font-size: 0.62rem; padding: 5px 10px; }
+
+/* خريطة المفتاح المصغّرة */
+.cn-keymap { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; margin-top: 6px; }
+.cn-keymap i { aspect-ratio: 1; border-radius: 5px; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18); }
+.cn-keymap .is-red { background: #c4604a; }
+.cn-keymap .is-blue { background: #4a9a8c; }
+.cn-keymap .is-neutral { background: #7d745f; }
+.cn-keymap .is-assassin { background: #151019; box-shadow: inset 0 0 0 1.5px #8a7dbb; }
+.cn-keymap .is-done { opacity: 0.3; }
+
 .cn-legend { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 7px; font-size: 0.56rem; color: var(--muted, #9fb0ac); }
 .cn-legend .is-red { color: #e5a08b; }
 .cn-legend .is-blue { color: #93c7bb; }
@@ -94,6 +158,7 @@
 .cn-legend .is-assassin { color: #b7a9e8; }
 .cn-last { margin: 0; font-size: 0.68rem; color: #b9ecd3; line-height: 1.6; }
 
+/* الفريقان */
 .cn-team {
   display: flex;
   align-items: center;
@@ -111,6 +176,23 @@
 .cn-team b { font-size: 0.9rem; font-weight: 900; color: #ffe9ae; }
 .cn-team.is-red { border-color: rgba(199, 124, 100, 0.32); }
 .cn-team.is-blue { border-color: rgba(93, 142, 131, 0.32); }
+.cn-team.is-turn { box-shadow: 0 0 0 1.5px #ffe08a; }
+.cn-bar { display: block; height: 4px; margin-top: 3px; border-radius: 4px; background: rgba(255, 255, 255, 0.08); overflow: hidden; }
+.cn-bar b { display: block; height: 100%; border-radius: 4px; background: #ffe9ae; }
+.cn-team.is-red .cn-bar b { background: #d98a6f; }
+.cn-team.is-blue .cn-bar b { background: #7cb3a8; }
+
+/* سجل التلميحات */
+.cn-history { display: flex; flex-direction: column; gap: 5px; margin-top: 6px; }
+.cn-hrow { display: flex; flex-direction: column; gap: 3px; padding: 6px 8px; border-radius: 9px; background: rgba(255, 255, 255, 0.03); border-inline-start: 3px solid #888; }
+.cn-hrow.is-red { border-inline-start-color: #c77c64; }
+.cn-hrow.is-blue { border-inline-start-color: #5d8e83; }
+.cn-hrow strong { font-size: 0.68rem; }
+.cn-hrow span { display: flex; flex-wrap: wrap; gap: 4px; }
+.cn-hrow em { font-style: normal; font-size: 0.56rem; padding: 1px 6px; border-radius: 999px; background: rgba(255, 255, 255, 0.07); }
+.cn-hrow em.is-red { background: rgba(199, 124, 100, 0.35); }
+.cn-hrow em.is-blue { background: rgba(93, 142, 131, 0.4); }
+.cn-hrow em.is-assassin { background: #151019; color: #e3d8ff; }
 
 @media (max-width: 880px) {
   .cn-layout { grid-template-columns: minmax(0, 1fr); }
@@ -125,4 +207,6 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .cn-card { transition: none; }
+  .cn-card.is-fresh { animation: none; }
 }
+html.lite .cn-card.is-fresh { animation: none; }
