@@ -625,6 +625,15 @@ server.listen(PORT, HOST, () => {
   lines.push("  أوقف الخادم بـ Ctrl+C");
   lines.push("");
   console.log(lines.join("\n"));
+  if (process.env.OPEN_LAN_BROWSER === "1" && process.platform === "win32") {
+    const opener = require("child_process").spawn(
+      process.env.ComSpec || "cmd.exe",
+      ["/c", "start", "", "http://localhost:" + PORT + "/board-games/?mode=lan&autocreate=1"],
+      { detached: true, stdio: "ignore", windowsHide: true }
+    );
+    opener.on("error", (err) => log("تعذّر فتح المتصفح تلقائيًا:", err && err.message));
+    opener.unref();
+  }
 });
 
 process.on("SIGINT", () => {

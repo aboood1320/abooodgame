@@ -10,8 +10,9 @@ if errorlevel 1 (
 )
 echo.
 echo  Starting local game server...
-echo  Open the address shown below on every device on the same Wi-Fi.
+echo  The host page will open and create a room automatically.
+echo  Open the LAN address shown below on every other device.
 echo.
-start "" "http://localhost:8790/board-games/"
+set "OPEN_LAN_BROWSER=1"
 node board-games\server.js
 pause

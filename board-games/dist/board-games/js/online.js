@@ -54,6 +54,7 @@
     starting: false,
     pendingInvite: "",
     inviteTried: false,
+    autoCreateLanRoom: false,
     optionsByGame: Object.create(null),
     away: Object.create(null),
     lastJoin: null,
@@ -568,6 +569,56 @@
     }
   }
 
+  async function offerLanServer(status, message) {
+    if (!status || !document.body.contains(status)) return;
+    const accepted = await BG.confirm(
+      "تعذّر إنشاء غرفة محلية",
+      "لا يوجد خادم لعب محلي متاح. هل تريد خطوات تشغيله على جهاز المضيف؟ بعد تشغيل start-lan.bat ستُفتح صفحة المضيف وتُنشئ الغرفة تلقائيًا.",
+      "نعم، اعرض الخطوات",
+      "ليس الآن"
+    );
+    if (!document.body.contains(status)) return;
+    status.className = "net-status is-error";
+    if (!accepted) {
+      status.textContent = message || "تعذّر الاتصال بخادم اللعب المحلي.";
+      return;
+    }
+    status.innerHTML =
+      '<span>المتصفح لا يستطيع تشغيل ملفات الجهاز مباشرة. على جهاز المضيف شغّل <code>start-lan.bat</code>؛ سيفتح الملف صفحة المضيف وينشئ الغرفة تلقائيًا بعد جاهزية الخادم.</span>' +
+      '<br><span>أو شغّل <code>node board-games/server.js</code> ثم افتح هذه الصفحة:</span> ' +
+      '<a class="bg-btn small primary" href="http://localhost:8790/board-games/?mode=lan&amp;autocreate=1" target="_blank" rel="noopener">فتح صفحة المضيف</a>';
+  }
+
+  async function autoCreateLanRoom() {
+    const body = state.overlay && state.overlay.querySelector(".net-lobby-body");
+    if (!body) return;
+    const status = body.querySelector("[data-net-status]");
+    const create = body.querySelector("[data-net-create]");
+    if (!status || !create) return;
+
+    const controls = Array.from(body.querySelectorAll("[data-net-create], [data-net-join], [data-net-mode]"));
+    controls.forEach((control) => { control.disabled = true; });
+    status.className = "net-status is-busy";
+    status.textContent = "جارٍ انتظار جاهزية الخادم المحلي؛ ستُنشأ الغرفة تلقائيًا…";
+
+    const startedAt = Date.now();
+    while (Date.now() - startedAt < 90000) {
+      if (!document.body.contains(body) || state.inRoom || BG.net.mode !== "lan") return;
+      const info = await BG.net.lanInfo();
+      if (info) {
+        controls.forEach((control) => { control.disabled = false; });
+        create.click();
+        return;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 750));
+    }
+
+    controls.forEach((control) => { control.disabled = false; });
+    if (!document.body.contains(status)) return;
+    status.className = "net-status is-error";
+    status.textContent = "لم يظهر الخادم بعد. شغّل start-lan.bat على جهاز المضيف ثم أعد تحميل صفحة المضيف، أو شغّل node board-games/server.js.";
+  }
+
   function bindLobbyForm(body) {
     const nameInput = body.querySelector("[data-net-name]");
     const codeInput = body.querySelector("[data-net-code]");
@@ -676,12 +727,17 @@
         if (msg && msg.peers) renderLobby();
       } catch (err) {
         failure = (err && err.message) || "تعذّر إنشاء الغرفة.";
-        BG.toast(failure, "warn");
       } finally {
         state.busy = false;
         busy(false, "");
       }
-      if (failure) offerSchoolMode(status, failure, "");
+      if (failure) {
+        if (BG.net.mode === "lan") offerLanServer(status, failure);
+        else {
+          BG.toast(failure, "warn");
+          offerSchoolMode(status, failure, "");
+        }
+      }
     });
 
     join.addEventListener("click", async () => {
@@ -2308,7 +2364,8 @@
     state.name = savedName() || "اللاعب";
     try {
       const params = new URLSearchParams(location.search);
-      const requestedMode = params.get("mode");
+      state.autoCreateLanRoom = params.get("autocreate") === "1";
+      const requestedMode = state.autoCreateLanRoom ? "lan" : params.get("mode");
       const relayParam = params.get("relay");
       if (relayParam && BG.net.setRelayUrl) BG.net.setRelayUrl(relayParam);
       if (requestedMode === "cloud" || requestedMode === "lan" || requestedMode === "web") BG.net.setMode(requestedMode);
@@ -2317,9 +2374,22 @@
         state.pendingInvite = join;
         state.inviteTried = false;
       }
+      if (state.autoCreateLanRoom) {
+        if (state.pendingInvite) state.autoCreateLanRoom = false;
+        params.delete("autocreate");
+        const cleanUrl = new URL(location.href);
+        cleanUrl.searchParams.delete("autocreate");
+        history.replaceState(history.state, "", cleanUrl.toString());
+      }
     } catch (err) { /* ignore */ }
     bindNetworkEvents();
-    if (state.pendingInvite) openLobby();
+    if (state.pendingInvite || state.autoCreateLanRoom) {
+      openLobby();
+      if (state.autoCreateLanRoom) {
+        state.autoCreateLanRoom = false;
+        autoCreateLanRoom();
+      }
+    }
   }
 
   BG.online = {
