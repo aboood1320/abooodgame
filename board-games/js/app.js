@@ -242,12 +242,29 @@
 
   let libraryBuilt = false;
   let sceneObserver = null;
+  const LIBRARY_FAVORITES_KEY = "libraryFavorites.v1";
+  const LIBRARY_SORT_KEY = "librarySort.v1";
+  const storedFavorites = BG.store.get(LIBRARY_FAVORITES_KEY, []);
+  const favoriteGameIds = new Set(Array.isArray(storedFavorites)
+    ? storedFavorites.filter((id) => typeof id === "string" && BG.byId[id])
+    : []);
 
   /* مشاهد البطاقات (SVG ثقيلة) تُدرَج عند اقتراب البطاقة من الشاشة فقط */
   function fillScene(node) {
     if (!node || !node.__scene) return;
     node.innerHTML = node.__scene;
     node.__scene = null;
+  }
+
+  function updateFavoriteButton(button, game) {
+    if (!button || !game) return false;
+    const isFavorite = favoriteGameIds.has(game.id);
+    button.textContent = isFavorite ? "★" : "☆";
+    button.classList.toggle("is-favorite", isFavorite);
+    button.setAttribute("aria-pressed", isFavorite ? "true" : "false");
+    button.setAttribute("aria-label", (isFavorite ? "إزالة " : "إضافة ") + game.name + " " + (isFavorite ? "من" : "إلى") + " المفضلة");
+    button.title = isFavorite ? "إزالة من المفضلة" : "إضافة إلى المفضلة";
+    return isFavorite;
   }
 
   function observeScene(node) {
@@ -267,7 +284,7 @@
   function renderLibrary() {
     document.body.classList.add("library-mode");
     if (libraryBuilt && els.libraryGrid.querySelector(".game-card")) {
-      /* المكتبة مبنيّة مسبقًا: نحدّث بطاقة «متابعة» فقط بدل إعادة بناء عشرين بطاقة */
+      /* المكتبة مبنيّة مسبقًا: نحدّث بطاقة «متابعة» فقط بدل إعادة بناء البطاقات الأربعين */
       const old = els.libraryGrid.querySelector(".resume-card");
       if (old) old.remove();
       renderResumeCard();
@@ -286,6 +303,10 @@
 
     BG.games.forEach((game, index) => {
       const tone = TONES[game.id] || game.accent || "#d9a441";
+      const shell = BG.el("div", {
+        class: "game-card-shell",
+        dataset: { gameShell: game.id },
+      });
       const card = BG.el("button", {
         type: "button",
         class: "game-card " + (game.cardClass || ""),
@@ -321,7 +342,24 @@
       const sceneNode = art.querySelector(".game-scene");
       if (sceneNode && scene) { sceneNode.__scene = scene; observeScene(sceneNode); }
       card.addEventListener("click", () => openGame(game));
-      els.libraryGrid.appendChild(card);
+      const favorite = BG.el("button", { type: "button", class: "game-favorite" });
+      updateFavoriteButton(favorite, game);
+      favorite.addEventListener("click", () => {
+        const wasFavorite = favoriteGameIds.has(game.id);
+        if (wasFavorite) favoriteGameIds.delete(game.id);
+        else favoriteGameIds.add(game.id);
+        BG.store.set(LIBRARY_FAVORITES_KEY, Array.from(favoriteGameIds));
+        updateFavoriteButton(favorite, game);
+        applyLibraryFilters();
+        if (wasFavorite && document.getElementById("libraryFavoritesOnly").getAttribute("aria-pressed") === "true") {
+          const panel = document.getElementById("libraryFilters");
+          const target = panel && panel.hidden ? document.getElementById("libraryFiltersToggle") : document.getElementById("libraryFavoritesOnly");
+          if (target) target.focus();
+        }
+      });
+      shell.appendChild(card);
+      shell.appendChild(favorite);
+      els.libraryGrid.appendChild(shell);
     });
     libraryBuilt = true;
     applyLibraryFilters();
@@ -347,9 +385,28 @@
 
   function complexityGroup(game) {
     const value = U.normalizeArabic(game.complexity || "");
-    if (value.includes("سهله") || value.includes("خفيفه")) return "easy";
+    if (value.includes("مرتفع") || value.includes("عالي") || value.includes("متقدم")) return "advanced";
     if (value.includes("متوسطه")) return "medium";
+    if (value.includes("سهله") || value.includes("خفيفه")) return "easy";
     return "advanced";
+  }
+
+  function sortLibraryCards(sortBy) {
+    if (!els.libraryGrid) return;
+    const games = BG.games.map((game, index) => ({ game, index }));
+    const complexityRank = { easy: 0, medium: 1, advanced: 2 };
+    if (sortBy === "name") {
+      games.sort((a, b) => U.normalizeArabic(a.game.name).localeCompare(U.normalizeArabic(b.game.name), "ar") || a.index - b.index);
+    } else if (sortBy === "duration") {
+      games.sort((a, b) => durationMinutes(a.game) - durationMinutes(b.game) || a.index - b.index);
+    } else if (sortBy === "complexity") {
+      games.sort((a, b) => complexityRank[complexityGroup(a.game)] - complexityRank[complexityGroup(b.game)] || a.index - b.index);
+    }
+    games.forEach(({ game }) => {
+      const card = els.libraryGrid.querySelector('[data-game-id="' + game.id + '"]');
+      const shell = card && card.closest(".game-card-shell");
+      if (shell) els.libraryGrid.appendChild(shell);
+    });
   }
 
   function supportsPlayerCount(game, count) {
@@ -362,6 +419,8 @@
     const players = document.getElementById("libraryPlayers");
     const duration = document.getElementById("libraryDuration");
     const complexity = document.getElementById("libraryComplexity");
+    const sort = document.getElementById("librarySort");
+    const favoritesOnly = document.getElementById("libraryFavoritesOnly");
     const reset = document.getElementById("libraryReset");
     const toggle = document.getElementById("libraryFiltersToggle");
     const panel = document.getElementById("libraryFilters");
@@ -379,6 +438,22 @@
         toggle.focus();
       });
     }
+    if (sort) {
+      const savedSort = BG.store.get(LIBRARY_SORT_KEY, "featured");
+      sort.value = ["featured", "name", "duration", "complexity"].includes(savedSort) ? savedSort : "featured";
+      sortLibraryCards(sort.value);
+      sort.addEventListener("change", () => {
+        BG.store.set(LIBRARY_SORT_KEY, sort.value);
+        sortLibraryCards(sort.value);
+      });
+    }
+    if (favoritesOnly) {
+      favoritesOnly.addEventListener("click", () => {
+        const active = favoritesOnly.getAttribute("aria-pressed") !== "true";
+        favoritesOnly.setAttribute("aria-pressed", active ? "true" : "false");
+        applyLibraryFilters();
+      });
+    }
     [search, players, duration, complexity].forEach((control) => {
       if (!control) return;
       control.addEventListener(control === search ? "input" : "change", applyLibraryFilters);
@@ -388,6 +463,12 @@
       if (players) players.value = "";
       if (duration) duration.value = "";
       if (complexity) complexity.value = "";
+      if (sort) {
+        sort.value = "featured";
+        BG.store.set(LIBRARY_SORT_KEY, "featured");
+        sortLibraryCards("featured");
+      }
+      if (favoritesOnly) favoritesOnly.setAttribute("aria-pressed", "false");
       applyLibraryFilters();
       if (search) search.focus();
     });
@@ -399,11 +480,13 @@
     const playerCount = Number((document.getElementById("libraryPlayers") || {}).value) || 0;
     const durationFilter = (document.getElementById("libraryDuration") || {}).value || "";
     const complexityFilter = (document.getElementById("libraryComplexity") || {}).value || "";
+    const favoritesOnly = document.getElementById("libraryFavoritesOnly");
+    const favoritesActive = !!favoritesOnly && favoritesOnly.getAttribute("aria-pressed") === "true";
     let visible = 0;
     BG.games.forEach((game) => {
       const card = els.libraryGrid.querySelector('[data-game-id="' + game.id + '"]');
       if (!card) return;
-      const searchable = U.normalizeArabic([game.name, game.en, game.tagline, game.players, game.duration, game.complexity].join(" ")).toLowerCase();
+      const searchable = U.normalizeArabic([game.name, game.en, game.id, game.tagline, game.players, game.duration, game.complexity].join(" ")).toLowerCase();
       const minutes = durationMinutes(game);
       const matchesDuration = !durationFilter ||
         (durationFilter === "short" && minutes <= 30) ||
@@ -412,21 +495,30 @@
       const show = (!query || searchable.includes(query)) &&
         (!playerCount || supportsPlayerCount(game, playerCount)) &&
         matchesDuration &&
-        (!complexityFilter || complexityGroup(game) === complexityFilter);
+        (!complexityFilter || complexityGroup(game) === complexityFilter) &&
+        (!favoritesActive || favoriteGameIds.has(game.id));
+      const shell = card.closest(".game-card-shell") || card;
+      shell.hidden = !show;
       card.hidden = !show;
       if (show) visible += 1;
     });
     const countEl = document.getElementById("libraryCount");
     const empty = document.getElementById("libraryEmpty");
-    const filtered = !!(query || playerCount || durationFilter || complexityFilter);
+    const filtered = !!(query || playerCount || durationFilter || complexityFilter || favoritesActive);
     const badge = document.getElementById("libraryFilterBadge");
     const toggle = document.getElementById("libraryFiltersToggle");
-    const activeFilterCount = [query, playerCount, durationFilter, complexityFilter].filter(Boolean).length;
+    const activeFilterCount = [query, playerCount, durationFilter, complexityFilter, favoritesActive].filter(Boolean).length;
+    const favoriteCount = document.getElementById("libraryFavoriteCount");
+    if (favoriteCount) {
+      favoriteCount.textContent = String(favoriteGameIds.size);
+      favoriteCount.hidden = favoriteGameIds.size === 0;
+    }
     if (badge) {
       badge.textContent = String(activeFilterCount);
       badge.hidden = activeFilterCount === 0;
     }
     if (toggle) toggle.classList.toggle("has-active-filters", activeFilterCount > 0);
+    if (favoritesOnly) favoritesOnly.classList.toggle("is-active", favoritesActive);
     const resume = els.libraryGrid.querySelector(".resume-card");
     if (resume) resume.hidden = filtered;
     if (countEl) {
@@ -434,7 +526,12 @@
         ? (visible ? formatGameCount(visible) : "لا توجد ألعاب مطابقة") + " من " + formatGameCount(BG.games.length)
         : formatGameCount(BG.games.length) + " · جاهزة للعب";
     }
-    if (empty) empty.hidden = visible > 0;
+    if (empty) {
+      empty.hidden = visible > 0;
+      empty.textContent = favoritesActive && favoriteGameIds.size === 0
+        ? "لم تضف ألعابًا إلى المفضلة بعد. استخدم نجمة البطاقة لحفظ ألعابك المفضلة."
+        : "لا توجد ألعاب تطابق اختياراتك. غيّر الفلاتر أو امسحها لعرض الألعاب.";
+    }
   }
 
   /* ------------------------------ حفظ ومتابعة ------------------------------ */

@@ -52,7 +52,7 @@
 <link rel="stylesheet" href="css/splendor.css?v=2" media="print" onload="this.media='all'" />
 <link rel="stylesheet" href="css/kootbositta.css?v=2" media="print" onload="this.media='all'" />
 <link rel="stylesheet" href="css/chess.css?v=10" media="print" onload="this.media='all'" />
-<link rel="stylesheet" href="css/pandemic.css?v=32" media="print" onload="this.media='all'" />
+<link rel="stylesheet" href="css/pandemic.css?v=33" media="print" onload="this.media='all'" />
 <link rel="stylesheet" href="css/tavla.css?v=30" media="print" onload="this.media='all'" />
 <link rel="stylesheet" href="css/cards.css?v=32" media="print" onload="this.media='all'" />
 <link rel="stylesheet" href="css/classic.css?v=36" media="print" onload="this.media='all'" />
@@ -61,7 +61,7 @@
 <link rel="stylesheet" href="css/net.css?v=30" />
 <link rel="stylesheet" href="css/polish.css?v=32" />
 <link rel="stylesheet" href="css/upgrade.css?v=1" />
-<link rel="stylesheet" href="css/library.css?v=8" />
+<link rel="stylesheet" href="css/library.css?v=11" />
 <link rel="stylesheet" href="css/net2.css?v=2" />
 <link rel="stylesheet" href="css/monopoly.css?v=7" />
 <link rel="stylesheet" href="css/ludo.css?v=2" media="print" onload="this.media='all'" />
@@ -84,11 +84,11 @@
 <link rel="stylesheet" href="css/for-sale.css?v=1" media="print" onload="this.media='all'" />
 <link rel="stylesheet" href="css/skull.css?v=1" media="print" onload="this.media='all'" />
 <link rel="stylesheet" href="css/king-of-tokyo.css?v=1" media="print" onload="this.media='all'" />
-<link rel="stylesheet" href="css/codenames.css?v=1" media="print" onload="this.media='all'" />
+<link rel="stylesheet" href="css/codenames.css?v=2" media="print" onload="this.media='all'" />
 <link rel="stylesheet" href="css/takenoko.css?v=1" media="print" onload="this.media='all'" />
 <link rel="stylesheet" href="css/perf.css?v=1" />
 <noscript>
-<link rel="stylesheet" href="css/ttr.css?v=34" /><link rel="stylesheet" href="css/carcassonne.css?v=32" /><link rel="stylesheet" href="css/risk.css?v=34" /><link rel="stylesheet" href="css/scrabble.css?v=33" /><link rel="stylesheet" href="css/cluedo.css?v=38" /><link rel="stylesheet" href="css/uno.css?v=32" /><link rel="stylesheet" href="css/love-letter.css?v=1" /><link rel="stylesheet" href="css/splendor.css?v=2" /><link rel="stylesheet" href="css/kootbositta.css?v=2" /><link rel="stylesheet" href="css/chess.css?v=10" /><link rel="stylesheet" href="css/pandemic.css?v=32" /><link rel="stylesheet" href="css/tavla.css?v=30" /><link rel="stylesheet" href="css/cards.css?v=32" /><link rel="stylesheet" href="css/classic.css?v=36" /><link rel="stylesheet" href="css/ludo.css?v=2" /><link rel="stylesheet" href="css/expansion.css?v=1" /><link rel="stylesheet" href="css/yahtzee.css?v=1" /><link rel="stylesheet" href="css/rummikub.css?v=1" /><link rel="stylesheet" href="css/othello.css?v=1" /><link rel="stylesheet" href="css/connect-four.css?v=2" /><link rel="stylesheet" href="css/stratego.css?v=1" /><link rel="stylesheet" href="css/parcheesi.css?v=1" /><link rel="stylesheet" href="css/sorry.css?v=1" /><link rel="stylesheet" href="css/battleship.css?v=7" /><link rel="stylesheet" href="css/seven-wonders.css?v=1" /><link rel="stylesheet" href="css/azul.css?v=1" /><link rel="stylesheet" href="css/wingspan.css?v=1" /><link rel="stylesheet" href="css/dominion.css?v=1" /><link rel="stylesheet" href="css/terraforming-mars.css?v=1" />
+<link rel="stylesheet" href="css/ttr.css?v=34" /><link rel="stylesheet" href="css/carcassonne.css?v=32" /><link rel="stylesheet" href="css/risk.css?v=34" /><link rel="stylesheet" href="css/scrabble.css?v=33" /><link rel="stylesheet" href="css/cluedo.css?v=38" /><link rel="stylesheet" href="css/uno.css?v=32" /><link rel="stylesheet" href="css/love-letter.css?v=1" /><link rel="stylesheet" href="css/splendor.css?v=2" /><link rel="stylesheet" href="css/kootbositta.css?v=2" /><link rel="stylesheet" href="css/chess.css?v=10" /><link rel="stylesheet" href="css/pandemic.css?v=33" /><link rel="stylesheet" href="css/tavla.css?v=30" /><link rel="stylesheet" href="css/cards.css?v=32" /><link rel="stylesheet" href="css/classic.css?v=36" /><link rel="stylesheet" href="css/ludo.css?v=2" /><link rel="stylesheet" href="css/expansion.css?v=1" /><link rel="stylesheet" href="css/yahtzee.css?v=1" /><link rel="stylesheet" href="css/rummikub.css?v=1" /><link rel="stylesheet" href="css/othello.css?v=1" /><link rel="stylesheet" href="css/connect-four.css?v=2" /><link rel="stylesheet" href="css/stratego.css?v=1" /><link rel="stylesheet" href="css/parcheesi.css?v=1" /><link rel="stylesheet" href="css/sorry.css?v=1" /><link rel="stylesheet" href="css/battleship.css?v=7" /><link rel="stylesheet" href="css/seven-wonders.css?v=1" /><link rel="stylesheet" href="css/azul.css?v=1" /><link rel="stylesheet" href="css/wingspan.css?v=1" /><link rel="stylesheet" href="css/dominion.css?v=1" /><link rel="stylesheet" href="css/terraforming-mars.css?v=1" />
 </noscript>
 </head>
 <body class="library-mode">
@@ -378,6 +378,20 @@
             <option value="advanced">متقدم</option>
           </select>
         </label>
+        <label class="library-filter">
+          <span>ترتيب الألعاب</span>
+          <select id="librarySort" aria-controls="libraryGrid">
+            <option value="featured">الترتيب المقترح</option>
+            <option value="name">الاسم: أ–ي</option>
+            <option value="duration">الأقصر وقتًا</option>
+            <option value="complexity">الأسهل أولًا</option>
+          </select>
+        </label>
+        <button class="library-favorites-toggle" id="libraryFavoritesOnly" type="button" aria-pressed="false" aria-controls="libraryGrid">
+          <span class="library-favorites-star" aria-hidden="true">★</span>
+          <span>المفضلة فقط</span>
+          <span class="library-favorite-count" id="libraryFavoriteCount" hidden>0</span>
+        </button>
         <button class="library-filter-reset" id="libraryReset" type="button">مسح الفلاتر</button>
       </form>
 
@@ -457,7 +471,7 @@
 <script defer src="js/games/uno.js?v=38"></script>
 <script defer src="js/games/love-letter.js?v=2"></script>
 <script defer src="js/games/splendor.js?v=6"></script>
-<script defer src="js/games/pandemic.js?v=32"></script>
+<script defer src="js/games/pandemic.js?v=33"></script>
 <script defer src="js/games/tavla.js?v=31"></script>
 <script defer src="js/games/waraq.js?v=33"></script>
 <script defer src="js/games/kootbositta.js?v=4"></script>
@@ -484,7 +498,7 @@
 <script defer src="js/games/for-sale.js?v=3"></script>
 <script defer src="js/games/skull.js?v=3"></script>
 <script defer src="js/games/king-of-tokyo.js?v=2"></script>
-<script defer src="js/games/codenames.js?v=1"></script>
+<script defer src="js/games/codenames.js?v=2"></script>
 <script defer src="js/games/takenoko.js?v=3"></script>
 <button type="button" id="btnExitFullscreen" class="fs-exit" aria-label="إنهاء ملء الشاشة" hidden><svg class="ic" aria-hidden="true"><use href="#i-motion"/></svg><span>إنهاء ملء الشاشة</span></button>
 <script defer src="js/relay-config.js?v=1"></script>
@@ -492,7 +506,7 @@
 <script defer src="js/net.js?v=34"></script>
 <script defer src="js/library-art.js?v=1"></script>
 <script defer src="js/library-art-expansion.js?v=1"></script>
-<script defer src="js/app.js?v=51"></script>
+<script defer src="js/app.js?v=53"></script>
 <script defer src="js/online.js?v=46"></script>
 <script defer src="js/online-host.js?v=1"></script>
 <script defer src="js/site-extras.js?v=1"></script>

@@ -603,6 +603,49 @@ body.library-mode .library-filter-reset:hover {
   border-color: rgba(240, 206, 144, 0.42);
   background: rgba(232, 192, 122, 0.14);
 }
+body.library-mode .library-favorites-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid rgba(240, 206, 144, 0.2);
+  border-radius: 12px;
+  color: #d8c7a8;
+  background: rgba(255, 236, 201, 0.035);
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-align: start;
+  cursor: pointer;
+  transition: border-color 0.16s ease, color 0.16s ease, background 0.16s ease;
+}
+body.library-mode .library-favorites-toggle:hover,
+body.library-mode .library-favorites-toggle.is-active {
+  border-color: rgba(240, 206, 144, 0.5);
+  color: #ffe6aa;
+  background: rgba(232, 192, 122, 0.12);
+}
+body.library-mode .library-favorites-toggle:focus-visible {
+  outline: 2px solid #e8c07a;
+  outline-offset: 2px;
+}
+body.library-mode .library-favorites-star { color: #e8c07a; font-size: 1rem; line-height: 1; }
+body.library-mode .library-favorite-count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 20px;
+  height: 20px;
+  margin-inline-start: auto;
+  padding-inline: 5px;
+  border-radius: 999px;
+  color: #1c150b;
+  background: #e8c07a;
+  font-size: 0.62rem;
+}
+body.library-mode .library-favorite-count[hidden] { display: none; }
 body.library-mode .library-empty {
   margin: 0 6px 24px;
   padding: 24px;
@@ -620,6 +663,14 @@ body.library-mode .library-grid {
   gap: 22px;
   align-items: stretch;
 }
+body.library-mode .game-card-shell {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  height: 100%;
+}
+body.library-mode .game-card-shell[hidden] { display: none; }
+body.library-mode .game-card-shell .game-card { width: 100%; }
 
 /* ------------------------------ البطاقة ------------------------------ */
 
@@ -683,6 +734,39 @@ body.library-mode .game-card:focus-visible {
 }
 body.library-mode .game-card:active {
   transform: translateY(-4px) scale(0.995);
+}
+body.library-mode .game-favorite {
+  position: absolute;
+  z-index: 8;
+  inset-block-start: 58px;
+  inset-inline-start: 14px;
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  border: 1px solid rgba(255, 239, 205, 0.32);
+  border-radius: 14px;
+  color: #f4e6c9;
+  background: rgba(26, 16, 8, 0.76);
+  box-shadow: 0 8px 22px -13px #000;
+  font: inherit;
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.16s ease, border-color 0.16s ease, color 0.16s ease, background 0.16s ease;
+}
+body.library-mode .game-favorite:hover,
+body.library-mode .game-favorite.is-favorite {
+  border-color: rgba(255, 220, 145, 0.7);
+  color: #ffe29b;
+  background: rgba(92, 58, 18, 0.88);
+}
+body.library-mode .game-favorite:hover { transform: scale(1.07); }
+body.library-mode .game-favorite:focus-visible {
+  outline: 2px solid #ffe29b;
+  outline-offset: 3px;
 }
 
 /* ------------------------------ فن البطاقة ------------------------------ */
@@ -1246,19 +1330,19 @@ body.library-mode :is(.game-card:hover, .game-card:focus-visible, .hero-visual:h
 }
 
 /* تنويع الإيقاع بين البطاقات حتى لا تتحرك كلها في وقت واحد */
-body.library-mode .game-card:nth-child(2n) .la-float {
+body.library-mode .game-card-shell:nth-child(2n) .la-float {
   animation-delay: -1.9s;
   animation-duration: 6.7s;
 }
-body.library-mode .game-card:nth-child(3n) .la-float-slow {
+body.library-mode .game-card-shell:nth-child(3n) .la-float-slow {
   animation-delay: -2.6s;
   animation-duration: 9.4s;
 }
-body.library-mode .game-card:nth-child(4n) .la-sway {
+body.library-mode .game-card-shell:nth-child(4n) .la-sway {
   animation-delay: -2.2s;
   animation-duration: 7.3s;
 }
-body.library-mode .game-card:nth-child(5n) .la-spark {
+body.library-mode .game-card-shell:nth-child(5n) .la-spark {
   animation-delay: -1.4s;
 }
 
@@ -1446,6 +1530,8 @@ main:focus-visible {
   }
   body.library-mode .game-card,
   body.library-mode .game-card *,
+  body.library-mode .game-favorite,
+  body.library-mode .library-favorites-toggle,
   body.library-mode .hero-btn,
   body.library-mode .hero-btn * {
     transition: none !important;
@@ -1453,6 +1539,7 @@ main:focus-visible {
   body.library-mode .game-card:hover {
     transform: none;
   }
+  body.library-mode .game-favorite:hover { transform: none; }
   body.library-mode .game-card:hover .game-scene {
     transform: none;
   }
