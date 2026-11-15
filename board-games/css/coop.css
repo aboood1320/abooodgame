@@ -1737,10 +1737,12 @@
 }
 
 .han-color strong { position: relative; z-index: 2; display: block; font-size: 0.58rem; color: #fff; text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5); }
-.han-color .han-stack { position: relative; z-index: 2; display: flex; justify-content: center; gap: 2px; margin-top: 5px; min-height: 36px; align-items: flex-end; }
+.han-color.is-light strong { color: #252a3d; text-shadow: 0 1px 2px rgba(255, 255, 255, 0.55); }
+.han-color .han-stack { position: relative; z-index: 2; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 2px; margin-top: 5px; min-height: 36px; align-items: end; }
 
 .han-num {
-  width: 19px;
+  width: 100%;
+  min-width: 0;
   height: 28px;
   display: grid;
   place-items: center;
@@ -1847,6 +1849,204 @@
   color: #eaf6ff;
   font: inherit;
   font-size: 0.66rem;
+}
+
+.han-card.is-picked {
+  border-color: #ffe1a1;
+  box-shadow: 0 0 0 3px rgba(255, 225, 161, 0.3), 0 8px 16px -10px #000;
+  transform: translateY(-4px);
+}
+
+.han-card.is-fully-known::after {
+  content: "✓";
+  color: #b7ffd4;
+}
+
+.han-card-q { font-size: 1.15rem; opacity: 0.6; }
+
+.han-card-mark {
+  position: absolute;
+  bottom: 2px;
+  inset-inline-start: 3px;
+  font-size: 0.36rem;
+  letter-spacing: 1px;
+  opacity: 0.9;
+}
+
+.han-hand-picker {
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
+  align-items: center;
+  min-height: 62px;
+  padding: 6px;
+  border: 1px dashed rgba(111, 194, 230, 0.28);
+  border-radius: 10px;
+  background: rgba(111, 194, 230, 0.035);
+}
+
+.han-hand-picker .han-card { cursor: pointer; }
+
+.han-action-head,
+.han-clue-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.han-action-head strong,
+.han-clue-head strong { color: #ffe4ad; font-size: 0.72rem; }
+.han-action-head span,
+.han-clue-head span { color: var(--coop-dim); font-size: 0.56rem; }
+
+.han-choice-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.han-pick-label { color: var(--coop-dim); font-size: 0.56rem; }
+
+.han-clue-panel-inner {
+  display: grid;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid rgba(111, 194, 230, 0.2);
+  border-radius: 11px;
+  background: rgba(111, 194, 230, 0.04);
+}
+
+.han-wait { display: grid; gap: 3px; text-align: center; }
+.han-wait strong { color: #dff3ff; font-size: 0.72rem; }
+
+.han-notice {
+  margin: 9px 0 0;
+  padding: 7px 10px;
+  border: 1px solid rgba(240, 180, 92, 0.16);
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.22);
+  color: #cbd6e9;
+  font-size: 0.62rem;
+  line-height: 1.7;
+  text-align: center;
+}
+
+.han-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px 7px;
+  border: 1px solid rgba(240, 180, 92, 0.28);
+  border-radius: 999px;
+  color: #ffe4ad;
+  font-size: 0.52rem;
+}
+
+.han-status-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.han-status-grid span {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  padding: 5px 7px;
+  border: 1px solid rgba(240, 180, 92, 0.12);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.025);
+  color: var(--coop-dim);
+  font-size: 0.54rem;
+}
+
+.han-status-grid b { color: #fff6e4; font-size: 0.6rem; }
+
+.han-log {
+  display: grid;
+  gap: 4px;
+  max-height: 170px;
+  overflow: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(240, 180, 92, 0.3) transparent;
+}
+
+.han-log .coop-log-line { font-size: 0.6rem; }
+
+.han-end {
+  display: grid;
+  place-items: center;
+  gap: 4px;
+  padding: 14px;
+  border: 1px solid rgba(240, 180, 92, 0.35);
+  border-radius: 13px;
+  background: rgba(240, 180, 92, 0.08);
+  text-align: center;
+}
+
+.han-end > span { font-size: 2rem; }
+.han-end strong { color: #ffe4ad; font-size: 0.82rem; }
+.han-end p { margin: 0 0 4px; color: #d6c7b0; font-size: 0.6rem; line-height: 1.7; }
+.han-end.is-win { border-color: rgba(126, 224, 168, 0.5); background: rgba(126, 224, 168, 0.1); }
+.han-end.is-win strong { color: #b7ffd4; }
+.han-end.is-lose { border-color: rgba(239, 116, 122, 0.45); background: rgba(239, 116, 122, 0.08); }
+.han-end.is-lose strong { color: #ffd3d6; }
+
+.han-curtain {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background:
+    radial-gradient(60% 50% at 50% 40%, rgba(240, 180, 92, 0.12), transparent 68%),
+    rgba(5, 7, 14, 0.97);
+  min-height: 420px;
+}
+
+.han-curtain-inner {
+  display: grid;
+  place-items: center;
+  gap: 7px;
+  max-width: 320px;
+  text-align: center;
+}
+
+.han-curtain-inner > span { font-size: 2.6rem; animation: hanFloat 2.8s ease-in-out infinite; }
+.han-curtain-inner strong { color: #fff0d2; font-size: 0.92rem; }
+.han-curtain-inner p { margin: 0 0 5px; color: #b9c2d6; font-size: 0.64rem; line-height: 1.8; }
+.han-curtain-inner .coop-btn { min-height: 44px; }
+
+.han-stage.is-burn { animation: hanBurn 0.5s ease; }
+.han-stage.is-celebrate { animation: hanCelebrate 0.85s ease; }
+.han-player.is-current { animation: hanTurnGlow 1.8s ease-in-out infinite; }
+
+@keyframes hanFloat {
+  0%, 100% { transform: translateY(0) scale(0.96); opacity: 0.82; }
+  50% { transform: translateY(-7px) scale(1.04); opacity: 1; }
+}
+
+@keyframes hanBurn {
+  0%, 100% { transform: none; filter: none; }
+  20% { transform: translateX(-4px); filter: saturate(1.4) brightness(1.08); }
+  45% { transform: translateX(4px); }
+  70% { transform: translateX(-2px); }
+}
+
+@keyframes hanCelebrate {
+  0% { transform: scale(0.995); filter: brightness(1.12); }
+  40% { transform: scale(1.008); filter: brightness(1.22); }
+  100% { transform: none; filter: none; }
+}
+
+@keyframes hanTurnGlow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(240, 180, 92, 0); }
+  50% { box-shadow: 0 0 0 3px rgba(240, 180, 92, 0.12); }
 }
 
 /* ==========================================================================
@@ -2368,11 +2568,23 @@
   .mys-guess-row .coop-btn { min-height: 42px; }
   .setup-options select { min-height: 42px; }
   .han-fireworks { gap: 3px; }
-  .han-color { padding: 5px 3px; }
-  .han-color strong { font-size: 0.48rem; }
-  .han-num { width: 15px; height: 23px; font-size: 0.5rem; }
-  .han-card { width: 33px; height: 46px; }
+  .han-color { padding: 5px 2px; }
+  .han-color strong { font-size: 0.46rem; }
+  .han-color .han-stack { gap: 1px; min-height: 30px; }
+  .han-num { width: 100%; height: 23px; font-size: 0.46rem; border-radius: 3px; }
+  .han-color .han-complete { font-size: 0.46rem; }
+  .han-card { width: 34px; height: 47px; }
   .han-card strong { font-size: 0.76rem; }
+  .han-clue-btn { min-height: 42px; }
+  .han-select { min-height: 42px; }
+  .han-choice-row .coop-btn { min-height: 42px; }
+  .han-hand-picker { min-height: 58px; gap: 4px; }
+  .han-action-head strong, .han-clue-head strong { font-size: 0.66rem; }
+  .han-action-head span, .han-clue-head span { font-size: 0.52rem; }
+  .han-curtain { min-height: 380px; padding: 14px; }
+  .han-curtain-inner strong { font-size: 0.84rem; }
+  .han-status-grid { gap: 4px; }
+  .han-status-grid span { font-size: 0.5rem; }
   .crew-tasks { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .crew-card { width: 40px; height: 56px; }
   .crew-card strong { font-size: 0.92rem; }
@@ -2391,8 +2603,8 @@
   .mys-board { gap: 4px; }
   .mys-card { padding: 6px 3px; }
   .mys-card strong { font-size: 0.46rem; }
-  .han-card { width: 30px; height: 43px; }
-  .han-card strong { font-size: 0.68rem; }
+  .han-card { width: 36px; height: 50px; }
+  .han-card strong { font-size: 0.72rem; }
 }
 
 /* منع الوميض الأزرق على iOS وسلاسة اللمس */

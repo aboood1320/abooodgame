@@ -375,4 +375,44 @@
     '<g fill="#e7b45f"><circle cx="62" cy="184" r="2"/><circle cx="300" cy="188" r="2"/><circle cx="86" cy="196" r="1.4"/><circle cx="276" cy="198" r="1.4"/></g>' +
     '<text x="180" y="204" font-size="9" text-anchor="middle" fill="#a98bc4" letter-spacing="3" font-family="Arial,sans-serif">ONE TEAM · ONE TRUTH</text>'
   );
+  /* ------------------------------ هانابي ------------------------------ */
+  art["hanabi"] = svg(
+    '<defs>' +
+    halo("hanHalo", "#f0b45c") +
+    '<linearGradient id="hanSky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#141830"/><stop offset=".6" stop-color="#090c18"/><stop offset="1" stop-color="#05060d"/></linearGradient>' +
+    '<linearGradient id="hanGround" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1c2036"/><stop offset="1" stop-color="#0a0c17"/></linearGradient>' +
+    '<radialGradient id="hanBurst1"><stop offset="0" stop-color="#fff7cf"/><stop offset=".35" stop-color="#f0c24c"/><stop offset="1" stop-color="#f0c24c" stop-opacity="0"/></radialGradient>' +
+    '<radialGradient id="hanBurst2"><stop offset="0" stop-color="#e8fbff"/><stop offset=".35" stop-color="#5aa7e0"/><stop offset="1" stop-color="#5aa7e0" stop-opacity="0"/></radialGradient>' +
+    '<radialGradient id="hanBurst3"><stop offset="0" stop-color="#ffeaf4"/><stop offset=".35" stop-color="#e45861"/><stop offset="1" stop-color="#e45861" stop-opacity="0"/></radialGradient>' +
+    '<filter id="hanSh" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="6" stdDeviation="7" flood-color="#000" flood-opacity=".55"/></filter>' +
+    '</defs>' +
+    '<rect x="10" y="8" width="340" height="204" rx="24" fill="url(#hanSky)"/>' +
+    '<circle cx="180" cy="92" r="96" fill="url(#hanHalo)"/>' +
+    '<g fill="#f0e6ff" opacity=".75"><circle cx="42" cy="38" r="1.5"/><circle cx="82" cy="60" r="1"/><circle cx="314" cy="42" r="1.6"/><circle cx="334" cy="96" r="1"/><circle cx="30" cy="116" r="1.2"/><circle cx="292" cy="160" r="1.2"/><path d="M62 150l1.8 5.4 5.4 1.8-5.4 1.8-1.8 5.4-1.8-5.4-5.4-1.8 5.4-1.8z"/></g>' +
+    '<g filter="url(#hanSh)">' +
+    '<circle cx="96" cy="76" r="34" fill="url(#hanBurst1)"/>' +
+    '<circle cx="180" cy="48" r="26" fill="url(#hanBurst2)"/>' +
+    '<circle cx="258" cy="70" r="38" fill="url(#hanBurst3)"/>' +
+    '<circle cx="220" cy="122" r="20" fill="url(#hanBurst1)" opacity=".75"/>' +
+    '<circle cx="138" cy="116" r="16" fill="url(#hanBurst2)" opacity=".65"/>' +
+    '</g>' +
+    '<g stroke="#ffe9a8" stroke-width="1.4" stroke-linecap="round" opacity=".75">' +
+    '<path d="M96 76V48M96 76l22-16M96 76l-24 12M96 76l24 16M96 76l-18-24M96 76v30M96 76l-28-12M96 76l30 2"/>' +
+    '<path d="M180 48V26M180 48l16 10M180 48l-16 10M180 48l8 20M180 48l-8 20" stroke="#bfe8ff"/>' +
+    '<path d="M258 70V38M258 70l24-16M258 70l-26 10M258 70l24 20M258 70l-22-22M258 70v28M258 70l-30-8M258 70l30 6" stroke="#ffd3d6"/>' +
+    '</g>' +
+    '<g fill="#fff8d8"><circle cx="96" cy="76" r="2.4"/><circle cx="258" cy="70" r="2.6"/><circle cx="180" cy="48" r="2"/></g>' +
+    '<path d="M10 166h340v34a24 24 0 01-24 12H34a24 24 0 01-24-12z" fill="url(#hanGround)"/>' +
+    '<g opacity=".45" stroke="#5e6684" stroke-width="1"><path d="M34 178h292M22 190h316M42 202h276"/></g>' +
+    '<g filter="url(#hanSh)">' +
+    '<g transform="rotate(-12 126 132)"><rect x="104" y="106" width="42" height="58" rx="6" fill="#f0c24c" stroke="#8a5a1c" stroke-width="1.6"/><text x="125" y="142" font-size="22" font-weight="700" text-anchor="middle" fill="#3a2a12" font-family="Arial,sans-serif">3</text></g>' +
+    '<g transform="rotate(8 180 128)"><rect x="158" y="102" width="42" height="58" rx="6" fill="#e45861" stroke="#7e202c" stroke-width="1.6"/><text x="179" y="138" font-size="22" font-weight="700" text-anchor="middle" fill="#fff4e6" font-family="Arial,sans-serif">5</text></g>' +
+    '<g transform="rotate(20 234 134)"><rect x="212" y="108" width="42" height="58" rx="6" fill="#5aa7e0" stroke="#1f4f8f" stroke-width="1.6"/><text x="233" y="144" font-size="22" font-weight="700" text-anchor="middle" fill="#f2fbff" font-family="Arial,sans-serif">2</text></g>' +
+    '</g>' +
+    '<g fill="#e8ecfa" opacity=".9">' +
+    '<circle cx="82" cy="154" r="6" fill="#2c3352"/><path d="M76 176c0-9 3-14 6-14s6 5 6 14z" fill="#2c3352"/><circle cx="278" cy="152" r="6" fill="#2c3352"/><path d="M272 174c0-9 3-14 6-14s6 5 6 14z" fill="#2c3352"/>' +
+    '</g>' +
+    '<g fill="#f0b45c"><circle cx="52" cy="184" r="2"/><circle cx="306" cy="188" r="2"/><circle cx="74" cy="198" r="1.2"/><circle cx="286" cy="198" r="1.2"/></g>' +
+    '<text x="180" y="204" font-size="9" text-anchor="middle" fill="#e2bb7e" letter-spacing="3" font-family="Arial,sans-serif">ONE TEAM · FIVE FIREWORKS</text>'
+  );
 })();
