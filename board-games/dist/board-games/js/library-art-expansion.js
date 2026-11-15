@@ -315,4 +315,25 @@
     '<g stroke="#a9e7dd" stroke-width="2.4" fill="none" opacity=".55" stroke-linecap="round"><path d="M50 94c8 5 16 5 24 0M286 122c8 5 16 5 24 0M64 188c8 5 16 5 24 0M280 190c8 5 16 5 24 0"/></g>' +
     '<g fill="#f4d99b"><circle cx="58" cy="52" r="2"/><circle cx="302" cy="62" r="1.8"/><path d="M304 158l2 6 6 2-6 2-2 6-2-6-6-2 6-2z"/></g>'
   );
+  /* ------------------------------ ذا مايند ------------------------------ */
+  art["the-mind"] = svg(
+    '<defs>' + halo("tmHalo", "#a98bff") +
+    '<linearGradient id="tmSky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#171034"/><stop offset="1" stop-color="#06040f"/></linearGradient>' +
+    '<linearGradient id="tmCard" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4b3690"/><stop offset="1" stop-color="#241a4d"/></linearGradient>' +
+    '<filter id="tmSh" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="7" stdDeviation="7" flood-color="#000" flood-opacity=".5"/></filter>' +
+    '</defs>' +
+    '<rect x="10" y="8" width="340" height="204" rx="24" fill="url(#tmSky)"/>' +
+    '<circle cx="180" cy="110" r="98" fill="url(#tmHalo)"/>' +
+    '<g fill="#efe7ff" opacity=".85"><circle cx="54" cy="34" r="1.8"/><circle cx="92" cy="58" r="1.2"/><circle cx="300" cy="40" r="1.6"/><circle cx="320" cy="92" r="1.2"/><circle cx="38" cy="128" r="1.4"/><circle cx="270" cy="180" r="1.5"/><circle cx="86" cy="186" r="1.2"/><path d="M256 62l2.2 6.4 6.4 2.2-6.4 2.2-2.2 6.4-2.2-6.4-6.4-2.2 6.4-2.2z"/></g>' +
+    '<g fill="none" stroke="#b79cff" stroke-width="1.2" opacity=".5"><ellipse cx="180" cy="110" rx="118" ry="46" transform="rotate(-16 180 110)"/><ellipse cx="180" cy="110" rx="118" ry="46" transform="rotate(16 180 110)"/></g>' +
+    '<g filter="url(#tmSh)">' +
+    '<g transform="rotate(-12 138 120)"><rect x="112" y="84" width="52" height="72" rx="7" fill="url(#tmCard)" stroke="#8b74d8" stroke-width="2"/><text x="138" y="127" font-size="24" font-weight="700" text-anchor="middle" fill="#efe8ff" font-family="Georgia,serif">7</text></g>' +
+    '<g transform="rotate(-1 178 114)"><rect x="152" y="76" width="52" height="72" rx="7" fill="url(#tmCard)" stroke="#a58bff" stroke-width="2"/><text x="178" y="119" font-size="24" font-weight="700" text-anchor="middle" fill="#fff4d6" font-family="Georgia,serif">24</text></g>' +
+    '<g transform="rotate(11 218 108)"><rect x="192" y="68" width="52" height="72" rx="7" fill="url(#tmCard)" stroke="#c8b3ff" stroke-width="2"/><text x="218" y="111" font-size="24" font-weight="700" text-anchor="middle" fill="#efe8ff" font-family="Georgia,serif">51</text></g>' +
+    '</g>' +
+    '<g><circle cx="180" cy="110" r="5" fill="#ffe08a"/><path d="M180 93l3 9 9 3-9 3-3 9-3-9-9-3 9-3z" fill="#ffe08a" opacity=".85"/></g>' +
+    '<g transform="translate(244 30)"><path d="M0 10l4-4 5 3 4-5 5 4 3-2" fill="none" stroke="#8ff0d0" stroke-width="2.4" stroke-linecap="round"/><circle cx="24" cy="6" r="2" fill="#8ff0d0"/></g>' +
+    '<g transform="translate(58 158)" fill="#ffb3c2"><path d="M12 20C2 12 0 7 0 4a6 6 0 0111-3 6 6 0 0111 3c0 3-2 8-10 16z" transform="scale(.86)"/></g>' +
+    '<text x="180" y="204" font-size="9" text-anchor="middle" fill="#a794d8" letter-spacing="3" font-family="Arial,sans-serif">ONE TEAM · ONE RHYTHM</text>'
+  );
 })();

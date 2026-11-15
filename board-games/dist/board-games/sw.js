@@ -138,6 +138,7 @@ const CORE = [
   "js/games/codenames.js",
   "js/games/takenoko.js",
   "js/games/forbidden-island.js",
+  "js/games/the-mind.js",
   "vendor/peerjs/peerjs.min.js",
   "assets/brand/icon.svg",
   "assets/icons/icon-192.png",
