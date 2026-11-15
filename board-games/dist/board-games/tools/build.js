@@ -126,6 +126,7 @@ const required = [
   "js/games/the-mind.js",
   "js/games/mysterium.js",
   "js/games/hanabi.js",
+  "js/games/the-crew.js",
   "css/expansion.css",
   "css/takenoko.css",
   "css/coop.css",
@@ -175,7 +176,7 @@ for (const game of [
   "yahtzee", "rummikub", "othello", "connect-four", "stratego", "parcheesi",
   "sorry", "battleship", "seven-wonders", "azul", "wingspan", "dominion",
   "terraforming-mars", "no-thanks", "coup", "for-sale", "skull", "king-of-tokyo",
-  "codenames", "takenoko", "forbidden-island", "the-mind", "mysterium", "hanabi",
+  "codenames", "takenoko", "forbidden-island", "the-mind", "mysterium", "hanabi", "the-crew",
 ]) {
   if (!index.includes("js/games/" + game + ".js")) fail("سكربت اللعبة غير مربوط: " + game);
 }

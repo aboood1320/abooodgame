@@ -5,7 +5,7 @@
    ========================================================================== */
 "use strict";
 
-const VERSION = "1.9.22";
+const VERSION = "1.9.23";
 const CACHE = "bg-shell-v" + VERSION + "-r1";
 const OFFLINE_URL = "index.html";
 
@@ -141,6 +141,7 @@ const CORE = [
   "js/games/the-mind.js",
   "js/games/mysterium.js",
   "js/games/hanabi.js",
+  "js/games/the-crew.js",
   "vendor/peerjs/peerjs.min.js",
   "assets/brand/icon.svg",
   "assets/icons/icon-192.png",

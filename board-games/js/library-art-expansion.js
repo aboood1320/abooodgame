@@ -415,4 +415,33 @@
     '<g fill="#f0b45c"><circle cx="52" cy="184" r="2"/><circle cx="306" cy="188" r="2"/><circle cx="74" cy="198" r="1.2"/><circle cx="286" cy="198" r="1.2"/></g>' +
     '<text x="180" y="204" font-size="9" text-anchor="middle" fill="#e2bb7e" letter-spacing="3" font-family="Arial,sans-serif">ONE TEAM · FIVE FIREWORKS</text>'
   );
+  /* ------------------------------ الطاقم ------------------------------ */
+  art["the-crew"] = svg(
+    '<defs>' +
+    halo("crewHalo", "#6fc2ff") +
+    '<linearGradient id="crewSky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0a1830"/><stop offset=".62" stop-color="#050b18"/><stop offset="1" stop-color="#02050c"/></linearGradient>' +
+    '<linearGradient id="crewPlanet" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5aa7e0"/><stop offset=".55" stop-color="#2d5f9c"/><stop offset="1" stop-color="#102a4d"/></linearGradient>' +
+    '<linearGradient id="crewShip" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e8eef8"/><stop offset="1" stop-color="#8fa3bd"/></linearGradient>' +
+    '<linearGradient id="crewFlame" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#f0c24c" stop-opacity="0"/><stop offset=".45" stop-color="#f0c24c"/><stop offset="1" stop-color="#fff4cf"/></linearGradient>' +
+    '<filter id="crewSh" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="6" stdDeviation="7" flood-color="#000" flood-opacity=".55"/></filter>' +
+    '</defs>' +
+    '<rect x="10" y="8" width="340" height="204" rx="24" fill="url(#crewSky)"/>' +
+    '<circle cx="252" cy="74" r="92" fill="url(#crewHalo)"/>' +
+    '<g fill="#dce8ff" opacity=".8"><circle cx="48" cy="42" r="1.4"/><circle cx="96" cy="24" r="1"/><circle cx="316" cy="36" r="1.5"/><circle cx="334" cy="120" r="1"/><circle cx="28" cy="146" r="1.2"/><circle cx="72" cy="88" r="1"/><circle cx="300" cy="162" r="1.1"/><path d="M118 40l1.7 5 5 1.7-5 1.7-1.7 5-1.7-5-5-1.7 5-1.7z"/></g>' +
+    '<g opacity=".85"><circle cx="262" cy="70" r="34" fill="url(#crewPlanet)"/><ellipse cx="262" cy="70" rx="52" ry="12" fill="none" stroke="#7fc4f2" stroke-width="1.4" opacity=".55" transform="rotate(-18 262 70)"/><circle cx="250" cy="62" r="5" fill="#102a4d" opacity=".4"/><circle cx="274" cy="80" r="7" fill="#102a4d" opacity=".33"/><circle cx="268" cy="56" r="3" fill="#102a4d" opacity=".35"/></g>' +
+    '<g filter="url(#crewSh)" transform="rotate(-18 168 108)">' +
+    '<path d="M158 56c9 0 16 12 16 34v26h-32V90c0-22 7-34 16-34z" fill="url(#crewShip)" stroke="#4a6280" stroke-width="1.4"/>' +
+    '<path d="M158 56c5 0 9 4 12 11l8 17-20 8-20-8 8-17c3-7 7-11 12-11z" fill="#d9e6f5" stroke="#4a6280" stroke-width="1.2"/>' +
+    '<circle cx="158" cy="80" r="7" fill="#6fc2ff" stroke="#e6f6ff" stroke-width="1.6"/>' +
+    '<path d="M142 116l-14 24 16-7zM174 116l14 24-16-7z" fill="#7f94ad" stroke="#4a6280" stroke-width="1.2"/>' +
+    '<path d="M150 128h16l-3 22-5 12-5-12z" fill="url(#crewFlame)"/>' +
+    '</g>' +
+    '<g filter="url(#crewSh)">' +
+    '<g transform="rotate(-9 70 138)"><rect x="46" y="112" width="44" height="60" rx="6" fill="#e86fa8" stroke="#8f2058" stroke-width="1.5"/><text x="68" y="142" font-size="19" font-weight="700" text-anchor="middle" fill="#fff2f8" font-family="Arial,sans-serif">7</text><text x="68" y="156" font-size="7" text-anchor="middle" fill="#ffe0ee" font-family="Arial,sans-serif">MISSION</text></g>' +
+    '<g transform="rotate(6 112 150)"><rect x="90" y="128" width="42" height="58" rx="6" fill="#f0c24c" stroke="#a97616" stroke-width="1.5"/><text x="111" y="157" font-size="18" font-weight="700" text-anchor="middle" fill="#3a2a12" font-family="Arial,sans-serif">3</text><text x="111" y="170" font-size="6.5" text-anchor="middle" fill="#5c4316" font-family="Arial,sans-serif">MISSION</text></g>' +
+    '</g>' +
+    '<g fill="#dfe9fa" opacity=".9"><circle cx="226" cy="168" r="6" fill="#1d2b44" stroke="#6fc2ff" stroke-width="1"/><path d="M219 190c0-9 3-14 7-14s7 5 7 14z" fill="#1d2b44" stroke="#6fc2ff" stroke-width=".8"/><circle cx="252" cy="172" r="5" fill="#1d2b44" stroke="#f0c24c" stroke-width="1"/><path d="M246 191c0-8 3-12 6-12s6 4 6 12z" fill="#1d2b44" stroke="#f0c24c" stroke-width=".8"/></g>' +
+    '<g fill="#6fc2ff"><circle cx="40" cy="188" r="2"/><circle cx="322" cy="190" r="1.8"/><circle cx="58" cy="200" r="1.2"/><circle cx="304" cy="202" r="1.2"/></g>' +
+    '<text x="180" y="204" font-size="9" text-anchor="middle" fill="#9fd6ff" letter-spacing="3" font-family="Arial,sans-serif">ONE TEAM · ONE MISSION</text>'
+  );
 })();

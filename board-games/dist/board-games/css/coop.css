@@ -2170,6 +2170,203 @@
 
 .crew-log { max-height: 110px; }
 
+.crew-mission > div:first-child { flex: 1 1 130px; min-width: 0; }
+.crew-mission strong { display: block; color: #dcecff; font-size: 0.78rem; }
+.crew-mission small { display: block; margin-top: 2px; color: var(--coop-dim); font-size: 0.54rem; line-height: 1.55; }
+.crew-mission-chips { display: flex; align-items: center; justify-content: flex-end; gap: 5px; flex-wrap: wrap; min-width: 0; }
+.crew-mission-chips .coop-chip { flex: 0 0 auto; }
+
+.crew-task {
+  font: inherit;
+  color: inherit;
+  text-align: start;
+  transition: transform 0.16s ease, border-color 0.16s ease, background 0.16s ease;
+}
+
+.crew-task.is-pick {
+  cursor: pointer;
+  border-color: rgba(111, 194, 255, 0.52);
+  background:
+    radial-gradient(80% 90% at 50% 0%, rgba(111, 194, 255, 0.16), transparent 70%),
+    rgba(111, 194, 255, 0.06);
+  animation: crewPickPulse 2.2s ease-in-out infinite;
+}
+
+.crew-task.is-pick:hover { transform: translateY(-2px); border-color: #9fdcff; }
+.crew-task.is-pick:active { transform: translateY(0) scale(0.99); }
+.crew-task.is-static { opacity: 0.66; cursor: default; }
+
+.crew-card.is-selected {
+  transform: translateY(-6px);
+  border-color: #ffe1a1;
+  box-shadow: 0 0 0 3px rgba(255, 225, 161, 0.4), 0 10px 18px -10px #000;
+}
+
+.crew-trick-slot {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.crew-trick-slot small { color: #a9c9e6; font-size: 0.52rem; max-width: 76px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.crew-trick-slot.is-winner .crew-card { animation: crewWinner 0.75s ease; }
+.crew-trick-slot .crew-reveal { font-size: 0.48rem; }
+
+.crew-hand-wrap {
+  margin-top: 9px;
+  padding: 8px 9px 4px;
+  border: 1px solid rgba(111, 194, 255, 0.14);
+  border-radius: 12px;
+  background: rgba(3, 9, 18, 0.38);
+}
+
+.crew-actions {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
+.crew-actions .coop-note { flex: 1 1 140px; margin: 0; }
+
+.crew-auto-note {
+  margin: 0 0 8px;
+  padding: 6px 9px;
+  border: 1px dashed rgba(111, 194, 255, 0.32);
+  border-radius: 9px;
+  background: rgba(111, 194, 255, 0.06);
+  color: #bcd9f2;
+  font-size: 0.56rem;
+  line-height: 1.65;
+}
+
+.crew-notice {
+  margin: 8px 0 0;
+  padding: 7px 10px;
+  border-inline-start: 3px solid rgba(111, 194, 255, 0.6);
+  border-radius: 8px;
+  background: rgba(111, 194, 255, 0.07);
+  color: #cfe7fb;
+  font-size: 0.6rem;
+  line-height: 1.7;
+}
+
+.crew-signal-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 7px;
+  border: 1px solid rgba(111, 194, 255, 0.26);
+  border-radius: 9px;
+  background: rgba(111, 194, 255, 0.08);
+  animation: crewSignalIn 0.42s ease;
+}
+
+.crew-signal-item small { display: block; color: #9fc3df; font-size: 0.5rem; }
+.crew-signal-item b { font-size: 0.58rem; }
+
+.crew-end {
+  display: grid;
+  place-items: center;
+  gap: 4px;
+  padding: 14px;
+  border: 1px solid rgba(111, 194, 255, 0.3);
+  border-radius: 13px;
+  background: rgba(111, 194, 255, 0.07);
+  text-align: center;
+}
+
+.crew-end > span { font-size: 2rem; }
+.crew-end strong { color: #dceeff; font-size: 0.84rem; }
+.crew-end p { margin: 0 0 4px; color: #b9c9da; font-size: 0.6rem; line-height: 1.75; }
+.crew-end.is-win { border-color: rgba(126, 224, 168, 0.5); background: rgba(126, 224, 168, 0.1); animation: crewCelebrate 0.9s ease; }
+.crew-end.is-win strong { color: #b7ffd4; }
+.crew-end.is-lose { border-color: rgba(239, 116, 122, 0.45); background: rgba(239, 116, 122, 0.08); animation: crewFail 0.55s ease; }
+.crew-end.is-lose strong { color: #ffd3d6; }
+
+.crew-curtain {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  min-height: 430px;
+  background:
+    radial-gradient(60% 50% at 50% 40%, rgba(76, 132, 220, 0.2), transparent 68%),
+    rgba(4, 7, 14, 0.975);
+}
+
+.crew-curtain-inner {
+  display: grid;
+  place-items: center;
+  gap: 7px;
+  max-width: 320px;
+  text-align: center;
+}
+
+.crew-curtain-inner > span { font-size: 2.6rem; animation: crewFloat 2.8s ease-in-out infinite; }
+.crew-curtain-inner strong { color: #e6f3ff; font-size: 0.92rem; }
+.crew-curtain-inner p { margin: 0 0 5px; color: #b9c6d8; font-size: 0.64rem; line-height: 1.8; }
+.crew-curtain-inner .coop-btn { min-height: 44px; }
+
+.crew-stage.is-fail { animation: crewFail 0.55s ease; }
+.crew-stage.is-win { animation: crewCelebrate 0.9s ease; }
+.crew-stage.is-task { animation: crewTaskFlash 0.75s ease; }
+.crew-stage.is-signal { animation: crewSignalFlash 0.7s ease; }
+.crew-player.is-current { animation: crewTurnGlow 1.9s ease-in-out infinite; }
+
+@keyframes crewFloat {
+  0%, 100% { transform: translateY(0) scale(0.96); opacity: 0.82; }
+  50% { transform: translateY(-7px) scale(1.04); opacity: 1; }
+}
+
+@keyframes crewPickPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(111, 194, 255, 0); }
+  50% { box-shadow: 0 0 0 3px rgba(111, 194, 255, 0.14); }
+}
+
+@keyframes crewTurnGlow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(231, 189, 106, 0); }
+  50% { box-shadow: 0 0 0 3px rgba(231, 189, 106, 0.13); }
+}
+
+@keyframes crewWinner {
+  0% { transform: scale(0.94); filter: brightness(1.35); }
+  55% { transform: scale(1.06); }
+  100% { transform: none; filter: none; }
+}
+
+@keyframes crewSignalIn {
+  0% { opacity: 0; transform: translateY(4px) scale(0.96); }
+  100% { opacity: 1; transform: none; }
+}
+
+@keyframes crewSignalFlash {
+  0%, 100% { filter: none; }
+  35% { filter: brightness(1.16) saturate(1.2); }
+}
+
+@keyframes crewTaskFlash {
+  0%, 100% { filter: none; }
+  40% { filter: brightness(1.13) sepia(0.18); }
+}
+
+@keyframes crewFail {
+  0%, 100% { transform: none; filter: none; }
+  20% { transform: translateX(-4px); filter: saturate(1.4) brightness(1.08); }
+  45% { transform: translateX(4px); }
+  70% { transform: translateX(-2px); }
+}
+
+@keyframes crewCelebrate {
+  0% { transform: scale(0.995); filter: brightness(1.12); }
+  40% { transform: scale(1.007); filter: brightness(1.2); }
+  100% { transform: none; filter: none; }
+}
+
 /* ==========================================================================
    ذا مايند — تفاصيل الواجهة
    ========================================================================== */
@@ -2586,8 +2783,14 @@
   .han-status-grid { gap: 4px; }
   .han-status-grid span { font-size: 0.5rem; }
   .crew-tasks { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .crew-task { min-height: 76px; padding: 7px; }
   .crew-card { width: 40px; height: 56px; }
   .crew-card strong { font-size: 0.92rem; }
+  .crew-hand .crew-card { flex-basis: 44px; width: 44px; height: 62px; }
+  .crew-table { grid-template-columns: minmax(0, 1fr); }
+  .crew-curtain { min-height: 380px; padding: 14px; }
+  .crew-curtain-inner strong { font-size: 0.84rem; }
+  .crew-actions .coop-btn { min-height: 44px; flex: 1 1 120px; }
   .coop-hand-card { flex-basis: 82px; min-height: 116px; }
 }
 
