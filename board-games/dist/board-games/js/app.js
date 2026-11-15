@@ -114,6 +114,15 @@
     return icon(EMBLEMS[game.id] || "i-dice");
   }
 
+  // أسماء المقاعد التلقائية لا تُعد اختيارًا شخصيًا، لذا يمكن استبدالها باسم ملف اللاعب.
+  function isGenericSeatName(value, index) {
+    const text = String(value == null ? "" : value).trim();
+    if (!text) return true;
+    if (/^(ال)?لاعب\s*\d+$/.test(text)) return true;
+    if (/^(ال)?كمبيوتر\s*\d+$/.test(text)) return true;
+    return text === "الكمبيوتر " + (index + 1) || text === "اللاعب " + (index + 1);
+  }
+
   function isOnlineGame() {
     return !!(currentNet && BG.online && BG.online.active);
   }
@@ -197,11 +206,23 @@
     els.btnBack.addEventListener("click", () => goLibrary());
     if (els.btnSettings) els.btnSettings.addEventListener("click", () => BG.openFxSettings());
     document.addEventListener("bgprofilechange", (event) => {
+      const detail = event.detail || {};
+      const previousName = BG.playerProfile.cleanName(detail.previous && detail.previous.name);
+      const nextName = BG.playerProfile.cleanName(detail.name);
+      if (previousName && nextName && previousName !== nextName) {
+        const saved = BG.store.get("playerNames", []);
+        if (Array.isArray(saved) && saved.some((name) => String(name == null ? "" : name).trim() === previousName)) {
+          BG.store.set("playerNames", saved.map((name) => (String(name == null ? "" : name).trim() === previousName ? nextName : name)));
+        }
+        if (lastSetup && Array.isArray(lastSetup.names)) {
+          lastSetup.names = lastSetup.names.map((name) => (String(name == null ? "" : name).trim() === previousName ? nextName : name));
+        }
+      }
       if (!currentApi || !Array.isArray(currentApi.players)) return;
       const index = currentApi.net && currentApi.net.enabled
         ? Number(currentApi.net.seat)
         : currentApi.players.findIndex((player) => !player.isCpu);
-      if (Number.isInteger(index) && index >= 0) updatePlayerProfile(index, event.detail);
+      if (Number.isInteger(index) && index >= 0) updatePlayerProfile(index, detail);
     });
     document.addEventListener("bgprefschange", () => {
       if (!isOnlineGame() || !instance) return;
@@ -998,6 +1019,17 @@
     for (let i = 0; i < state.types.length; i++) {
       state.types[i] = state.types[i] === "cpu" ? "cpu" : "human";
     }
+    const activeProfile = BG.playerProfile.get();
+    const profileName = BG.playerProfile.cleanName(activeProfile.name);
+    const firstHumanSeat = () => state.types.slice(0, state.count).findIndex((type) => type !== "cpu");
+    const initialFirstHuman = firstHumanSeat();
+    if (profileName && initialFirstHuman >= 0 && isGenericSeatName(state.names[initialFirstHuman], initialFirstHuman)) {
+      state.names[initialFirstHuman] = profileName;
+    }
+    const defaultSeatName = (index, type) => {
+      if (type !== "cpu" && profileName && index === firstHumanSeat()) return profileName;
+      return type === "cpu" ? "الكمبيوتر " + (index + 1) : "اللاعب " + (index + 1);
+    };
 
     els.btnNew.hidden = true;
     els.gameStatus.textContent = "الإعداد";
@@ -1109,14 +1141,6 @@
     const optionsView = buildOptionsPanel(game, state);
     if (optionsView) panel.appendChild(optionsView);
 
-    function isDefaultName(value, index) {
-      const text = String(value || "").trim();
-      if (!text) return true;
-      if (/^(ال)?لاعب\s*\d+$/.test(text)) return true;
-      if (/^(ال)?كمبيوتر\s*\d+$/.test(text)) return true;
-      return text === "الكمبيوتر " + (index + 1) || text === "اللاعب " + (index + 1);
-    }
-
     function syncLevelVisibility() {
       const seats = state.types.slice(0, state.count);
       const anyCpu = seats.some((type) => type === "cpu");
@@ -1137,7 +1161,7 @@
         const input = BG.el("input", {
           type: "text",
           maxlength: "18",
-          value: state.names[i] || (isCpu ? "الكمبيوتر " + (i + 1) : "اللاعب " + (i + 1)),
+          value: state.names[i] || defaultSeatName(i, isCpu ? "cpu" : "human"),
           placeholder: isCpu ? "الكمبيوتر " + (i + 1) : "اسم اللاعب " + (i + 1),
           "aria-label": "اسم اللاعب " + (i + 1),
         });
@@ -1154,10 +1178,8 @@
         typeBtn.addEventListener("click", () => {
           const next = state.types[i] === "cpu" ? "human" : "cpu";
           state.types[i] = next;
-          if (next === "cpu" && isDefaultName(state.names[i], i)) {
-            state.names[i] = "الكمبيوتر " + (i + 1);
-          } else if (next === "human" && isDefaultName(state.names[i], i)) {
-            state.names[i] = "اللاعب " + (i + 1);
+          if (isGenericSeatName(state.names[i], i)) {
+            state.names[i] = defaultSeatName(i, next);
           }
           renderNames();
         });
@@ -1170,15 +1192,15 @@
     quickHuman.addEventListener("click", () => {
       state.types = state.types.map(() => "human");
       for (let i = 0; i < state.count; i++) {
-        if (isDefaultName(state.names[i], i)) state.names[i] = "اللاعب " + (i + 1);
+        if (isGenericSeatName(state.names[i], i)) state.names[i] = defaultSeatName(i, "human");
       }
       renderNames();
     });
     quickCpu.addEventListener("click", () => {
       for (let i = 0; i < state.count; i++) {
         state.types[i] = i === 0 ? "human" : "cpu";
-        if (isDefaultName(state.names[i], i)) {
-          state.names[i] = i === 0 ? "اللاعب 1" : "الكمبيوتر " + (i + 1);
+        if (isGenericSeatName(state.names[i], i)) {
+          state.names[i] = defaultSeatName(i, state.types[i]);
         }
       }
       renderNames();
@@ -1205,10 +1227,13 @@
         const type = state.types[i] === "cpu" ? "cpu" : "human";
         const ownsProfile = type === "human" && i === firstHumanIndex;
         const profile = ownsProfile ? BG.playerProfile.get() : BG.playerProfile.defaultFor(i, type === "cpu");
+        const chosenName = ownsProfile && profile.name && isGenericSeatName(raw, i)
+          ? profile.name
+          : raw || (type === "cpu" ? "الكمبيوتر " + (i + 1) : "اللاعب " + (i + 1));
         if (type === "cpu") {
           cpuCount += 1;
           players.push({
-            name: raw || "الكمبيوتر " + (i + 1),
+            name: chosenName,
             type,
             level: state.level,
             isCpu: true,
@@ -1216,7 +1241,7 @@
           });
         } else {
           players.push({
-            name: raw || "اللاعب " + (i + 1),
+            name: chosenName,
             type: "human",
             level: state.level,
             isCpu: false,

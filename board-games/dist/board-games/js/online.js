@@ -255,11 +255,12 @@
   }
 
   function savedName() {
+    let netName = "";
     try {
-      return localStorage.getItem("bg.netName") || "";
-    } catch (err) {
-      return "";
-    }
+      netName = localStorage.getItem("bg.netName") || "";
+    } catch (err) { /* ignore */ }
+    if (netName) return netName;
+    return BG.playerProfile ? BG.playerProfile.cleanName(BG.playerProfile.get().name) : "";
   }
 
   function saveName() {

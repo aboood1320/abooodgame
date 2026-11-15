@@ -558,6 +558,7 @@
   /* ------------------------------ ملف اللاعب ------------------------------ */
 
   const PLAYER_PROFILE_KEY = "player-profile.v1";
+  const PLAYER_NAME_MAX = 18;
   const PLAYER_AVATARS = [
     { id: "human", name: "إنسان", emoji: "🧑" },
     { id: "cat", name: "قطة", emoji: "🐱" },
@@ -587,6 +588,14 @@
     { name: "بني", value: "#8d6e63" },
   ];
 
+  function cleanPlayerProfileName(value) {
+    return String(value == null ? "" : value)
+      .replace(/[\u0000-\u001f\u007f]+/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, PLAYER_NAME_MAX);
+  }
+
   function normalizePlayerProfile(value, fallback) {
     const source = value && typeof value === "object" ? value : {};
     const safeFallback = fallback && typeof fallback === "object" ? fallback : {};
@@ -596,14 +605,17 @@
     const color = /^#[0-9a-f]{6}$/i.test(String(source.color || ""))
       ? String(source.color).toLowerCase()
       : /^#[0-9a-f]{6}$/i.test(String(safeFallback.color || "")) ? String(safeFallback.color).toLowerCase() : PLAYER_COLORS[0].value;
-    return { avatar, color };
+    const name = cleanPlayerProfileName(source.name) || cleanPlayerProfileName(safeFallback.name);
+    return { avatar, color, name };
   }
 
   const playerProfile = (BG.playerProfile = {
     avatars: PLAYER_AVATARS,
     colors: PLAYER_COLORS,
+    nameMax: PLAYER_NAME_MAX,
     roster: [],
     normalize: normalizePlayerProfile,
+    cleanName: cleanPlayerProfileName,
     setRoster(players) {
       this.roster = Array.isArray(players) ? players.slice() : [];
     },
@@ -611,16 +623,24 @@
       return normalizePlayerProfile(BG.store.get(PLAYER_PROFILE_KEY, {}));
     },
     set(value) {
+      const previous = this.get();
       const next = normalizePlayerProfile(value);
       BG.store.set(PLAYER_PROFILE_KEY, next);
-      document.dispatchEvent(new CustomEvent("bgprofilechange", { detail: Object.assign({}, next) }));
+      document.dispatchEvent(new CustomEvent("bgprofilechange", {
+        detail: Object.assign({}, next, { previous }),
+      }));
       return next;
     },
     defaultFor(index, isCpu) {
       return {
         avatar: isCpu ? "robot" : "human",
         color: PLAYER_COLORS[Math.abs(Number(index) || 0) % PLAYER_COLORS.length].value,
+        name: "",
       };
+    },
+    displayName(value) {
+      const profile = normalizePlayerProfile(value);
+      return profile.name || "لاعب ضيف";
     },
     avatarEmoji(value) {
       const id = value && typeof value === "object" ? value.avatar : value;
