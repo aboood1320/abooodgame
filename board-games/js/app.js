@@ -1241,6 +1241,9 @@
         if (!seat || seat.type === "cpu") return false;
         return index !== ctx.seat;
       },
+      sendState() {
+        if (BG.online) BG.online.coopUpdate();
+      },
       askRefutation(seat, combo, suggesterName) {
         return BG.online.askRefutation(seat, combo, suggesterName);
       },

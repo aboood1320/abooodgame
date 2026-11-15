@@ -39,6 +39,7 @@
     lastGuestOver: false,
     activeGuest: false,
     spectating: false,
+    coopMode: false,
     spectateSeat: -1,
     spectateAt: 0,
     spectateTimer: null,
@@ -100,6 +101,11 @@
 
   function currentGameDef() {
     return gameDef(state.lobbyGame) || BG.games[0] || null;
+  }
+
+  function isCoopGame() {
+    const game = currentGameDef();
+    return !!(game && game.coop);
   }
 
   /* ------------------------------ خيارات اللعبة ------------------------------ */
@@ -1105,6 +1111,7 @@
   function hostStarted() {
     state.hostReady = true;
     state.starting = false;
+    state.coopMode = isCoopGame();
     if (state.hostTimer) clearInterval(state.hostTimer);
     state.hostTimer = setInterval(hostTick, 260);
     hostTick();
@@ -1115,6 +1122,7 @@
     if (payload && payload.owner) state.owner = payload.owner;
     if (state.inGame) return;
     state.starting = false;
+    state.coopMode = isCoopGame();
     if (BG.app) BG.app.startNetworkGame(payload);
     if (BG.net) BG.net.send({ t: "ready" });
     showWaiting(true, null, "المضيف يجهّز الطاولة…");
@@ -1126,12 +1134,13 @@
     if (!state.pendingReady.size) beginHostNow();
     if (state.hostReady && state.lastSeat >= 0) {
       const seat = state.seats[state.lastSeat];
-      if (seat && seat.peerId === from) {
-        const snap = BG.app && BG.app.netSnapshot();
+      const snap = BG.app && BG.app.netSnapshot();
+      if (isCoopGame()) {
+        if (snap) BG.net.sendTo(from, { t: "coop", state: snap, activeSeat: BG.app.netSeat(), over: !!BG.app.netOver() });
+      } else if (seat && seat.peerId === from) {
         if (snap) sendSync(state.lastSeat, snap, true);
       } else {
         /* لاعب عاد/انضم أثناء اللعب: نعرض له اللوحة الحيّة فورًا دون انتظار أول تغيير */
-        const snap = BG.app && BG.app.netSnapshot();
         if (snap) {
           BG.net.sendTo(from, turnMessage(state.lastSeat, BG.app.netOver()));
           BG.net.sendTo(from, { t: "spectate", state: snap, activeSeat: state.lastSeat, over: !!BG.app.netOver() });
@@ -1223,6 +1232,17 @@
       state.initialized = true;
       broadcastTurn(seat, over);
     }
+    if (isCoopGame()) {
+      state.coopMode = true;
+      showWaiting(false);
+      if (BG.app) BG.app.setMountVisible(true);
+      if (!over) {
+        BG.net.broadcast({ t: "coop", state: snap, activeSeat: seat, over: false });
+        state.coopAt = Date.now();
+      }
+      updateHud();
+      return;
+    }
     if (seat === state.localSeat && state.localSeat >= 0) {
       showWaiting(false);
       if (BG.app) BG.app.setMountVisible(true);
@@ -1246,7 +1266,7 @@
   }
 
   function guestTick() {
-    if (!state.inGame || state.isHost || !state.activeGuest) return;
+    if (!state.inGame || state.isHost || !state.activeGuest || state.coopMode) return;
     const snap = BG.app && BG.app.netSnapshot();
     if (!snap) return;
     const seat = BG.app.netSeat();
@@ -1302,7 +1322,7 @@
   }
 
   function onSpectate(data) {
-    if (!state.inGame || state.isHost || !data || !data.state) return;
+    if (!state.inGame || state.isHost || state.coopMode || !data || !data.state) return;
     if (state.overShown) return;
     if (state.activeGuest) return;
     if (data.activeSeat === state.localSeat && state.localSeat >= 0) return;
@@ -1316,8 +1336,33 @@
     updateHud();
   }
 
+  function onCoop(data) {
+    if (!state.inGame || state.isHost || !data || !data.state) return;
+    if (state.overShown) return;
+    state.coopMode = true;
+    const instanceReady = !!(BG.app && BG.app.instance);
+    let ok = state.activeGuest && instanceReady ? (BG.app && BG.app.netReceiveState(data)) : false;
+    if (!ok) ok = BG.app && BG.app.netActivate(data.state);
+    if (!ok) {
+      BG.net.send({ t: "sync-failed" });
+      return;
+    }
+    state.activeGuest = true;
+    state.spectating = false;
+    state.spectateSeat = -1;
+    state.lastGuestHash = JSON.stringify(data.state);
+    state.lastGuestSeat = data.activeSeat;
+    state.lastGuestOver = !!data.over;
+    state.lastSeat = data.activeSeat;
+    if (BG.app) BG.app.setMountVisible(true);
+    hideWatchChip();
+    showWaiting(false);
+    trackTurn(data.activeSeat, !!data.over);
+    updateHud();
+  }
+
   function onSync(data) {
-    if (!state.inGame || state.isHost) return;
+    if (!state.inGame || state.isHost || state.coopMode) return;
     if (!data || !data.state) return;
     if (state.overShown) return;
     if (data.activeSeat !== state.localSeat) return;
@@ -1345,6 +1390,14 @@
     if (data.over) {
       showWaiting(false);
       trackTurn(-1, true);
+      return;
+    }
+    if (state.coopMode) {
+      state.activeGuest = true;
+      state.lastSeat = data.activeSeat;
+      showWaiting(false);
+      trackTurn(data.activeSeat, false);
+      updateHud();
       return;
     }
     if (data.activeSeat !== state.localSeat) {
@@ -1677,10 +1730,21 @@
       showReaction(data.e, who);
       return;
     }
+    if (data.t === "coop-chat") {
+      BG.net.broadcast(data, from);
+      return;
+    }
     if (data.t === "state") {
       if (!state.inGame || state.overShown) return;
       const senderSeat = state.seats.findIndex((seat) => seat && seat.peerId === from);
       if (senderSeat < 0 || !state.seats[senderSeat] || state.seats[senderSeat].type !== "human") return;
+      if (isCoopGame()) {
+        if (BG.app && BG.app.netReceiveState(data)) {
+          state.lastHash = "";
+          hostTick();
+        }
+        return;
+      }
       const seatIndex = Number.isInteger(data.activeSeat) ? data.activeSeat : state.lastSeat;
       const seatDef = state.seats[seatIndex];
       if (!seatDef) return;
@@ -1743,6 +1807,17 @@
     }
     if (data.t === "sync-failed") {
       state.synced[from] = false;
+      /* عميل لم يستطع تطبيق الحالة (عادةً لأنه ما زال يجهّز اللعبة): نعيد له لقطة طازجة بعد مهلة قصيرة. */
+      if (isCoopGame() && BG.app) {
+        const snapshot = BG.app.netSnapshot();
+        if (snapshot) {
+          setTimeout(() => {
+            if (!state.inGame || state.overShown || !BG.net) return;
+            const snap = BG.app && BG.app.netSnapshot();
+            if (snap) BG.net.sendTo(from, { t: "coop", state: snap, activeSeat: BG.app.netSeat(), over: !!BG.app.netOver() });
+          }, 500);
+        }
+      }
       return;
     }
   }
@@ -1777,6 +1852,10 @@
     }
     if (data.t === "sync") {
       onSync(data);
+      return;
+    }
+    if (data.t === "coop") {
+      onCoop(data);
       return;
     }
     if (data.t === "spectate") {
@@ -2056,6 +2135,19 @@
     const encoded = snap || fallbackState;
     if (encoded) msg.state = encoded;
     return msg;
+  }
+
+  function coopUpdate() {
+    if (!state.inGame || state.overShown || !isCoopGame()) return;
+    if (state.isHost) {
+      state.lastHash = "";
+      hostTick();
+      return;
+    }
+    if (!BG.net) return;
+    const snap = BG.app && BG.app.netSnapshot();
+    if (!snap) return;
+    BG.net.send({ t: "state", state: snap, activeSeat: BG.app.netSeat(), over: !!BG.app.netOver() });
   }
 
   function gameOver(payload) {
@@ -2461,6 +2553,7 @@
     showWaiting,
     relayLog,
     gameOver,
+    coopUpdate,
     askRefutation,
     confirmTrade,
     auctionBid,

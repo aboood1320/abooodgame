@@ -295,4 +295,24 @@
     '<g filter="url(#tkSh)"><circle cx="252" cy="112" r="30" fill="#f0ece0" stroke="#9a8a72" stroke-width="2"/><circle cx="242" cy="107" r="7" fill="#2a2622"/><circle cx="262" cy="107" r="7" fill="#2a2622"/><circle cx="252" cy="120" r="4" fill="#2a2622"/><circle cx="238" cy="122" r="5" fill="#c98d7a" opacity=".55"/><circle cx="266" cy="122" r="5" fill="#c98d7a" opacity=".55"/><path d="M246 130c4 4 8 4 12 0" stroke="#2a2622" stroke-width="2.2" fill="none"/></g>' +
     '<g fill="#f4d99b"><path d="M64 54l2.4 7 7 2.4-7 2.4-2.4 7-2.4-7-7-2.4 7-2.4z"/><circle cx="300" cy="166" r="2"/></g>'
   );
+  /* ------------------------------ الجزيرة المحرمة ------------------------------ */
+  art["forbidden-island"] = svg(
+    '<defs>' + halo("fiHalo", "#57c9b2") +
+    '<linearGradient id="fiSea" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1c6072"/><stop offset="1" stop-color="#071d2b"/></linearGradient>' +
+    '<linearGradient id="fiDune" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#dcc08a"/><stop offset="1" stop-color="#8a6a41"/></linearGradient>' +
+    '<filter id="fiSh" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="8" stdDeviation="8" flood-color="#000" flood-opacity=".45"/></filter>' +
+    '</defs><circle cx="180" cy="104" r="98" fill="url(#fiHalo)"/>' +
+    '<path d="M12 188c36-9 62 5 96-3s60-15 96-6 76 10 144 1v40H12z" fill="url(#fiSea)" opacity=".85"/>' +
+    '<g filter="url(#fiSh)" transform="rotate(-4 180 112)">' +
+    '<path d="M96 64l52-18 30 18 42-9 38 34-20 51-19 28-49 10-46-14-32-37z" fill="url(#fiDune)" stroke="#5f472a" stroke-width="3"/>' +
+    '<path d="M96 64l52-18 30 18 42-9 38 34-20 51-19 28-49 10-46-14-32-37z" fill="none" stroke="#f0d9a4" stroke-width="1.2" opacity=".45"/>' +
+    '<g stroke="#6e5432" stroke-width="1.4" opacity=".5"><path d="M122 92h24M158 80h32M206 96h26M110 128h30M156 136h38M218 132h28M136 164h44M198 168h30"/></g>' +
+    '<g><path d="M154 104l15-22 15 22z" fill="#3f7a68" stroke="#234f45" stroke-width="2"/><path d="M162 104V88l7-5 7 5v16z" fill="#e7d3a7"/><circle cx="169" cy="92" r="2" fill="#8a5a33"/></g>' +
+    '<g transform="rotate(8 240 120)"><rect x="222" y="104" width="34" height="46" rx="4" fill="#445a62" stroke="#1d2b30" stroke-width="2"/><path d="M228 122h22M228 132h22M228 142h14" stroke="#a9c4c9" stroke-width="2" opacity=".7"/><circle cx="239" cy="113" r="4" fill="#e7bd6a"/></g>' +
+    '<g><circle cx="131" cy="150" r="10" fill="#e7bd6a" stroke="#7a5724" stroke-width="2"/><path d="M131 144l3 6-3 6-3-6z" fill="#fff0c2"/><circle cx="188" cy="148" r="8" fill="#8fd8d0" stroke="#2c6b6a" stroke-width="2"/></g>' +
+    '</g>' +
+    '<g filter="url(#fiSh)"><path d="M258 58l4-13 4 13 13 4-13 4-4 13-4-13-13-4z" fill="#ffe08a"/><path d="M84 174c9-4 16-2 22 3-7 6-16 7-24 3z" fill="#d96a56"/><path d="M108 180c7-3 13-1 18 3-6 5-13 6-20 2z" fill="#e7b958"/></g>' +
+    '<g stroke="#a9e7dd" stroke-width="2.4" fill="none" opacity=".55" stroke-linecap="round"><path d="M50 94c8 5 16 5 24 0M286 122c8 5 16 5 24 0M64 188c8 5 16 5 24 0M280 190c8 5 16 5 24 0"/></g>' +
+    '<g fill="#f4d99b"><circle cx="58" cy="52" r="2"/><circle cx="302" cy="62" r="1.8"/><path d="M304 158l2 6 6 2-6 2-2 6-2-6-6-2 6-2z"/></g>'
+  );
 })();
