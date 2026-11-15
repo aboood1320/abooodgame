@@ -1415,6 +1415,285 @@
   font-size: 0.62rem;
 }
 
+.mys-clue-zone,
+.mys-clue-main {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  min-width: 0;
+}
+
+.mys-vision-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.mys-vision-grid .mys-vision {
+  min-height: 210px;
+  padding: 10px;
+  animation: mysReveal 0.55s cubic-bezier(0.2, 0.9, 0.2, 1);
+}
+
+.mys-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border: 1px solid rgba(231, 168, 95, 0.24);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.03);
+  color: #d7c4e6;
+  font-size: 0.58rem;
+  white-space: nowrap;
+}
+
+.mys-chip.is-warn {
+  border-color: rgba(231, 189, 106, 0.42);
+  color: #ffe4ad;
+}
+
+.mys-pick-count {
+  color: var(--coop-dim);
+  font-size: 0.58rem;
+}
+
+.mys-ghost-orb {
+  position: relative;
+  display: grid;
+  place-items: center;
+  gap: 5px;
+  min-height: 210px;
+  padding: 16px;
+  border: 1px solid rgba(190, 120, 220, 0.26);
+  border-radius: 16px;
+  background:
+    radial-gradient(52% 52% at 50% 42%, rgba(165, 109, 220, 0.24), transparent 68%),
+    linear-gradient(165deg, rgba(38, 22, 63, 0.8), rgba(9, 6, 20, 0.92));
+  text-align: center;
+  overflow: hidden;
+}
+
+.mys-ghost-orb::before {
+  content: "";
+  position: absolute;
+  width: 120px;
+  height: 120px;
+  border: 1px solid rgba(200, 160, 255, 0.3);
+  border-radius: 50%;
+  animation: mysOrbit 3.4s linear infinite;
+}
+
+.mys-ghost-orb > span {
+  position: relative;
+  z-index: 2;
+  font-size: 2.8rem;
+  filter: drop-shadow(0 8px 18px rgba(0, 0, 0, 0.6));
+  animation: mysFloat 3s ease-in-out infinite;
+}
+
+.mys-ghost-orb strong {
+  position: relative;
+  z-index: 2;
+  color: #f0e3ff;
+  font-size: 0.78rem;
+}
+
+.mys-ghost-orb p {
+  position: relative;
+  z-index: 2;
+  margin: 0;
+  color: #a996c2;
+  font-size: 0.6rem;
+  line-height: 1.7;
+}
+
+.mys-ghost-orb.is-small { min-height: 150px; }
+
+.mys-clue-card.is-selected {
+  border-color: #ffe1a1;
+  box-shadow: 0 0 0 2px rgba(255, 225, 161, 0.28), 0 12px 24px -16px #000;
+  transform: translateY(-3px);
+}
+
+.mys-final-card .mys-vote-count {
+  display: block;
+  margin-top: 2px;
+  color: #ffe4ad;
+  font-size: 0.48rem;
+}
+
+.mys-progress {
+  display: grid;
+  gap: 3px;
+  margin-top: 5px;
+}
+
+.mys-progress-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  color: #b9a7ca;
+  font-size: 0.52rem;
+}
+
+.mys-progress-row > span { flex: none; }
+.mys-progress-row b { color: #e9dff2; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mys-progress-row b.is-found { color: #b7ffd4; }
+.mys-progress-row small { color: #8f7da1; font-size: 0.48rem; }
+
+.mys-secrets { display: grid; gap: 6px; }
+
+.mys-secret {
+  padding: 7px;
+  border: 1px solid rgba(231, 168, 95, 0.16);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.mys-secret.is-true {
+  border-color: rgba(231, 189, 106, 0.52);
+  background: rgba(231, 189, 106, 0.08);
+}
+
+.mys-secret-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+
+.mys-secret-head b { font-size: 0.6rem; color: #f0e3ff; }
+.mys-secret-head span { padding: 1px 5px; border-radius: 999px; background: rgba(231, 189, 106, 0.16); color: #ffe4ad; font-size: 0.48rem; }
+
+.mys-trio { display: flex; flex-wrap: wrap; gap: 3px; }
+
+.mys-mini {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px 5px;
+  border: 1px solid rgba(231, 168, 95, 0.14);
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.18);
+  color: #d9c9e8;
+  font-size: 0.48rem;
+  line-height: 1.4;
+}
+
+.mys-mini i { font-style: normal; }
+.mys-mini.is-empty { opacity: 0.55; }
+
+.mys-banner {
+  display: grid;
+  gap: 3px;
+  margin-top: 8px;
+  padding: 9px 11px;
+  border: 1px solid rgba(231, 168, 95, 0.3);
+  border-radius: 11px;
+  background: rgba(231, 168, 95, 0.08);
+  font-size: 0.68rem;
+  text-align: center;
+}
+
+.mys-banner strong { color: #ffe4ad; }
+.mys-banner span { color: #d9c9e8; font-size: 0.6rem; line-height: 1.6; }
+.mys-banner.is-good { border-color: rgba(126, 224, 168, 0.5); background: rgba(126, 224, 168, 0.1); }
+.mys-banner.is-good strong { color: #b7ffd4; }
+.mys-banner.is-bad { border-color: rgba(239, 116, 122, 0.5); background: rgba(239, 116, 122, 0.1); }
+.mys-banner.is-bad strong { color: #ffd3d6; }
+
+.mys-notice {
+  margin: 8px 0 0;
+  padding: 7px 10px;
+  border: 1px solid rgba(231, 168, 95, 0.14);
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.22);
+  color: #c7b4d8;
+  font-size: 0.62rem;
+  line-height: 1.7;
+  text-align: center;
+}
+
+.mys-actions {
+  display: flex;
+  justify-content: center;
+  margin-top: 8px;
+}
+
+.mys-ghost-card {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid rgba(190, 120, 220, 0.22);
+  border-radius: 11px;
+  background: rgba(190, 120, 220, 0.06);
+}
+
+.mys-ghost-card > span { font-size: 1.5rem; }
+.mys-ghost-card strong { display: block; font-size: 0.68rem; color: #f0e3ff; }
+.mys-ghost-card small { display: block; margin-top: 2px; color: var(--coop-dim); font-size: 0.54rem; }
+
+.mys-log {
+  display: grid;
+  gap: 4px;
+  max-height: 150px;
+  overflow: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(231, 168, 95, 0.3) transparent;
+}
+
+.mys-log .coop-log-line { font-size: 0.6rem; }
+
+@keyframes mysFloat {
+  0%, 100% { transform: translateY(0) scale(0.96); opacity: 0.86; }
+  50% { transform: translateY(-7px) scale(1.04); opacity: 1; }
+}
+
+@keyframes mysOrbit {
+  from { transform: rotate(0deg) rotateX(64deg); }
+  to { transform: rotate(360deg) rotateX(64deg); }
+}
+
+@keyframes mysReveal {
+  from { opacity: 0; transform: translateY(8px) scale(0.97); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (max-width: 900px) {
+  .mys-vision-grid .mys-vision { min-height: 150px; }
+  .mys-ghost-orb { min-height: 140px; }
+}
+
+@media (max-width: 640px) {
+  .mys-stage { padding: 10px; }
+  .mys-vision-grid { gap: 4px; }
+  .mys-vision-grid .mys-vision { min-height: 130px; padding: 8px 5px; }
+  .mys-vision-icon { font-size: 2rem; }
+  .mys-vision-title { font-size: 0.58rem; }
+  .mys-vision-tags span { font-size: 0.44rem; padding: 1px 4px; }
+  .mys-phase { gap: 5px; }
+  .mys-phase-track { flex-wrap: wrap; }
+  .mys-phase-step { font-size: 0.5rem; padding: 3px 6px; }
+  .mys-board { gap: 4px; }
+  .mys-card { padding: 6px 3px; }
+  .mys-card strong { font-size: 0.46rem; }
+  .mys-card small { font-size: 0.44rem; }
+  .mys-ghost-hand { gap: 4px; }
+  .mys-clue-card { flex-basis: 78px; min-height: 102px; padding: 6px; }
+  .mys-clue-card strong { font-size: 0.5rem; }
+  .mys-clue-card small { font-size: 0.44rem; }
+  .mys-ghost-orb { min-height: 120px; padding: 10px; }
+  .mys-ghost-orb > span { font-size: 2rem; }
+  .mys-actions .coop-btn { min-height: 40px; }
+  .mys-notice { font-size: 0.58rem; }
+  .mys-secret-head b { font-size: 0.56rem; }
+  .mys-mini { font-size: 0.44rem; }
+}
+
 /* ==========================================================================
    هانابي
    ========================================================================== */
@@ -2086,6 +2365,8 @@
   .mys-card strong { font-size: 0.5rem; }
   .mys-card-icon { font-size: 1.1rem; }
   .mys-clue-card { flex-basis: 84px; min-height: 108px; }
+  .mys-guess-row .coop-btn { min-height: 42px; }
+  .setup-options select { min-height: 42px; }
   .han-fireworks { gap: 3px; }
   .han-color { padding: 5px 3px; }
   .han-color strong { font-size: 0.48rem; }

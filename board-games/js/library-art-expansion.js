@@ -336,4 +336,43 @@
     '<g transform="translate(58 158)" fill="#ffb3c2"><path d="M12 20C2 12 0 7 0 4a6 6 0 0111-3 6 6 0 0111 3c0 3-2 8-10 16z" transform="scale(.86)"/></g>' +
     '<text x="180" y="204" font-size="9" text-anchor="middle" fill="#a794d8" letter-spacing="3" font-family="Arial,sans-serif">ONE TEAM · ONE RHYTHM</text>'
   );
+  /* ------------------------------ ميستيريوم ------------------------------ */
+  art["mysterium"] = svg(
+    '<defs>' + halo("mysHalo", "#c07ad8") +
+    '<linearGradient id="mysSky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#221438"/><stop offset=".6" stop-color="#100a1e"/><stop offset="1" stop-color="#06040d"/></linearGradient>' +
+    '<linearGradient id="mysFloor" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2a1b3d"/><stop offset="1" stop-color="#0d0817"/></linearGradient>' +
+    '<linearGradient id="mysBall" x1=".2" y1=".1" x2=".8" y2=".9"><stop offset="0" stop-color="#e8c7ff"/><stop offset=".45" stop-color="#9a5fc4"/><stop offset="1" stop-color="#3a1d5c"/></linearGradient>' +
+    '<filter id="mysSh" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="6" stdDeviation="7" flood-color="#000" flood-opacity=".55"/></filter>' +
+    '</defs>' +
+    '<rect x="10" y="8" width="340" height="204" rx="24" fill="url(#mysSky)"/>' +
+    '<circle cx="180" cy="100" r="102" fill="url(#mysHalo)"/>' +
+    '<g fill="#f0e6ff" opacity=".8"><circle cx="48" cy="40" r="1.6"/><circle cx="86" cy="66" r="1.1"/><circle cx="306" cy="36" r="1.7"/><circle cx="326" cy="88" r="1.1"/><circle cx="34" cy="120" r="1.3"/><circle cx="286" cy="170" r="1.2"/><path d="M68 168l2 6 6 2-6 2-2 6-2-6-6-2 6-2z"/><path d="M304 124l1.8 5.4 5.4 1.8-5.4 1.8-1.8 5.4-1.8-5.4-5.4-1.8 5.4-1.8z"/></g>' +
+    '<g fill="#1a1029" stroke="#3a2a52" stroke-width="1.6">' +
+    '<path d="M18 168V96l26-18 26 18v72z"/><path d="M240 172V86l30-22 30 22v86z"/><path d="M292 172V112l24-18 26 18v60z"/>' +
+    '</g>' +
+    '<g fill="#e7b45f" opacity=".75"><rect x="40" y="112" width="8" height="12" rx="1"/><rect x="58" y="112" width="8" height="12" rx="1"/><rect x="268" y="106" width="9" height="13" rx="1"/><rect x="288" y="106" width="9" height="13" rx="1"/></g>' +
+    '<path d="M10 168h340v36a24 24 0 01-24 8H34a24 24 0 01-24-8z" fill="url(#mysFloor)"/>' +
+    '<g opacity=".5" stroke="#7a5a9e" stroke-width="1"><path d="M60 176h240M44 188h272M28 200h304"/></g>' +
+    '<g filter="url(#mysSh)">' +
+    '<ellipse cx="180" cy="182" rx="64" ry="11" fill="#000" opacity=".5"/>' +
+    '<path d="M142 178c0-30 14-50 38-50s38 20 38 50z" fill="#2d1b45" stroke="#5a3a7a" stroke-width="2"/>' +
+    '<circle cx="180" cy="118" r="17" fill="#3a2454" stroke="#6d4b8e" stroke-width="2"/>' +
+    '<path d="M164 123c5 9 27 9 32 0-3 12-9 18-16 18s-13-6-16-18z" fill="#5a3a7a" opacity=".6"/>' +
+    '</g>' +
+    '<g filter="url(#mysSh)">' +
+    '<ellipse cx="180" cy="178" rx="44" ry="7" fill="#000" opacity=".5"/>' +
+    '<path d="M148 176c0-30 14-46 32-46s32 16 32 46z" fill="#1a2a3a" opacity=".65"/>' +
+    '<circle cx="180" cy="86" r="46" fill="url(#mysBall)" stroke="#d9b3ff" stroke-width="2.4" opacity=".92"/>' +
+    '<ellipse cx="164" cy="70" rx="18" ry="11" fill="#fff" opacity=".22" transform="rotate(-24 164 70)"/>' +
+    '<path d="M180 62c14 0 24 10 24 23 0 16-12 26-24 30-12-4-24-14-24-30 0-13 10-23 24-23z" fill="#1a0f2c" opacity=".72"/>' +
+    '<circle cx="180" cy="86" r="11" fill="#ffe8a8"/><circle cx="180" cy="86" r="5" fill="#38164f"/><circle cx="177" cy="83" r="2" fill="#fff"/>' +
+    '<path d="M138 178c8-15 20-23 42-23s34 8 42 23z" fill="#2a1a3d" stroke="#7a5a9e" stroke-width="2"/>' +
+    '</g>' +
+    '<g filter="url(#mysSh)">' +
+    '<g transform="rotate(-15 104 112)"><rect x="80" y="66" width="48" height="66" rx="6" fill="#3c2a5a" stroke="#9a7ac4" stroke-width="1.6"/><circle cx="104" cy="92" r="10" fill="none" stroke="#e7c7ff" stroke-width="1.6"/><path d="M104 86v7l5 3" stroke="#e7c7ff" stroke-width="1.4" fill="none" stroke-linecap="round"/><path d="M92 114h24" stroke="#9a7ac4" stroke-width="1.4" opacity=".7"/></g>' +
+    '<g transform="rotate(14 256 108)"><rect x="232" y="62" width="48" height="66" rx="6" fill="#3c2a5a" stroke="#9a7ac4" stroke-width="1.6"/><path d="M248 112c0-9 4-14 8-14s8 5 8 14z" fill="#e7c7ff" opacity=".82"/><path d="M256 96c-4-4-7-6-10-6 1 4 3 7 6 9-3 3-5 6-6 10 4-1 7-3 10-6 3 3 6 5 10 6-1-4-3-7-6-10 3-2 5-5 6-9-3 0-6 2-10 6z" fill="#9a5fc4" opacity=".8"/></g>' +
+    '</g>' +
+    '<g fill="#e7b45f"><circle cx="62" cy="184" r="2"/><circle cx="300" cy="188" r="2"/><circle cx="86" cy="196" r="1.4"/><circle cx="276" cy="198" r="1.4"/></g>' +
+    '<text x="180" y="204" font-size="9" text-anchor="middle" fill="#a98bc4" letter-spacing="3" font-family="Arial,sans-serif">ONE TEAM · ONE TRUTH</text>'
+  );
 })();
