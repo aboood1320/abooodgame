@@ -5,7 +5,7 @@
    ========================================================================== */
 "use strict";
 
-const VERSION = "1.9.23";
+const VERSION = "1.9.24";
 const CACHE = "bg-shell-v" + VERSION + "-r1";
 const OFFLINE_URL = "index.html";
 
@@ -25,6 +25,7 @@ const CORE = [
   "css/polish.css",
   "css/upgrade.css",
   "css/library.css",
+  "css/site-refresh.css",
   "css/risk.css",
   "css/scrabble.css",
   "css/tavla.css",

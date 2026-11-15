@@ -1,0 +1,416 @@
+/* ==========================================================================
+   ألعاب الطاولة — تحديث الموقع الشامل
+   طبقة أخيرة تُحمَّل بعد جميع الملفات: هوية أوضح، مكتبة أخف على الجوال،
+   شريط أدوات مضغوط، ولمسات آمنة للشاشات ذات الحواف المنحنية.
+   ========================================================================== */
+
+/* ------------------------------ الأساسيات ------------------------------ */
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  text-rendering: optimizeLegibility;
+}
+
+body.library-mode #libraryHead {
+  scroll-margin-top: 92px;
+}
+
+.bg-app {
+  padding-left: max(18px, env(safe-area-inset-left));
+  padding-right: max(18px, env(safe-area-inset-right));
+}
+
+.bg-foot {
+  padding-bottom: max(8px, env(safe-area-inset-bottom));
+}
+
+.hero-count {
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+}
+
+body.library-mode .hero-copy p .hero-count {
+  color: #f0ce92;
+}
+
+/* ------------------------------ المكتبة على الجوال ------------------------------ */
+
+@media (max-width: 900px) {
+  body.library-mode .library-hero > .hero-copy { order: 1; }
+  body.library-mode .library-hero > .hero-visual { order: 2; }
+  body.library-mode .hero-visual { max-width: 300px; }
+}
+
+@media (max-width: 640px) {
+  body.library-mode .bg-app {
+    padding-inline: 10px;
+  }
+
+  /* شريط علوي من صف واحد بدل صفّين */
+  .bg-topbar,
+  body.library-mode .bg-topbar,
+  body.game-mode .bg-topbar {
+    flex-wrap: nowrap;
+    gap: 6px;
+    padding: 7px 9px;
+    border-radius: 16px;
+  }
+  body.library-mode .bg-topbar {
+    margin-bottom: 12px;
+  }
+  .bg-brand,
+  body.library-mode .bg-brand {
+    flex: 1 1 auto;
+    min-width: 0;
+    gap: 8px;
+    padding: 2px 4px;
+  }
+  .bg-logo,
+  body.library-mode .bg-logo {
+    width: 38px;
+    height: 38px;
+    border-radius: 12px;
+    font-size: 1.25rem;
+  }
+  .bg-logo .ic { width: 21px; height: 21px; }
+  .bg-brand-text { min-width: 0; }
+  .bg-brand-text strong {
+    display: block;
+    overflow: hidden;
+    font-size: 0.95rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .bg-brand-text small { display: none; }
+  .bg-nav {
+    flex: 0 0 auto;
+    flex-wrap: nowrap;
+    width: auto;
+    margin-inline-start: auto;
+    gap: 4px;
+  }
+  .bg-nav .bg-btn {
+    flex: 0 0 auto;
+    width: 38px;
+    height: 38px;
+    padding: 0;
+    border-radius: 11px;
+  }
+  .bg-nav .bg-btn span { display: none; }
+  .bg-nav .bg-btn .ic { width: 17px; height: 17px; }
+  body.game-mode .bg-nav #btnSearch { display: none; }
+
+  /* بطل مضغوط: النص أولًا، ثم لمسة فنية صغيرة */
+  body.library-mode .library-hero {
+    gap: 0;
+    padding: 22px 18px 24px;
+    border-radius: 24px;
+    margin-bottom: 18px;
+  }
+  body.library-mode .library-hero::after {
+    inset: 8px;
+    border-radius: 18px;
+  }
+  body.library-mode .hero-copy { max-width: none; }
+  body.library-mode .hero-copy .eyebrow {
+    white-space: normal;
+    font-size: 0.62rem;
+    line-height: 1.7;
+  }
+  body.library-mode .hero-copy h1 {
+    margin-block: 10px 8px;
+    font-size: clamp(1.7rem, 8.4vw, 2.15rem);
+    line-height: 1.25;
+  }
+  body.library-mode .hero-copy p {
+    max-width: 44ch;
+    font-size: 0.82rem;
+    line-height: 1.8;
+  }
+  body.library-mode .hero-actions {
+    margin-top: 14px;
+    gap: 8px;
+  }
+  body.library-mode .hero-btn {
+    flex: 1 1 46%;
+    min-width: 0;
+    height: 44px;
+    padding: 0 12px;
+    font-size: 0.76rem;
+  }
+  body.library-mode .hero-btn .ic { width: 15px; height: 15px; }
+  body.library-mode .hero-pills {
+    margin-top: 12px;
+    gap: 6px;
+  }
+  body.library-mode .hero-pills span {
+    padding: 5px 9px;
+    font-size: 0.6rem;
+  }
+  body.library-mode .hero-pills span:nth-child(3) { display: none; }
+  body.library-mode .hero-visual { display: none; }
+
+  /* رأس المكتبة */
+  body.library-mode .library-head {
+    gap: 4px;
+    margin-bottom: 12px;
+  }
+  body.library-mode #libraryHead { scroll-margin-top: 76px; }
+  body.library-mode .library-head h2 {
+    font-size: 1.32rem;
+    line-height: 1.3;
+  }
+  body.library-mode .section-kicker { font-size: 0.6rem; }
+  body.library-mode .library-count { font-size: 0.72rem; }
+  body.library-mode .library-filter-toggle {
+    height: 38px;
+    padding-inline: 12px;
+    font-size: 0.72rem;
+  }
+
+  /* بطاقات أفقية مضغوطة تقلّل طول الصفحة إلى الثلث تقريبًا */
+  body.library-mode .library-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  body.library-mode .game-card {
+    flex-direction: row;
+    min-height: 104px;
+    border-radius: 18px;
+    contain-intrinsic-size: auto 112px;
+  }
+  body.library-mode .game-card:hover {
+    transform: translateY(-2px);
+  }
+  body.library-mode .game-card:active {
+    transform: translateY(0) scale(0.994);
+  }
+  body.library-mode .game-card .game-art {
+    flex: 0 0 118px;
+    width: 118px;
+    height: auto;
+    max-height: none;
+    aspect-ratio: auto;
+    border-bottom: 0;
+    border-inline-end: 1px solid rgba(240, 206, 144, 0.13);
+  }
+  body.library-mode .game-art-glow {
+    top: -20%;
+    width: 130%;
+    height: 90%;
+  }
+  body.library-mode .game-num,
+  body.library-mode .game-players,
+  body.library-mode .game-en-badge {
+    display: none;
+  }
+  body.library-mode .game-card-body {
+    justify-content: center;
+    gap: 5px;
+    padding: 12px 13px;
+  }
+  body.library-mode .game-card-title {
+    gap: 6px;
+  }
+  body.library-mode .game-name {
+    font-size: 0.95rem;
+    line-height: 1.35;
+  }
+  body.library-mode .game-complexity {
+    padding: 3px 7px;
+    font-size: 0.48rem;
+  }
+  body.library-mode .game-tagline {
+    min-height: 0;
+    font-size: 0.69rem;
+    line-height: 1.6;
+    -webkit-line-clamp: 2;
+  }
+  body.library-mode .game-meta {
+    margin-top: 1px;
+    padding-top: 7px;
+    gap: 6px;
+  }
+  body.library-mode .game-meta .game-meta-item {
+    font-size: 0.6rem;
+  }
+  body.library-mode .game-meta .game-open {
+    font-size: 0.62rem;
+  }
+  body.library-mode .game-meta .game-open .ic {
+    width: 13px;
+    height: 13px;
+  }
+  body.library-mode .game-favorite {
+    inset-block-start: 6px;
+    inset-inline-start: 6px;
+    width: 30px;
+    height: 30px;
+    border-radius: 9px;
+    font-size: 1.05rem;
+  }
+
+  /* بطاقة المتابعة تبقى بارزة لكن أقصر */
+  body.library-mode .resume-card {
+    gap: 10px;
+    padding: 12px;
+    border-radius: 18px;
+  }
+  body.library-mode .resume-crest {
+    width: 46px;
+    height: 46px;
+    border-radius: 14px;
+  }
+  body.library-mode .resume-crest .ic { width: 24px; height: 24px; }
+
+  /* فلاتر أسهل لمسًا */
+  body.library-mode .library-tools {
+    gap: 8px;
+    margin-bottom: 12px;
+    padding: 11px;
+    border-radius: 16px;
+  }
+  body.library-mode .library-filter input,
+  body.library-mode .library-filter select {
+    min-height: 42px;
+  }
+  body.library-mode .library-filter > span {
+    font-size: 0.62rem;
+  }
+
+  /* نافذة الإعدادات والقواعد */
+  dialog.bg-dialog {
+    width: calc(100vw - 20px);
+    max-height: calc(100dvh - 20px - env(safe-area-inset-bottom));
+    border-radius: 20px;
+  }
+  .bg-dialog-head { padding: 14px 15px 11px; }
+  .bg-dialog-body { padding: 14px 15px; }
+  .bg-dialog-foot {
+    padding: 12px 15px max(14px, env(safe-area-inset-bottom));
+  }
+
+  /* لوبي اللعب الجماعي: مساحة آمنة أعلى وأسفل دون تزاحم زر الإغلاق */
+  .net-overlay { padding: 0; }
+  .net-lobby {
+    width: 100%;
+    max-height: 100dvh;
+    padding:
+      calc(env(safe-area-inset-top) + 54px)
+      max(14px, env(safe-area-inset-right))
+      calc(20px + env(safe-area-inset-bottom))
+      max(14px, env(safe-area-inset-left));
+  }
+  .net-close {
+    inset-inline-start: max(14px, env(safe-area-inset-left));
+    top: calc(env(safe-area-inset-top) + 10px);
+    margin: 0;
+  }
+  .net-lobby-head,
+  .net-room-head {
+    padding-inline-start: 0;
+  }
+  .net-kicker {
+    max-width: 100%;
+    white-space: normal;
+  }
+}
+
+@media (max-width: 430px) {
+  .bg-brand {
+    flex: 0 0 auto;
+  }
+  .bg-brand-text {
+    display: none;
+  }
+}
+
+@media (max-width: 400px) {
+  body.library-mode .game-card .game-art {
+    flex-basis: 104px;
+    width: 104px;
+  }
+  body.library-mode .game-card-body {
+    padding: 11px 12px;
+  }
+  body.library-mode .game-name { font-size: 0.9rem; }
+  body.library-mode .game-tagline { font-size: 0.66rem; }
+}
+
+/* ------------------------------ وضع اللعب ------------------------------ */
+
+body.game-mode .bg-topbar {
+  margin-bottom: 12px;
+}
+
+body.game-mode .bg-foot {
+  display: none;
+}
+
+body.game-mode .bg-app {
+  padding-bottom: max(18px, env(safe-area-inset-bottom));
+}
+
+@media (max-width: 640px) {
+  body.game-mode .game-toolbar {
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 8px;
+    border-radius: 14px;
+  }
+  body.game-mode .game-toolbar .bg-btn {
+    flex: 0 0 auto;
+    height: 36px;
+  }
+  body.game-mode #btnGameBack {
+    width: 36px;
+    padding: 0;
+  }
+  body.game-mode #btnGameBack span { display: none; }
+  body.game-mode .game-heading {
+    flex: 1 1 auto;
+    min-width: 0;
+    margin-inline-end: 0;
+    overflow: hidden;
+  }
+  body.game-mode .game-heading h1 {
+    overflow: hidden;
+    font-size: 0.92rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  body.game-mode .game-sub { display: none; }
+  body.game-mode .game-status { display: none; }
+  body.game-mode .game-toolbar-actions {
+    flex: 0 0 auto;
+    flex-wrap: nowrap;
+    justify-content: flex-end;
+    gap: 4px;
+    width: auto;
+  }
+  body.game-mode .game-toolbar-actions .bg-btn {
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    border-radius: 10px;
+  }
+  body.game-mode .game-toolbar-actions .bg-btn span { display: none; }
+  body.game-mode .game-stage { padding: 5px; }
+  body.game-mode .setup-panel {
+    max-width: 100%;
+    margin-block: 8px;
+    padding: 20px 15px 18px;
+  }
+}
+
+/* ------------------------------ تقليل الحركة ------------------------------ */
+
+@media (prefers-reduced-motion: reduce) {
+  body.library-mode .game-card:hover {
+    transform: none;
+  }
+}

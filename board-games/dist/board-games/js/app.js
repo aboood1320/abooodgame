@@ -135,6 +135,7 @@
     els.btnNew = document.getElementById("btnGameNew");
     els.btnBack = document.getElementById("btnGameBack");
     els.btnSettings = document.getElementById("btnSettings");
+    els.btnSearch = document.getElementById("btnSearch");
     els.btnFullscreen = document.getElementById("btnGameFullscreen");
     els.btnExitFullscreen = document.getElementById("btnExitFullscreen");
     els.heroBrowse = document.getElementById("heroBrowse");
@@ -167,6 +168,20 @@
         openGame(game);
       });
     }
+    if (els.btnSearch) els.btnSearch.addEventListener("click", openLibrarySearch);
+    document.addEventListener("keydown", (event) => {
+      const key = String(event.key || "").toLowerCase();
+      const withModifier = event.ctrlKey || event.metaKey;
+      if (!withModifier && key !== "/") return;
+      if (withModifier && key !== "k") return;
+      if (event.defaultPrevented || event.altKey) return;
+      const target = event.target;
+      const tag = target && target.tagName ? target.tagName.toLowerCase() : "";
+      if (tag === "input" || tag === "textarea" || tag === "select" || (target && target.isContentEditable)) return;
+      if (document.querySelector("dialog[open]")) return;
+      event.preventDefault();
+      openLibrarySearch();
+    });
 
     els.btnRules.addEventListener("click", () => { if (currentGame) BG.openRules(currentGame, currentOptions); });
     if (els.btnFullscreen) els.btnFullscreen.addEventListener("click", toggleGameFullscreen);
@@ -283,8 +298,9 @@
 
   function renderLibrary() {
     document.body.classList.add("library-mode");
+    document.body.classList.remove("game-mode");
     if (libraryBuilt && els.libraryGrid.querySelector(".game-card")) {
-      /* المكتبة مبنيّة مسبقًا: نحدّث بطاقة «متابعة» فقط بدل إعادة بناء البطاقات الأربعين */
+      /* المكتبة مبنيّة مسبقًا: نحدّث بطاقة «متابعة» فقط بدل إعادة بناء البطاقات الخمس والأربعين */
       const old = els.libraryGrid.querySelector(".resume-card");
       if (old) old.remove();
       renderResumeCard();
@@ -296,8 +312,7 @@
     const countLabel = formatGameCount(count);
     const countEl = document.getElementById("libraryCount");
     if (countEl) countEl.textContent = countLabel + " · جميعها جاهزة للعب";
-    const heroCount = document.getElementById("heroGameCount");
-    if (heroCount) heroCount.textContent = String(count);
+    updateHeroCounts(count);
 
     renderResumeCard();
 
@@ -374,6 +389,42 @@
     if (n === 2) return "لعبتان";
     if (n >= 3 && n <= 10) return digits + " ألعاب";
     return digits + " لعبة";
+  }
+
+  function updateHeroCounts(count) {
+    const n = Number(count) || 0;
+    const label = n.toLocaleString("ar-EG", { useGrouping: false });
+    document.querySelectorAll("[data-hero-count]").forEach((node) => {
+      node.textContent = label;
+    });
+    const seal = document.getElementById("heroGameCount");
+    if (seal) seal.textContent = label;
+  }
+
+  function openLibrarySearch() {
+    const reveal = () => {
+      const panel = document.getElementById("libraryFilters");
+      const toggle = document.getElementById("libraryFiltersToggle");
+      if (panel && panel.hidden) {
+        panel.hidden = false;
+        if (toggle) toggle.setAttribute("aria-expanded", "true");
+      }
+      const head = document.getElementById("libraryHead");
+      if (head && head.scrollIntoView) {
+        const reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        head.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "start" });
+      }
+      const input = document.getElementById("librarySearch");
+      if (input) {
+        window.setTimeout(() => input.focus({ preventScroll: true }), 260);
+      }
+    };
+    if (!els.libraryView || els.libraryView.hidden) {
+      goLibrary(false);
+      window.setTimeout(reveal, 60);
+      return;
+    }
+    reveal();
   }
 
   function durationMinutes(game) {
@@ -736,6 +787,7 @@
   function prepareGameView(game) {
     currentGame = game;
     document.body.classList.remove("library-mode");
+    document.body.classList.add("game-mode");
     els.libraryView.hidden = true;
     els.gameView.hidden = false;
     els.gameTitle.textContent = game.name;
@@ -782,6 +834,7 @@
     lastSetup = null;
     currentOptions = null;
     document.body.classList.remove("fullscreen-game");
+    document.body.classList.remove("game-mode");
     if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {});
     els.gameView.hidden = true;
     els.libraryView.hidden = false;

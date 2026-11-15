@@ -20,8 +20,8 @@
       "android-twa",
       "ios-webclip"
     ],
-    "taglineAr": "أربعون لعبة عربية — كلاسيكيات عائلية ومختارات BGG",
-    "taglineEn": "Forty Arabic board games — family classics and BGG picks"
+    "taglineAr": "٤٥ لعبة عربية — كلاسيكيات عائلية ومختارات BGG",
+    "taglineEn": "Forty-five Arabic board games — family classics and BGG picks"
   },
   "web": {
     "startUrl": "./",
@@ -48,8 +48,8 @@
         "file": "assets/screenshots/library-wide.png",
         "size": "1440x950",
         "formFactor": "wide",
-        "captionAr": "مكتبة فاخرة لأربعين لعبة، برسوم مخصصة وعدّاد مباشر",
-        "captionEn": "A luxury library of forty games with custom art and a live count"
+        "captionAr": "مكتبة فاخرة لخمس وأربعين لعبة، برسوم مخصصة وعدّاد مباشر",
+        "captionEn": "A luxury library of forty-five games with custom art and a live count"
       },
       {
         "file": "assets/screenshots/waraq-wide.png",

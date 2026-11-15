@@ -103,6 +103,7 @@ const required = [
   "css/classic.css",
   "css/fx.css",
   "css/library.css",
+  "css/site-refresh.css",
   "css/kootbositta.css",
   "css/chess.css",
   "css/splendor.css",

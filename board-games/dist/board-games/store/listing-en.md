@@ -6,7 +6,7 @@
 | --- | --- |
 | Name | Board Games — Nubala |
 | Short name | Board Games |
-| Short description | 40 Arabic board games with full rules, AI, and worldwide online play. |
+| Short description | 45 Arabic board games with full rules, AI, and worldwide online play. |
 | Category | Games → Board |
 | Price | Free |
 | Language | Arabic (UI and content) |
@@ -21,9 +21,9 @@
 
 ## Full description
 
-**Forty board games in one polished Arabic app.**
+**Forty-five board games in one polished Arabic app.**
 
-Twenty family classics plus twenty BGG picks: Monopoly, Catan, Ticket to Ride, Carcassonne, Risk, Scrabble, Cluedo, Uno, Pandemic, Backgammon, Waraq (Basra & Rummy), Dominoes, Ludo, Snakes & Ladders, Checkers, Mancala, Love Letter, Chess, Koot Bo Sitta, and Splendor — followed by Yahtzee, Rummikub, Othello, Connect Four, Stratego, Parcheesi, Sorry!, Battleship, 7 Wonders, Azul, Wingspan, Dominion, Terraforming Mars, No Thanks, Coup, For Sale, Skull, King of Tokyo, Codenames, and Takenoko. Every game is built from scratch with a clear Arabic interface, a detailed rules guide, and three AI levels.
+Twenty family classics plus twenty BGG picks: Monopoly, Catan, Ticket to Ride, Carcassonne, Risk, Scrabble, Cluedo, Uno, Pandemic, Backgammon, Waraq (Basra & Rummy), Dominoes, Ludo, Snakes & Ladders, Checkers, Mancala, Love Letter, Chess, Koot Bo Sitta, and Splendor — followed by Yahtzee, Rummikub, Othello, Connect Four, Stratego, Parcheesi, Sorry!, Battleship, 7 Wonders, Azul, Wingspan, Dominion, Terraforming Mars, No Thanks, Coup, For Sale, Skull, King of Tokyo, Codenames, and Takenoko — plus five cooperative games: Forbidden Island, The Mind, Mysterium, Hanabi, and The Crew. Every game is built from scratch with a clear Arabic interface, a detailed rules guide, and three AI levels.
 
 ### Highlights
 
@@ -155,7 +155,7 @@ board games, Arabic games, monopoly, catan, ludo, dominoes, mancala, checkers, s
 
 | File | Size | Caption |
 | --- | --- | --- |
-| `assets/screenshots/library-wide.png` | 1440×950 | The forty-game library in its luxury design |
+| `assets/screenshots/library-wide.png` | 1440×950 | The forty-five-game library in its luxury design |
 | `assets/screenshots/waraq-wide.png` | 1440×950 | Waraq — Basra and Rummy |
 | `assets/screenshots/ludo-wide.png` | 1440×950 | Four-player Ludo |
 | `assets/screenshots/mancala-narrow.png` | 390×844 | Mancala on mobile |
