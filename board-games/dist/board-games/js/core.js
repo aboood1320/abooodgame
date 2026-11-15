@@ -559,20 +559,22 @@
 
   const PLAYER_PROFILE_KEY = "player-profile.v1";
   const PLAYER_NAME_MAX = 18;
-  const PLAYER_AVATARS = [
-    { id: "human", name: "إنسان", emoji: "🧑" },
-    { id: "cat", name: "قطة", emoji: "🐱" },
-    { id: "dog", name: "كلب", emoji: "🐶" },
-    { id: "car", name: "سيارة", emoji: "🚗" },
-    { id: "alien", name: "فضائي", emoji: "👽" },
-    { id: "rabbit", name: "أرنب", emoji: "🐰" },
-    { id: "fox", name: "ثعلب", emoji: "🦊" },
-    { id: "robot", name: "روبوت", emoji: "🤖" },
-    { id: "dinosaur", name: "ديناصور", emoji: "🦖" },
-    { id: "rocket", name: "مركبة فضائية", emoji: "🚀" },
-    { id: "panda", name: "باندا", emoji: "🐼" },
-    { id: "unicorn", name: "وحيد القرن", emoji: "🦄" },
-  ];
+  const PLAYER_AVATARS = (BG.avatarArt && Array.isArray(BG.avatarArt.list) && BG.avatarArt.list.length)
+    ? BG.avatarArt.list
+    : [
+      { id: "human", name: "إنسان", emoji: "🧑" },
+      { id: "cat", name: "قطة", emoji: "🐱" },
+      { id: "dog", name: "كلب", emoji: "🐶" },
+      { id: "car", name: "سيارة", emoji: "🚗" },
+      { id: "alien", name: "فضائي", emoji: "👽" },
+      { id: "rabbit", name: "أرنب", emoji: "🐰" },
+      { id: "fox", name: "ثعلب", emoji: "🦊" },
+      { id: "robot", name: "روبوت", emoji: "🤖" },
+      { id: "dinosaur", name: "ديناصور", emoji: "🦖" },
+      { id: "rocket", name: "مركبة فضائية", emoji: "🚀" },
+      { id: "panda", name: "باندا", emoji: "🐼" },
+      { id: "unicorn", name: "وحيد القرن", emoji: "🦄" },
+    ];
   const PLAYER_COLORS = [
     { name: "أزرق", value: "#4f86f7" },
     { name: "مرجاني", value: "#e76f51" },
@@ -611,6 +613,7 @@
 
   const playerProfile = (BG.playerProfile = {
     avatars: PLAYER_AVATARS,
+    avatarInitial: BG.avatarArt && BG.avatarArt.initial ? BG.avatarArt.initial : PLAYER_AVATARS.length,
     colors: PLAYER_COLORS,
     nameMax: PLAYER_NAME_MAX,
     roster: [],
@@ -652,10 +655,14 @@
       const avatar = PLAYER_AVATARS.find((item) => item.id === id) || PLAYER_AVATARS[0];
       return avatar.name;
     },
+    avatarSVG(value, extraClass) {
+      if (BG.avatarArt && BG.avatarArt.render) return BG.avatarArt.render(value, extraClass);
+      return '<span class="avatar-emoji" aria-hidden="true">' + U.escape(playerProfile.avatarEmoji(value)) + "</span>";
+    },
     avatarHTML(value, extraClass) {
       const profile = normalizePlayerProfile(value);
       const extra = String(extraClass || "").replace(/[^a-z0-9 _-]/gi, "").trim();
-      return '<span class="player-avatar' + (extra ? " " + extra : "") + '" style="--profile-color:' + profile.color + '" aria-hidden="true">' + U.escape(playerProfile.avatarEmoji(profile.avatar)) + "</span>";
+      return '<span class="player-avatar' + (extra ? " " + extra : "") + '" style="--profile-color:' + profile.color + '" aria-hidden="true">' + playerProfile.avatarSVG(profile.avatar) + "</span>";
     },
     playerHTML(player, extraClass) {
       const item = player && typeof player === "object" ? player : {};

@@ -999,6 +999,11 @@
     };
     const profileMeta = (profile) =>
       BG.playerProfile.avatarName(profile.avatar) + " · " + profileColorName(profile.color);
+    const avatarList = BG.playerProfile.avatars;
+    const avatarInitial = Math.max(1, Number(BG.playerProfile.avatarInitial) || Math.min(12, avatarList.length));
+    const avatarExtras = Math.max(0, avatarList.length - avatarInitial);
+    const selectedAvatarIndex = avatarList.findIndex((avatar) => avatar.id === playerProfile.avatar);
+    const avatarExpanded = selectedAvatarIndex >= avatarInitial;
     const profileSection =
       '<section class="fx-profile-settings" aria-labelledby="fx-profile-title">' +
       '<div class="fx-profile-head">' +
@@ -1029,10 +1034,18 @@
       "</label>" +
       '<div class="fx-profile-group">' +
       '<div class="fx-profile-color-head"><span class="fx-profile-label">اختر الأفتار</span><span class="fx-profile-hint" data-profile-avatar-name>' + U.escape(BG.playerProfile.avatarName(playerProfile.avatar)) + "</span></div>" +
-      '<div class="fx-avatar-grid" role="group" aria-label="أفتار اللاعب">' +
-      BG.playerProfile.avatars.map((avatar) =>
-        '<button type="button" class="fx-avatar-choice' + (avatar.id === playerProfile.avatar ? " is-selected" : "") + '" data-profile-avatar="' + U.escape(avatar.id) + '" aria-label="' + U.escape(avatar.name) + '" aria-pressed="' + (avatar.id === playerProfile.avatar ? "true" : "false") + '"><span aria-hidden="true">' + U.escape(avatar.emoji) + '</span><small>' + U.escape(avatar.name) + "</small></button>"
+      '<div class="fx-avatar-grid' + (avatarExpanded ? " is-expanded" : "") + '" role="group" aria-label="أفتار اللاعب">' +
+      avatarList.map((avatar, index) =>
+        '<button type="button" class="fx-avatar-choice' + (avatar.id === playerProfile.avatar ? " is-selected" : "") + (index >= avatarInitial ? " is-extra" : "") + '" data-profile-avatar="' + U.escape(avatar.id) + '" aria-label="' + U.escape(avatar.name) + '" aria-pressed="' + (avatar.id === playerProfile.avatar ? "true" : "false") + '">' + BG.playerProfile.avatarSVG(avatar.id, "fx-avatar-art") + '<small>' + U.escape(avatar.name) + "</small></button>"
       ).join("") +
+      "</div>" +
+      (avatarExtras
+        ? '<button type="button" class="fx-avatar-more' + (avatarExpanded ? " is-open" : "") + '" data-profile-more aria-expanded="' + (avatarExpanded ? "true" : "false") + '">' +
+          '<span class="fx-avatar-more-icon" aria-hidden="true">' + (avatarExpanded ? "−" : "+") + "</span>" +
+          '<span data-profile-more-label>' + (avatarExpanded ? "عرض أقل" : "المزيد من الأفتارات") + "</span>" +
+          '<small data-profile-more-count>' + (avatarExpanded ? avatarExtras + " إضافية" : "+" + avatarExtras) + "</small>" +
+          "</button>"
+        : "") +
       "</div>" +
       "</div>" +
       '<div class="fx-profile-group">' +
@@ -1101,6 +1114,10 @@
     const packSelect = body.querySelector("[data-pack]");
     const musicSwitch = body.querySelector('[data-toggle="music"]');
     const avatarChoices = Array.from(body.querySelectorAll("[data-profile-avatar]"));
+    const avatarGrid = body.querySelector(".fx-avatar-grid");
+    const avatarMore = body.querySelector("[data-profile-more]");
+    const avatarMoreLabel = body.querySelector("[data-profile-more-label]");
+    const avatarMoreCount = body.querySelector("[data-profile-more-count]");
     const colorChoices = Array.from(body.querySelectorAll("[data-profile-color]"));
     const customColor = body.querySelector("[data-profile-custom-color]");
     const customColorValue = body.querySelector("[data-profile-custom-value]");
@@ -1116,8 +1133,22 @@
       if (nameCount) nameCount.textContent = String(value || "").length + "/" + BG.playerProfile.nameMax;
     }
 
+    function setAvatarExpanded(expanded) {
+      if (!avatarGrid || !avatarMore) return;
+      avatarGrid.classList.toggle("is-expanded", expanded);
+      avatarMore.classList.toggle("is-open", expanded);
+      avatarMore.setAttribute("aria-expanded", expanded ? "true" : "false");
+      if (avatarMoreLabel) avatarMoreLabel.textContent = expanded ? "عرض أقل" : "المزيد من الأفتارات";
+      if (avatarMoreCount) avatarMoreCount.textContent = expanded ? avatarExtras + " إضافية" : "+" + avatarExtras;
+      avatarMore.querySelector(".fx-avatar-more-icon").textContent = expanded ? "−" : "+";
+    }
+
     function syncPlayerProfile() {
       const selected = BG.playerProfile.get();
+      const selectedIndex = avatarChoices.findIndex((button) => button.getAttribute("data-profile-avatar") === selected.avatar);
+      if (selectedIndex >= avatarInitial && avatarGrid && !avatarGrid.classList.contains("is-expanded")) {
+        setAvatarExpanded(true);
+      }
       avatarChoices.forEach((button) => {
         const on = button.getAttribute("data-profile-avatar") === selected.avatar;
         button.classList.toggle("is-selected", on);
@@ -1140,7 +1171,7 @@
         profilePreview.style.setProperty("--profile-color", selected.color);
         const avatarNode = profilePreview.querySelector(".fx-profile-preview-avatar");
         if (avatarNode) {
-          avatarNode.textContent = BG.playerProfile.avatarEmoji(selected.avatar);
+          avatarNode.innerHTML = BG.playerProfile.avatarSVG(selected.avatar);
           avatarNode.style.setProperty("--profile-color", selected.color);
         }
       }
@@ -1199,6 +1230,11 @@
       syncPlayerProfile();
       sound("select");
       BG.toast("أُعيد ملف اللاعب إلى الوضع الافتراضي.");
+    });
+
+    if (avatarMore) avatarMore.addEventListener("click", () => {
+      setAvatarExpanded(!avatarGrid.classList.contains("is-expanded"));
+      sound("select");
     });
 
     avatarChoices.forEach((button) => button.addEventListener("click", () => {

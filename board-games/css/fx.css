@@ -204,20 +204,21 @@
   place-items: center;
   width: 38px;
   height: 38px;
+  overflow: hidden;
   border: 2px solid var(--profile-color, #4f86f7);
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.08);
   background: color-mix(in srgb, var(--profile-color, #4f86f7) 20%, #101820);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--profile-color, #4f86f7) 18%, transparent);
-  font-size: 1.25rem;
   line-height: 1;
 }
+.player-avatar .avatar-art { width: 100%; height: 100%; display: block; }
+.avatar-emoji { font-size: 1.25rem; line-height: 1; }
 .net-avatar.player-avatar { border: 2px solid var(--profile-color, #4f86f7); background: color-mix(in srgb, var(--profile-color, #4f86f7) 20%, #101820); }
 .fx-profile-preview-avatar {
   width: 56px;
   height: 56px;
   border-width: 2px;
-  font-size: 1.9rem;
   box-shadow: 0 0 0 4px color-mix(in srgb, var(--profile-color, #4f86f7) 20%, transparent), 0 12px 22px -12px rgba(0, 0, 0, 0.9);
   transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
 }
@@ -238,16 +239,56 @@
   transition: transform 0.16s ease, border-color 0.16s ease, background 0.16s ease, box-shadow 0.16s ease;
   -webkit-tap-highlight-color: transparent;
 }
-.fx-avatar-choice > span { font-size: 1.32rem; line-height: 1.2; transition: transform 0.16s ease; }
+.fx-avatar-choice .fx-avatar-art { width: 36px; height: 36px; display: block; filter: drop-shadow(0 3px 5px rgba(0, 0, 0, 0.28)); transition: transform 0.16s ease, filter 0.16s ease; }
 .fx-avatar-choice small { overflow: hidden; max-width: 100%; color: var(--muted); font-size: 0.55rem; text-overflow: ellipsis; white-space: nowrap; }
 .fx-avatar-choice:hover { transform: translateY(-1px); border-color: var(--stroke-2); background: rgba(255, 255, 255, 0.045); }
+.fx-avatar-choice:hover .fx-avatar-art { transform: translateY(-1px) scale(1.04); }
 .fx-avatar-choice.is-selected {
   border-color: color-mix(in srgb, var(--accent-2) 72%, transparent);
   background: rgba(76, 201, 164, 0.12);
   box-shadow: inset 0 0 0 1px rgba(76, 201, 164, 0.22);
 }
-.fx-avatar-choice.is-selected > span { transform: scale(1.08); }
+.fx-avatar-choice.is-selected .fx-avatar-art { transform: scale(1.08); filter: drop-shadow(0 4px 7px rgba(0, 0, 0, 0.35)); }
 .fx-avatar-choice.is-selected small { color: var(--text); }
+.fx-avatar-choice.is-extra { display: none; }
+.fx-avatar-grid.is-expanded .fx-avatar-choice.is-extra { display: grid; animation: fx-avatar-reveal 0.28s cubic-bezier(0.2, 0.8, 0.3, 1) both; }
+@keyframes fx-avatar-reveal {
+  from { opacity: 0; transform: translateY(5px) scale(0.94); }
+  to { opacity: 1; transform: none; }
+}
+.fx-avatar-more {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  height: 36px;
+  margin-top: 2px;
+  padding: 0 10px;
+  border: 1px dashed color-mix(in srgb, var(--accent-2) 38%, var(--stroke));
+  border-radius: 10px;
+  color: var(--muted);
+  background: rgba(76, 201, 164, 0.045);
+  font-size: 0.64rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: color 0.16s ease, border-color 0.16s ease, background 0.16s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.fx-avatar-more:hover { color: var(--text); border-color: color-mix(in srgb, var(--accent-2) 68%, transparent); background: rgba(76, 201, 164, 0.1); }
+.fx-avatar-more-icon {
+  display: grid;
+  place-items: center;
+  width: 19px;
+  height: 19px;
+  flex: 0 0 auto;
+  border-radius: 6px;
+  color: #9ce8d4;
+  background: rgba(76, 201, 164, 0.13);
+  font-size: 0.82rem;
+  line-height: 1;
+}
+.fx-avatar-more small { margin-inline-start: auto; color: var(--dim); font-size: 0.55rem; font-weight: 800; }
+.fx-avatar-more.is-open small { color: #9ce8d4; }
 .fx-custom-color {
   display: flex;
   align-items: center;
@@ -631,9 +672,10 @@
   .fx-intro { padding: 12px; }
   .fx-intro p { font-size: 0.72rem; }
   .fx-avatar-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 5px; }
-  .fx-avatar-choice { padding: 6px 1px; }
-  .fx-avatar-choice > span { font-size: 1.2rem; }
+  .fx-avatar-choice { padding: 5px 1px; }
+  .fx-avatar-choice .fx-avatar-art { width: 32px; height: 32px; }
   .fx-avatar-choice small { font-size: 0.5rem; }
+  .fx-avatar-more { height: 40px; font-size: 0.68rem; }
   .fx-profile-head { flex-wrap: wrap; gap: 8px; }
   .fx-profile-badge { display: none; }
   .fx-profile-preview { gap: 10px; padding: 11px; }
