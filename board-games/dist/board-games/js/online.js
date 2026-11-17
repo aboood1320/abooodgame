@@ -64,6 +64,7 @@
     lastAlertSeat: -1,
     titleTimer: null,
     baseTitle: "",
+    connState: "online",
   };
 
   /* منع انطفاء الشاشة أثناء اللعب الجماعي: انطفاء الجوال هو أكثر أسباب انقطاع الاتصال */
@@ -265,6 +266,70 @@
 
   function saveName() {
     try { localStorage.setItem("bg.netName", state.name); } catch (err) { /* ignore */ }
+  }
+
+  /* ------------------------------ استئناف الجلسة ------------------------------ */
+
+  const RESUME_KEY = "bg.netResume";
+  const RESUME_TTL = 2 * 60 * 60 * 1000;
+  const RESUME_RELOAD_MS = 120000;
+
+  function saveResume(overrides) {
+    if (!BG.net || !BG.net.roomCode) return;
+    const data = {
+      code: String(BG.net.roomCode || "").toUpperCase(),
+      name: state.name || savedName() || "اللاعب",
+      mode: BG.net.mode || "cloud",
+      inGame: !!(state.inGame || (overrides && overrides.inGame)),
+      at: Date.now(),
+    };
+    try { localStorage.setItem(RESUME_KEY, JSON.stringify(data)); } catch (err) { /* ignore */ }
+  }
+
+  function readResume() {
+    try {
+      const raw = localStorage.getItem(RESUME_KEY);
+      if (!raw) return null;
+      const data = JSON.parse(raw);
+      const code = String((data && data.code) || "").toUpperCase();
+      if (!/^[A-Z0-9]{4,8}$/.test(code)) {
+        localStorage.removeItem(RESUME_KEY);
+        return null;
+      }
+      if (!Number.isFinite(data.at) || Date.now() - data.at > RESUME_TTL) {
+        localStorage.removeItem(RESUME_KEY);
+        return null;
+      }
+      return Object.assign({}, data, { code });
+    } catch (err) { return null; }
+  }
+
+  function clearResume() {
+    try { localStorage.removeItem(RESUME_KEY); } catch (err) { /* ignore */ }
+  }
+
+  function pageWasReloaded() {
+    try {
+      const nav = performance.getEntriesByType("navigation")[0];
+      return !!(nav && nav.type === "reload");
+    } catch (err) { return false; }
+  }
+
+  function resumeBannerHTML() {
+    const saved = readResume();
+    if (!saved) return "";
+    const mins = Math.max(0, Math.round((Date.now() - saved.at) / 60000));
+    const when = mins < 1 ? "قبل لحظات" : mins === 1 ? "قبل دقيقة" : "قبل " + mins + " دقيقة";
+    return (
+      '<section class="net-resume" role="status">' +
+      '<span class="net-resume-icon" aria-hidden="true">↩️</span>' +
+      '<div class="net-resume-copy"><strong>لديك جلسة سابقة في الغرفة <b dir="ltr">' + esc(saved.code) + "</b></strong>" +
+      "<small>" + (saved.inGame ? "لعبة جارية — يمكنك العودة إلى مقعدك." : "غرفة انتظار ما زالت مفتوحة.") + " · " + when + "</small></div>" +
+      '<div class="net-resume-actions">' +
+      '<button type="button" class="bg-btn small primary" data-net-resume>استئناف</button>' +
+      '<button type="button" class="bg-btn small ghost" data-net-resume-clear>تجاهل</button>' +
+      "</div></section>"
+    );
   }
 
   /* ============================== اللوبي ============================== */
@@ -485,6 +550,7 @@
   function lobbyFormHTML() {
     const cloud = BG.net.mode === "cloud";
     const web = BG.net.mode === "web";
+    const resume = resumeBannerHTML();
     const modeTabs =
       '<div class="net-modes" role="tablist" aria-label="نوع الاتصال">' +
       '<button type="button" class="net-mode-btn' + (cloud ? " is-on" : "") + '" data-net-mode="cloud" role="tab" aria-selected="' + cloud + '">' +
@@ -508,6 +574,7 @@
           ? "<p>أنشئ غرفة وشارك الرمز مع زملائك، أو انضم برمز من أربعة أحرف. لا يحتاج إلا أن يفتح هذا الموقع: كل شيء يمرّ عبر موقعنا نفسه باتصال عادي، بلا برامج ولا إعدادات ولا حسابات. الاستجابة أبطأ قليلًا من اللعب العالمي، لكنها كافية لألعاب الطاولة.</p>"
           : "<p>أنشئ غرفة على هذا الجهاز، أو انضم برمز من أربعة أحرف. الاتصال عبر خادم اللعب المحلي، بلا حسابات وبلا إنترنت.</p>") +
         "</div>" +
+        resume +
         modeTabs +
         nameField +
         '<div class="net-split">' +
@@ -533,6 +600,7 @@
       "<h2>اجلس إلى الطاولة مع أي لاعب في العالم</h2>" +
       "<p>أنشئ غرفة وشارك رابط الدعوة، أو انضم برمز من أربعة أحرف، أو استخدم المطابقة السريعة للعثور على خصم خلال ثوانٍ. الاتصال مشفّر نقطة بنقطة عبر WebRTC، بلا حسابات.</p>" +
       "</div>" +
+      resume +
       modeTabs +
       nameField +
       '<div class="net-split">' +
@@ -668,6 +736,22 @@
     const join = body.querySelector("[data-net-join]");
     const quick = body.querySelector("[data-net-quick]");
     const modeButtons = Array.from(body.querySelectorAll("[data-net-mode]"));
+    const resumeBtn = body.querySelector("[data-net-resume]");
+    const resumeClear = body.querySelector("[data-net-resume-clear]");
+
+    if (resumeBtn) {
+      resumeBtn.addEventListener("click", () => {
+        if (state.busy) return;
+        resumeSession(readResume());
+      });
+    }
+    if (resumeClear) {
+      resumeClear.addEventListener("click", () => {
+        clearResume();
+        renderLobby();
+        BG.toast("تم تجاهل الجلسة السابقة.");
+      });
+    }
 
     nameInput.addEventListener("input", () => {
       state.name = nameInput.value.trim() || "اللاعب";
@@ -1547,6 +1631,7 @@
       '<span class="net-hud-code">' + esc((BG.net && BG.net.roomCode) || "----") + "</span>" +
       '<span class="net-hud-sep">·</span>' +
       '<span class="net-hud-role"></span>' +
+      '<span class="net-hud-status" aria-live="polite"></span>' +
       '<span class="net-hud-ping" data-quality="unknown" title="زمن الاستجابة">— ms</span>' +
       '<button type="button" class="net-hud-react" aria-label="ردود فعل سريعة" aria-expanded="false">😀</button>' +
       '<div class="net-react-tray" role="menu" hidden>' +
@@ -1577,6 +1662,20 @@
     }
     updateHud();
     updateHudPing();
+    updateHudConnection(state.connState);
+  }
+
+  function updateHudConnection(next) {
+    state.connState = next || "online";
+    if (!state.hud) return;
+    const reconnecting = state.connState === "reconnecting";
+    const offline = state.connState === "offline";
+    state.hud.classList.toggle("is-reconnecting", reconnecting);
+    state.hud.classList.toggle("is-offline", offline);
+    const label = state.hud.querySelector(".net-hud-status");
+    if (label) label.textContent = reconnecting ? "إعادة الاتصال…" : offline ? "انقطع الاتصال" : "";
+    const dot = state.hud.querySelector(".net-hud-dot");
+    if (dot) dot.title = reconnecting ? "جارٍ إعادة الاتصال" : offline ? "انقطع الاتصال" : "متصل";
   }
 
   const REACTIONS = ["👍", "😂", "😮", "😡", "👏", "🔥", "🤝", "😭"];
@@ -2163,6 +2262,7 @@
 
   function begin(detail) {
     state.inGame = true;
+    state.connState = "online";
     state.hostReady = false;
     state.starting = false;
     state.game = detail.game;
@@ -2197,6 +2297,7 @@
     state.pendingTrades.clear();
     state.pendingAuctions.clear();
     hideOverlay();
+    saveResume({ inGame: true });
     buildHud();
     ensureWaiting();
     clearAway();
@@ -2246,6 +2347,7 @@
     removeHud();
     if (state.waiting && state.waiting.parentNode) state.waiting.parentNode.removeChild(state.waiting);
     state.waiting = null;
+    saveResume({ inGame: false });
     if (BG.app) BG.app.goLibrary();
     showOverlay();
   }
@@ -2280,7 +2382,10 @@
     state.baseTitle = "";
     clearAway();
     releaseWake();
-    if (!silent) state.lastJoin = null;
+    if (!silent) {
+      state.lastJoin = null;
+      clearResume();
+    }
     clearInterval(state.guestTimer);
     clearTimeout(state.readyTimer);
     clearTimeout(state.spectateTimer);
@@ -2370,12 +2475,66 @@
     });
   }
 
+  async function resumeSession(saved, opts) {
+    saved = saved || readResume();
+    if (!saved || state.busy || state.inRoom || !BG.net) return false;
+    const options = opts || {};
+    state.busy = true;
+    if (saved.name) {
+      state.name = saved.name;
+      saveName();
+    }
+    if (saved.mode && BG.net.mode !== saved.mode && !BG.net.role) BG.net.setMode(saved.mode);
+    showOverlay();
+    const say = (text, cls) => {
+      const status = state.overlay && state.overlay.querySelector("[data-net-status]");
+      if (!status) return;
+      status.className = "net-status " + (cls || "is-busy");
+      status.textContent = text || "";
+    };
+    const candidates = BG.onlineHost && BG.onlineHost.candidateRooms
+      ? BG.onlineHost.candidateRooms(saved.code)
+      : [saved.code];
+    /* في الوضع العالمي كل محاولة تنتظر اتصالًا كاملًا؛ نكتفي بالرمز الأصلي
+       ونترك البحث في الغرف المنقولة للوضع المحلي/المدرسي حيث الفشل سريع. */
+    const codes = BG.net.mode === "cloud" ? candidates.slice(0, 1) : candidates;
+    const deadline = Date.now() + (options.timeoutMs || 26000);
+    let lastError = "";
+    while (Date.now() < deadline && !state.inRoom) {
+      for (let i = 0; i < codes.length; i += 1) {
+        if (state.inRoom) break;
+        say("جارٍ استئناف الغرفة " + codes[i] + "…");
+        try {
+          await BG.net.joinRoom(codes[i], state.name || saved.name || "اللاعب");
+          state.inRoom = true;
+          state.lastJoin = { code: codes[i], name: state.name };
+          state.pendingInvite = "";
+          state.busy = false;
+          saveResume();
+          renderLobby();
+          BG.toast("عدت إلى الغرفة (" + codes[i] + ").", "good");
+          return true;
+        } catch (err) {
+          lastError = (err && err.message) || "";
+        }
+      }
+      if (!state.inRoom) await new Promise((resolve) => setTimeout(resolve, 1400));
+    }
+    state.busy = false;
+    if (state.inRoom) return true;
+    renderLobby();
+    say("تعذّر استئناف الغرفة السابقة" + (lastError ? " — " + lastError : "."), "is-error");
+    if (!options.quiet) BG.toast("تعذّر استئناف الغرفة السابقة.", "warn");
+    return false;
+  }
+
   async function tryRejoin(info) {
     try {
       state.name = info.name || state.name;
       await BG.net.joinRoom(info.code, state.name);
       state.inRoom = true;
       state.lastJoin = info;
+      saveResume();
       showOverlay();
       BG.toast("عدت إلى الغرفة — بانتظار المضيف.", "good");
       return true;
@@ -2397,6 +2556,7 @@
       state.inRoom = true;
       state.name = state.name || savedName() || "اللاعب";
       if (BG.net.isHost && !state.owner) state.owner = state.name;
+      saveResume();
       if (BG.net.isHost) {
         if (!state.lobbyGame) state.lobbyGame = (BG.games[0] && BG.games[0].id) || "";
         state.seatCount = clampSeatCount(currentGameDef(), state.seatCount);
@@ -2501,9 +2661,23 @@
     BG.net.on("message", onNetMessage);
     BG.net.on("latency", updateHudPing);
     BG.net.on("status", (info) => {
-      const reconnecting = !!info && info.status === "reconnecting";
-      if (state.hud) state.hud.classList.toggle("is-reconnecting", reconnecting);
-      if (reconnecting && state.inRoom) BG.toast("الاتصال ضعيف… تجري إعادة الاتصال.", "warn");
+      const next = (info && info.status) || "";
+      const previous = state.connState;
+      if (next === "reconnecting") {
+        updateHudConnection("reconnecting");
+        if (state.inRoom && previous !== "reconnecting") BG.toast("الاتصال غير مستقر… تجري إعادة المحاولة.", "warn");
+        return;
+      }
+      if (next === "closed" || next === "error") {
+        updateHudConnection("offline");
+        return;
+      }
+      if (next === "room" || next === "connected") {
+        updateHudConnection("online");
+        if (state.inGame && (previous === "reconnecting" || previous === "offline")) {
+          BG.toast("عاد الاتصال بالجلسة.", "good");
+        }
+      }
     });
   }
 
@@ -2534,6 +2708,13 @@
       }
     } catch (err) { /* ignore */ }
     bindNetworkEvents();
+    const savedSession = readResume();
+    if (!state.pendingInvite && !state.autoCreateLanRoom && savedSession && savedSession.inGame &&
+        Date.now() - savedSession.at < RESUME_RELOAD_MS && pageWasReloaded()) {
+      openLobby();
+      setTimeout(() => { resumeSession(savedSession, { quiet: true, timeoutMs: 22000 }); }, 120);
+      return;
+    }
     if (state.pendingInvite || state.autoCreateLanRoom) {
       openLobby();
       if (state.autoCreateLanRoom) {
@@ -2596,6 +2777,9 @@
     clearAway,
     acquireWake,
     savedName,
+    saveResume,
+    clearResume,
+    resumeSession,
   };
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", initOnline);

@@ -501,6 +501,8 @@
       });
 
       ws.addEventListener("close", () => {
+        /* اتصال قديم أُغلق بعد أن فُتح اتصال أحدث (إعادة اتصال/نقل استضافة): لا تلمس الحالة الجديدة. */
+        if (socket !== ws) return;
         stopPing();
         if (socket === ws) {
           socket = null;

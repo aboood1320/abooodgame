@@ -39,6 +39,7 @@
     handingOver: false,
     peakHumans: 0,
     lastTrouble: 0,
+    lastSelfId: "",
   };
 
   const core = () => (BG.online && BG.online._core) || null;
@@ -69,6 +70,19 @@
     return out;
   }
 
+  /** رموز الغرف التي قد تكون استضافتنا انتقلت إليها بعد انقطاع (للاستئناف بعد إعادة التحميل). */
+  function candidateRooms(code) {
+    const base = String(code || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 8);
+    if (!base) return [];
+    const list = [base];
+    for (let round = 1; round <= 3; round++) {
+      const one = derive(base, round);
+      list.push(one);
+      for (let next = 1; next <= 2; next++) list.push(derive(one, next));
+    }
+    return list.filter((value, index, all) => all.indexOf(value) === index);
+  }
+
   /* ------------------------------ تتبّع اللاعبين ------------------------------ */
 
   function humanPeers() {
@@ -77,10 +91,12 @@
 
   function onPeers() {
     if (!BG.net || !core()) return;
+    const selfNow = BG.net.selfId || "";
+    if (selfNow && st.selfId && selfNow !== st.selfId) st.lastSelfId = st.selfId;
+    if (selfNow) st.selfId = selfNow;
     const peers = humanPeers().map((p) => ({ id: p.id, name: p.name, host: !!p.host }));
     if (peers.length) {
       st.lastPeers = peers;
-      st.selfId = BG.net.selfId || st.selfId;
       st.code = BG.net.roomCode || st.code;
       st.hostRole = !!BG.net.isHost;
     }
@@ -249,6 +265,33 @@
     });
   }
 
+  /** بعد انضمام سريع قد يسبق وصول peer-left؛ نعيد الفحص حين يُغلق الاتصال القديم فعلًا. */
+  function adoptStaleSeat(peer) {
+    const s = S();
+    if (!s.inGame || !s.isHost || !s.hostReady || !peer || !peer.id) return false;
+    if (!(BG.net.peers || []).some((p) => p && p.id === peer.id)) return false;
+    const lname = norm(peer.name);
+    if (!lname) return false;
+    const connected = new Set((BG.net.connectedPeers && BG.net.connectedPeers()) || []);
+    if (connected.size && !connected.has(peer.id)) return false;
+    const index = s.seats.findIndex((x) =>
+      x.type === "human" && x.peerId && x.peerId !== peer.id &&
+      !connected.has(x.peerId) && norm(x.name) === lname
+    );
+    if (index < 0) return false;
+    if (s.away[index]) {
+      clearTimeout(s.away[index].timer);
+      delete s.away[index];
+    }
+    s.seats[index].peerId = peer.id;
+    s.synced[peer.id] = false;
+    sendStart(peer);
+    afterSeatChange();
+    BG.toast((s.seats[index].name || "اللاعب") + " استرد مقعده.", "good");
+    note("<strong>" + esc(s.seats[index].name) + "</strong> استرد مقعده بعد انقطاع سريع.", "good");
+    return true;
+  }
+
   /** انضمام أثناء اللعب: عودة لاعب منقطع، أو جلوس مكان كمبيوتر، أو مشاهدة. */
   function onLateJoin(peer) {
     const s = S();
@@ -269,26 +312,36 @@
       BG.toast((s.seats[index].name || "اللاعب") + " عاد إلى الطاولة.", "good");
       note("<strong>" + esc(s.seats[index].name) + "</strong> عاد إلى مقعده.", "good");
     } else {
-      index = s.seats.findIndex((x) => x.type === "cpu" && x.proxyFor && norm(x.proxyFor) === lname);
-      if (index < 0) index = s.seats.findIndex((x) => x.type === "cpu" && x.proxyFor);
-      if (index < 0) index = s.seats.findIndex((x) => x.type === "cpu");
-      if (index >= 0) takeSeat(index, peer);
+      /* عودة سريعة قبل أن يكتشف المضيف الانقطاع: المقعد ما زال بشريًا بمعرّف اتصال قديم.
+         نتحقق أنه غير موجود بين المتصلين الآن حتى لا نسلب مقعد لاعب نشط بالاسم نفسه. */
+      const live = new Set(humanPeers().map((p) => p.id));
+      const stale = s.seats.findIndex((x) =>
+        x.type === "human" && x.peerId !== peer.id && (!x.peerId || !live.has(x.peerId)) && norm(x.name) === lname
+      );
+      if (stale >= 0) {
+        if (s.away[stale]) {
+          clearTimeout(s.away[stale].timer);
+          delete s.away[stale];
+        }
+        s.seats[stale].peerId = peer.id;
+        index = stale;
+        BG.toast((s.seats[index].name || "اللاعب") + " استرد مقعده.", "good");
+        note("<strong>" + esc(s.seats[index].name) + "</strong> استرد مقعده بعد انقطاع سريع.", "good");
+      } else {
+        index = s.seats.findIndex((x) => x.type === "cpu" && x.proxyFor && norm(x.proxyFor) === lname);
+        if (index < 0) index = s.seats.findIndex((x) => x.type === "cpu" && x.proxyFor);
+        if (index < 0) index = s.seats.findIndex((x) => x.type === "cpu");
+        if (index >= 0) takeSeat(index, peer);
+      }
     }
 
     s.synced[peer.id] = false;
     if (BG.net.ensureHostConnections) BG.net.ensureHostConnections();
     sendStart(peer);
     afterSeatChange();
-
-    /* المضيف الأصلي عاد: نردّ له الاستضافة */
-    const owner = norm(s.owner);
-    if (owner && owner === lname && owner !== norm(s.name) && !st.handingOver) {
-      st.handingOver = true;
-      setTimeout(() => {
-        st.handingOver = false;
-        const stillThere = humanPeers().find((p) => norm(p.name) === owner);
-        if (stillThere && S().isHost && S().inGame) handoverTo(stillThere.id);
-      }, 2200);
+    if (index < 0) {
+      setTimeout(() => adoptStaleSeat(peer), 1600);
+      setTimeout(() => adoptStaleSeat(peer), 3400);
     }
     return true;
   }
@@ -476,7 +529,38 @@
 
   /* ------------------------------ رسائل الضيوف ------------------------------ */
 
-  function onHostMessage() {
+  function onHostMessage(from, data) {
+    const c = core();
+    const s = c.state;
+    if (data.t === "reclaim") {
+      if (!s.inGame || !s.isHost || !s.hostReady || !from) return true;
+      const previous = String(data.oldId || "");
+      let seat = previous ? s.seats.findIndex((x) => x.type === "human" && x.peerId === previous) : -1;
+      if (seat < 0 && data.name) {
+        const lname = norm(data.name);
+        seat = s.seats.findIndex((x) => x.type === "cpu" && norm(x.proxyFor || x.name) === lname);
+      }
+      if (seat < 0) return true;
+      const target = s.seats[seat];
+      const sender = humanPeers().find((p) => p.id === from);
+      if (sender && target.name && norm(sender.name) !== norm(target.name) && norm(data.name) !== norm(target.name)) return true;
+      if (s.away[seat]) {
+        clearTimeout(s.away[seat].timer);
+        delete s.away[seat];
+      }
+      target.type = "human";
+      target.isCpu = false;
+      target.peerId = from;
+      delete target.proxyFor;
+      if (sender && sender.name) target.name = sender.name;
+      patchGame(seat, { cpu: false, name: target.name });
+      s.synced[from] = false;
+      sendStart({ id: from, name: target.name });
+      afterSeatChange();
+      BG.toast((target.name || "اللاعب") + " استرد مقعده.", "good");
+      note("<strong>" + esc(target.name || "اللاعب") + "</strong> استرد مقعده بعد انقطاع الاتصال.", "good");
+      return true;
+    }
     return false;
   }
 
@@ -510,6 +594,7 @@
       st.kicked = true;
       s.lastJoin = null;
       const reason = data.reason || "طردك المضيف من الغرفة.";
+      c.clearResume();
       c.shutdown(true);
       BG.alert("تم طردك", reason).then(() => {
         st.kicked = false;
@@ -604,6 +689,18 @@
     st.peakHumans = 0;
     if (st.wasInGame) c.showWaiting(true, null, "جارٍ العودة إلى الطاولة…");
     else c.renderLobby();
+    const previous = st.lastSelfId;
+    st.lastSelfId = "";
+    if (previous && previous !== BG.net.selfId && st.wasInGame) {
+      const sendReclaim = () => {
+        if (!BG.net || !BG.net.roomCode || BG.net.roomCode !== code || !st.wasInGame) return;
+        if (s.localSeat >= 0 || s.isHost) return;
+        BG.net.send({ t: "reclaim", oldId: previous, name: myName() });
+      };
+      sendReclaim();
+      setTimeout(sendReclaim, 800);
+      setTimeout(sendReclaim, 2200);
+    }
     BG.toast("عدتَ إلى الغرفة (" + code + ").", "good");
   }
 
@@ -620,6 +717,7 @@
     s.lastJoin = null;
     const selfNow = BG.net.selfId;
     st.selfId = selfNow;
+    st.lastSelfId = "";
 
     if (st.wasInGame && s.game && snap) {
       const mine = s.seats.findIndex((x) => x.type === "human" && norm(x.name) === norm(myName()));
@@ -747,6 +845,7 @@
     st.migrating = false;
     s.inRoom = false;
     s.inGame = false;
+    core().clearResume();
     core().shutdown(true);
     BG.alert("انتهت الغرفة", "تعذّرت إعادة الاتصال بالغرفة.").then(() => {
       if (BG.app) BG.app.goLibrary();
@@ -780,6 +879,7 @@
     }
     st.migrating = false;
     s.inRoom = false;
+    c.clearResume();
     c.shutdown(true);
     BG.alert("انتهت الغرفة", "لم نجد الغرفة بعد انقطاع الاتصال.").then(() => {
       if (BG.app) BG.app.goLibrary();
@@ -940,6 +1040,24 @@
           "</span></div>"
         );
       }).join("");
+
+      /* المشاهدون غير الجالسين على مقعد: يمكن للمضيف طردهم دون التأثير على اللعبة. */
+      const seated = new Set(s.seats.filter((x) => x.type === "human" && x.peerId).map((x) => x.peerId));
+      const connected = new Set((BG.net.connectedPeers && BG.net.connectedPeers()) || []);
+      const watchers = humanPeers().filter((p) =>
+        p && p.id && p.id !== self && !p.host && !seated.has(p.id) && (!connected.size || connected.has(p.id))
+      );
+      if (watchers.length) {
+        rows += '<p class="net-hp-note">👁 مشاهدون — يمكنك طردهم دون التأثير على اللعبة.</p>';
+        rows += watchers.map((peer) =>
+          '<div class="net-hp-row">' +
+          '<span class="net-hp-seat">👁</span>' +
+          '<span class="net-hp-name">' + esc(peer.name) + "<small>مشاهد</small></span>" +
+          '<span class="net-hp-btns">' +
+          '<button type="button" class="bg-btn small danger" data-hp-kick="' + esc(peer.id) + '">طرد</button>' +
+          "</span></div>"
+        ).join("");
+      }
     } else {
       const people = orderPeers(c.lobbyHumanPeers());
       rows = people.map((peer, i) => {
@@ -1147,6 +1265,8 @@
     st.migrating = false;
     st.peakHumans = 0;
     st.handingOver = false;
+    st.selfId = "";
+    st.lastSelfId = "";
   }
 
   window.addEventListener("pagehide", () => {
@@ -1183,6 +1303,7 @@
     onShutdown,
     decorateForm,
     derive,
+    candidateRooms,
     get visibility() { return st.visibility; },
     get _state() { return st; },
   };

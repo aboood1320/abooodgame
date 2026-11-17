@@ -62,6 +62,30 @@
   .net-modes { grid-template-columns: 1fr; }
 }
 
+/* استئناف جلسة سابقة بعد إعادة التحميل أو انقطاع الصفحة */
+.net-resume {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(225, 180, 92, 0.34);
+  background: linear-gradient(120deg, rgba(225, 180, 92, 0.12), rgba(76, 201, 164, 0.06));
+}
+.net-resume-icon { font-size: 1.2rem; line-height: 1; }
+.net-resume-copy { flex: 1 1 190px; min-width: 0; display: grid; gap: 2px; }
+.net-resume-copy strong { font-size: 0.84rem; }
+.net-resume-copy b { color: var(--accent); letter-spacing: 0.12em; direction: ltr; }
+.net-resume-copy small { color: var(--muted); font-size: 0.72rem; line-height: 1.6; }
+.net-resume-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+@media (max-width: 640px) {
+  .net-resume { padding: 10px 12px; }
+  .net-resume-actions { width: 100%; }
+  .net-resume-actions .bg-btn { flex: 1 1 auto; justify-content: center; }
+}
+
 /* ===== لوحة تحكم المضيف ===== */
 .net-hp { display: grid; gap: 14px; }
 .net-hp-sec {
@@ -219,6 +243,47 @@
   font-weight: 700;
 }
 
+/* مؤشر إعادة الاتصال / انقطاع الاتصال داخل شريط الجلسة */
+.net-hud-status {
+  display: none;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(240, 195, 90, 0.35);
+  background: rgba(240, 195, 90, 0.12);
+  color: #f0c35a;
+  font-size: 0.66rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.net-hud.is-reconnecting .net-hud-status,
+.net-hud.is-offline .net-hud-status { display: inline-flex; }
+.net-hud.is-reconnecting .net-hud-role,
+.net-hud.is-reconnecting .net-hud-sep,
+.net-hud.is-offline .net-hud-role,
+.net-hud.is-offline .net-hud-sep { display: none; }
+.net-hud.is-reconnecting { border-color: rgba(240, 195, 90, 0.55); }
+.net-hud.is-offline { border-color: rgba(239, 128, 116, 0.6); }
+.net-hud.is-reconnecting .net-hud-dot,
+.net-hud.is-offline .net-hud-dot {
+  background: #f0c35a;
+  box-shadow: 0 0 12px #f0c35a;
+  animation: netHudWait 1.1s ease-in-out infinite;
+}
+.net-hud.is-offline .net-hud-dot {
+  background: #ef8074;
+  box-shadow: 0 0 12px #ef8074;
+  animation: none;
+}
+.net-hud.is-offline .net-hud-status {
+  border-color: rgba(239, 128, 116, 0.4);
+  background: rgba(239, 128, 116, 0.12);
+  color: #ffb4ab;
+}
+@keyframes netHudWait {
+  50% { opacity: 0.35; }
+}
+
 @media (max-width: 420px) {
   .net-player-ping { font-size: 0.6rem; }
   .net-conn-line { flex-wrap: wrap; }
@@ -226,4 +291,5 @@
 
 @media (prefers-reduced-motion: reduce) {
   .net-hud.is-my-turn { box-shadow: 0 0 0 1px rgba(76, 201, 164, 0.5); }
+  .net-hud.is-reconnecting .net-hud-dot { animation: none; }
 }
