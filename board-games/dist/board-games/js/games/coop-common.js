@@ -1,6 +1,6 @@
 /* ==========================================================================
    أدوات مشتركة للألعاب التعاونية
-   شريط الفريق، أفاتار اللاعبين، الدردشة السريعة، وحركات الفريق.
+   شريط الفريق، أفاتار اللاعبين، والحركات المشتركة.
    ========================================================================== */
 (function () {
   "use strict";
@@ -10,8 +10,6 @@
 
   const U = BG.util;
   const esc = U.escape;
-
-  const EMOTES = ["👍", "🎉", "😅", "🙏", "🔥", "🫶", "🤔", "⚡"];
 
   const ICONS = {
     explore: '<svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="13" fill="none" stroke="currentColor" stroke-width="2"/><path d="M10 22l4-10 10-3-4 10z" fill="currentColor" opacity=".82"/><circle cx="16" cy="16" r="2.2" fill="#082028"/></svg>',
@@ -67,77 +65,6 @@
       "</div>";
   }
 
-  function chatDock(label) {
-    return '<div class="coop-dock" role="group" aria-label="دردشة سريعة">' +
-      '<span class="coop-dock-label">' + esc(label || "دردشة الفريق") + "</span>" +
-      EMOTES.map((emoji) => '<button type="button" class="coop-emote" data-coop-emote="' + emoji + '" aria-label="إرسال ' + emoji + '">' + emoji + "</button>").join("") +
-      "</div>";
-  }
-
-  function bubble(text) {
-    let layer = document.getElementById("coopChatLayer");
-    if (!layer) {
-      layer = document.createElement("div");
-      layer.id = "coopChatLayer";
-      layer.className = "coop-chat-layer";
-      layer.setAttribute("aria-live", "polite");
-      document.body.appendChild(layer);
-    }
-    const node = document.createElement("div");
-    node.className = "coop-chat-bubble";
-    node.textContent = text;
-    layer.appendChild(node);
-    setTimeout(() => {
-      node.style.opacity = "0";
-      node.style.transform = "translateY(-6px)";
-      node.style.transition = "opacity .3s ease, transform .3s ease";
-      setTimeout(() => node.remove(), 320);
-    }, 3200);
-    return node;
-  }
-
-  function sendChat(api, emoji, name) {
-    if (!EMOTES.includes(emoji)) return false;
-    const who = String(name || "لاعب").slice(0, 18);
-    bubble(emoji + " " + who);
-    if (BG.fx) BG.fx.sound("click");
-    if (api && api.net && api.net.enabled && BG.net) {
-      try {
-        const msg = { t: "coop-chat", e: emoji, n: who };
-        if (BG.net.isHost) BG.net.broadcast(msg);
-        else BG.net.send(msg);
-      } catch (err) { /* اللعب المحلي لا يحتاج شبكة */ }
-    }
-    return true;
-  }
-
-  function handleChatClick(event, api, name) {
-    const button = event.target && event.target.closest ? event.target.closest("[data-coop-emote]") : null;
-    if (!button) return false;
-    sendChat(api, button.getAttribute("data-coop-emote"), name);
-    return true;
-  }
-
-  function listenChat(cleanup) {
-    if (!BG.net || typeof BG.net.on !== "function") return function () {};
-    const handler = (event) => {
-      let data = event && event.data;
-      if (typeof data === "string") {
-        try { data = JSON.parse(data); } catch (err) { return; }
-      }
-      if (!data || data.t !== "coop-chat") return;
-      const emoji = String(data.e || "");
-      if (!EMOTES.includes(emoji)) return;
-      bubble(emoji + " " + String(data.n || "زميل").slice(0, 18));
-    };
-    BG.net.on("message", handler);
-    const off = function () {
-      try { BG.net.off("message", handler); } catch (err) { /* ignore */ }
-    };
-    if (Array.isArray(cleanup)) cleanup.push(off);
-    return off;
-  }
-
   function canAct(api, player, current, over) {
     if (!player || over || current == null) return false;
     if (api && api.net && api.net.enabled) {
@@ -159,18 +86,12 @@
   }
 
   BG.coop = {
-    EMOTES,
     ICONS,
     avatar,
     memberChip,
     teamHeader,
     chip,
     objectiveCard,
-    chatDock,
-    bubble,
-    sendChat,
-    handleChatClick,
-    listenChat,
     canAct,
     isOnline,
     teamNote,

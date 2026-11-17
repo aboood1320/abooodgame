@@ -549,7 +549,11 @@
       overReported = true;
       try {
         apiRef.gameOver({
-          title: win ? "اكتملت الألعاب النارية — فاز الفريق" : "انطفأت الفتائل — خسر الفريق",
+          title: win
+            ? "اكتملت الألعاب النارية — فاز الفريق"
+            : reason === "deck"
+              ? "نفدت البطاقات — انتهت الجولة"
+              : "انطفأت الفتائل — خسر الفريق",
           text: win
             ? "وصل الفريق إلى ٢٥ نقطة كاملة. كل تلميح وكل بطاقة كانت جزءاً من نجاح الجميع."
             : (reason === "fuse"
@@ -706,19 +710,16 @@
       playCard(player.index, playable.card.uid);
       return;
     }
-    if (state.tokens.clues < 8 || !cards.length) {
+    if (cards.length) {
       const discard = safestDiscard(player.index);
       if (discard) {
         discardCard(player.index, discard.card.uid);
         return;
       }
-    }
-    if (!cards.length) {
       endTurn();
       return;
     }
-    const fallback = cards[Math.floor(Math.random() * cards.length)];
-    discardCard(player.index, fallback.card.uid);
+    endTurn();
   }
 
   /* ------------------------------ الواجهة ------------------------------ */
@@ -800,7 +801,7 @@
       BG.coop.objectiveCard("الألوان المكتملة", ar(done) + " / ٥", "أكملوا كل لون حتى ٥", done === 5 ? "is-gold" : "", Math.round((done / 5) * 100)) +
       BG.coop.objectiveCard("الأدلة", ar(state.tokens.clues) + " / ٨", "لغة الفريق الوحيدة", state.tokens.clues === 0 ? "is-warn" : "") +
       BG.coop.objectiveCard("الفتائل", ar(state.tokens.fuses) + " / ٣", "كل خطأ يحرق فتيلاً", state.tokens.fuses <= 1 ? "is-danger" : "") +
-      BG.coop.objectiveCard("الدور", active ? active.name : "—", state.finalTurns != null ? "أدوار أخيرة" : "الفريق كله يلعب", "is-gold") +
+      BG.coop.objectiveCard("الدور", esc(active ? active.name : "—"), state.finalTurns != null ? "أدوار أخيرة" : "الفريق كله يلعب", "is-gold") +
       "</div>";
   }
 
@@ -890,9 +891,14 @@
   }
 
   function renderEndBanner() {
+    const deckEnd = state.result && state.result.reason === "deck";
     return '<div class="han-end ' + (state.win ? "is-win" : "is-lose") + '">' +
-      '<span aria-hidden="true">' + (state.win ? "🎆" : "🕯️") + "</span>" +
-      "<strong>" + (state.win ? "فاز الفريق — ٢٥ نقطة كاملة" : "خسر الفريق معاً — " + ar(state.score) + " / ٢٥") + "</strong>" +
+      '<span aria-hidden="true">' + (state.win ? "🎆" : deckEnd ? "🂠" : "🕯️") + "</span>" +
+      "<strong>" + (state.win
+        ? "فاز الفريق — ٢٥ نقطة كاملة"
+        : deckEnd
+          ? "نفدت البطاقات — النتيجة " + ar(state.score) + " / ٢٥"
+          : "خسر الفريق معاً — " + ar(state.score) + " / ٢٥") + "</strong>" +
       "<p>" + (state.win
         ? "كل الألعاب النارية اكتملت. كل لاعب كان جزءاً من الفريق نفسه."
         : "اللعبة انتهت، لكن الفريق بقي فريقاً واحداً. حاولوا مرة أخرى بتلميحات أفضل.") + "</p>" +
@@ -940,19 +946,16 @@
       '<span>🔥 الفتائل<b>' + ar(state.tokens.fuses) + " / ٣</b></span>" +
       "</div>" +
       '<p class="coop-note">البطاقات المرمية مكشوفة للجميع. راقبوها لتعرفوا ما تبقى في السحب.</p>' +
+      (state.discard.length
+        ? '<div class="han-discard" aria-label="البطاقات المرمية">' +
+          state.discard.slice(-14).map((card) => '<span style="--c1:' + COLORS[card.color].c1 + ';--c2:' + COLORS[card.color].c2 + (COLORS[card.color].light ? ';--ink:#2a1c06' : "") + '">' +
+            ar(card.number) + "</span>").join("") +
+          (state.discard.length > 14 ? '<small>+' + ar(state.discard.length - 14) + "</small>" : "") +
+          "</div>"
+        : "") +
       "</section>";
 
-    const logPanel = '<section class="coop-panel"><div class="coop-panel-head"><h3>سجل الفريق</h3><small>كل خطوة تخص الجميع</small></div>' +
-      '<div class="han-log">' +
-      (state.log.length
-        ? state.log.slice().reverse().map((line) => '<div class="coop-log-line ' + esc(line.kind || "") + '">' + line.html + "</div>").join("")
-        : '<p class="coop-note">لم يبدأ الفريق بعد.</p>') +
-      "</div></section>";
-
-    const chat = '<section class="coop-panel"><div class="coop-panel-head"><h3>دردشة الفريق</h3><small>تشجيع فقط — بلا تسريب بطاقات</small></div>' +
-      BG.coop.chatDock("همسات الفريق") + "</section>";
-
-    return deckPanel + logPanel + chat;
+    return deckPanel;
   }
 
   function syncPrivacy() {
@@ -993,12 +996,6 @@
   }
 
   /* ------------------------------ التفاعل ------------------------------ */
-
-  function chatName() {
-    if (state && isNet() && mySeat() >= 0 && state.players[mySeat()]) return state.players[mySeat()].name;
-    if (state && state.players[viewSeat()]) return state.players[viewSeat()].name;
-    return "زميل";
-  }
 
   function selectedCard() {
     if (!state) return null;
@@ -1056,7 +1053,6 @@
 
   function onClick(event) {
     if (!state) return;
-    if (BG.coop.handleChatClick(event, apiRef, chatName())) return;
     const confirm = event.target.closest ? event.target.closest("[data-han-view-confirm]") : null;
     if (confirm) {
       if (curtainSeat >= 0) {
@@ -1178,6 +1174,7 @@
     copy.deck = [];
     copy.deckCount = state.deck.length;
     copy.privateMasked = true;
+    delete copy.fullState;
     copy.players.forEach((player) => {
       player.handCount = player.hand.length;
       player.hand = player.hand.map((card) => ({
@@ -1221,7 +1218,6 @@
     note("بدأ فريق <strong>هانابي</strong> — " + ar(state.players.length) + " لاعبين، هدف مشترك: ٢٥ نقطة.", "accent");
     note("كل لاعب يرى أيدي الآخرين ولا يرى يده. التلميحات هي وسيلتكم الوحيدة.", "accent");
     rootRef.addEventListener("click", onClick);
-    const chatOff = BG.coop.listenChat();
     const netOff = bindNet();
     render();
     if (aiTimer) clearInterval(aiTimer);
@@ -1262,13 +1258,30 @@
 
     return {
       netSnapshot() { return state ? BG.netCodec.encode(publicSnapshot()) : null; },
+      saveSnapshot() {
+        if (!state) return null;
+        const copy = JSON.parse(JSON.stringify(state));
+        copy.privateMasked = false;
+        copy.fullState = true;
+        return copy;
+      },
       netLoad(snapshot) {
         if (!snapshot) return;
         const prevEvent = state && state.lastEvent ? state.lastEvent.id : 0;
         applyingNet = true;
         try {
-          state = BG.netCodec.decode(snapshot);
+          const incoming = BG.netCodec.decode(snapshot);
+          const full = !!(incoming && incoming.fullState);
+          state = incoming;
+          if (state) delete state.fullState;
           normalizeState();
+          if (isGuest()) selectedUid = null;
+          if (full) {
+            visibleHands = {};
+            state.players.forEach((player) => {
+              player.handCount = player.hand.length;
+            });
+          }
           if (state.lastEvent && state.lastEvent.id > prevEvent) playEventSound(state.lastEvent);
           render();
           if (isGuest()) requestVisibleHands(true);
@@ -1283,7 +1296,6 @@
         destroyed = true;
         if (aiTimer) clearInterval(aiTimer);
         aiTimer = null;
-        if (chatOff) chatOff();
         if (netOff) netOff();
         if (rootRef) rootRef.removeEventListener("click", onClick);
         if (debugRef && window.__bgDebug === debugRef) window.__bgDebug = null;

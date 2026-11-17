@@ -252,6 +252,22 @@
     return viewSeat() === state.activeSeat;
   }
 
+  function canSignalNow() {
+    if (!state || state.over || state.phase !== "play") return false;
+    if (state.trick.length && state.trickWinner == null) return false;
+    const me = state.players[viewSeat()];
+    if (!me || me.isCpu || me.signalUsed) return false;
+    return handFor(me).some((card) => !!signalModeFor(me, card));
+  }
+
+  function selectableUidsForView() {
+    const me = state && state.players[viewSeat()];
+    if (!me) return [];
+    if (canActNow()) return legalUidsForView();
+    if (canSignalNow()) return handFor(me).map((card) => card.uid);
+    return [];
+  }
+
   function note(html, kind) {
     if (!state) return;
     state.log.push({ html: html, kind: kind || "" });
@@ -565,7 +581,6 @@
 
   function signalCard(seat, uid) {
     if (!state || state.over || state.phase !== "play") return false;
-    if (seat !== state.activeSeat) return false;
     if (state.trick.length && state.trickWinner == null) return false;
     const player = state.players[seat];
     if (!player || player.signalUsed) return false;
@@ -912,6 +927,11 @@
         return;
       }
     }
+    if (state.trickWinner != null) {
+      state.trick = [];
+      state.lastTrick = [];
+      state.trickWinner = null;
+    }
     const card = chooseAiPlay(player);
     if (card) playCard(player.index, card.uid);
   }
@@ -1078,6 +1098,7 @@
     const me = state.players[viewSeat()];
     const hand = handFor(me);
     const legal = legalUidsForView();
+    const selectable = selectableUidsForView();
     return '<div class="crew-hand-wrap"><div class="crew-mission"><div><strong>يدك</strong><small>سرية — لا يراها بقية الطاقم</small></div>' +
       '<span class="crew-reveal">' + ar(hand.length) + " بطاقة</span></div>" +
       '<div class="crew-hand">' +
@@ -1087,7 +1108,7 @@
           task: !!taskForCard(card),
           playable: legal.indexOf(card.uid) >= 0,
           selected: selectedUid === card.uid,
-          disabled: !canActNow() || legal.indexOf(card.uid) < 0,
+          disabled: selectable.indexOf(card.uid) < 0,
         })).join("")
         : '<p class="coop-note">' + (isGuest() && !hand.length ? "بانتظار وصول يدك من القائد…" : "يدك فارغة.") + "</p>") +
       "</div></div>";
@@ -1115,6 +1136,17 @@
     }
     if (!canActNow()) {
       const actor = activePlayer();
+      if (canSignalNow()) {
+        const me = state.players[viewSeat()];
+        const card = selectedCard();
+        const mode = card ? signalModeFor(me, card) : null;
+        return '<div class="crew-actions">' +
+          '<button type="button" class="coop-btn ghost" data-crew-action="signal"' + (mode ? "" : " disabled") + ">📡 إشارة راديو</button>" +
+          '<span class="coop-note">' + (card
+            ? (mode ? "إشارة متاحة: " + SIGNALS[mode] : "اختر بطاقة أعلى أو أدنى في لونها فقط.")
+            : "بين الخدع يمكنك إرسال إشارة واحدة: اختر بطاقة من يدك.") + "</span>" +
+          rules + "</div>";
+      }
       return '<div class="crew-actions"><span class="coop-note">بانتظار ' + esc(actor ? actor.name : "الطاقم") + " ليلعب بطاقته. تابعوا المهمة معاً.</span>" + rules + "</div>";
     }
     const me = state.players[viewSeat()];
@@ -1122,8 +1154,7 @@
     const legal = legalUidsForView();
     const playable = !!(card && legal.indexOf(card.uid) >= 0);
     const mode = card ? signalModeFor(me, card) : null;
-    const betweenTricks = state.trick.length === 0 || state.trickWinner != null;
-    const canSignal = !!(betweenTricks && !me.signalUsed && mode);
+    const canSignal = !!(canSignalNow() && mode);
     return '<div class="crew-actions">' +
       '<button type="button" class="coop-btn primary" data-crew-action="play"' + (playable ? "" : " disabled") + ">العب البطاقة</button>" +
       '<button type="button" class="coop-btn ghost" data-crew-action="signal"' + (canSignal ? "" : " disabled") + ">📡 إشارة راديو</button>" +
@@ -1212,16 +1243,7 @@
           (player.signal ? " · 📡 " + SIGNAL_SHORT[player.signal.mode] : "") + "</span></div>";
       }).join("") + "</div></section>";
 
-    const log = '<section class="coop-panel"><div class="coop-panel-head"><h3>سجل الرحلة</h3><small>كل خطوة تخص الجميع</small></div>' +
-      '<div class="han-log crew-log">' +
-      (state.log.length ? state.log.slice().reverse().map((line) => '<div class="coop-log-line ' + esc(line.kind || "") + '">' + line.html + "</div>").join("")
-        : '<p class="coop-note">لم تبدأ الرحلة بعد.</p>') +
-      "</div></section>";
-
-    const chat = '<section class="coop-panel"><div class="coop-panel-head"><h3>دردشة الطاقم</h3><small>تشجيع فقط — بلا تسريب بطاقات</small></div>' +
-      BG.coop.chatDock("رسائل الطاقم") + "</section>";
-
-    return status + crew + log + chat;
+    return status + crew;
   }
 
   function render() {
@@ -1309,7 +1331,6 @@
     const seat = seatForPeer(event.from);
     if (seat < 0) return;
     if (data.t === "crew-sync-request") {
-      try { if (apiRef.net.sendState) apiRef.net.sendState(); } catch (err) { /* ignore */ }
       sendHandTo(seat);
       return;
     }
@@ -1322,7 +1343,7 @@
       return;
     }
     if (data.t === "crew-signal") {
-      if (seat === state.activeSeat) signalCard(seat, String(data.uid || ""));
+      signalCard(seat, String(data.uid || ""));
     }
   }
 
@@ -1330,6 +1351,7 @@
     if (!state) return null;
     const copy = JSON.parse(JSON.stringify(state));
     copy.privateMasked = true;
+    delete copy.fullState;
     copy.players.forEach((player) => {
       player.handCount = player.hand.length;
       player.hand = player.hand.map((card) => ({ uid: card.uid }));
@@ -1344,11 +1366,6 @@
   }
 
   /* ------------------------------ التفاعل ------------------------------ */
-
-  function chatName() {
-    const player = state && state.players[viewSeat()];
-    return player ? player.name : "طاقم";
-  }
 
   function showRules() {
     try {
@@ -1371,12 +1388,10 @@
   }
 
   function localSignalSelected() {
-    if (!canActNow() || !selectedUid) return;
+    if (!canSignalNow() || !selectedUid) return;
     const me = state.players[viewSeat()];
     const card = selectedCard();
-    if (!me || !card || me.signalUsed) return;
-    if (state.trick.length || state.trickWinner != null) return;
-    if (!signalModeFor(me, card)) return;
+    if (!me || !card || !signalModeFor(me, card)) return;
     const uid = selectedUid;
     selectedUid = null;
     if (isGuest()) {
@@ -1384,7 +1399,7 @@
       render();
       return;
     }
-    signalCard(state.activeSeat, uid);
+    signalCard(viewSeat(), uid);
   }
 
   function localPickTask(taskId) {
@@ -1398,7 +1413,6 @@
 
   function onClick(event) {
     if (!state) return;
-    if (BG.coop.handleChatClick(event, apiRef, chatName())) return;
     const confirm = event.target.closest ? event.target.closest("[data-crew-view-confirm]") : null;
     if (confirm) {
       if (curtainSeat >= 0) {
@@ -1453,7 +1467,6 @@
     const humans = humanSeats();
     localViewer = humans.length ? humans[0] : 0;
     rootRef.addEventListener("click", onClick);
-    const chatOff = BG.coop.listenChat();
     const netOff = bindNet();
     render();
     if (aiTimer) clearInterval(aiTimer);
@@ -1529,24 +1542,35 @@
 
     return {
       netSnapshot() { return state ? BG.netCodec.encode(publicSnapshot()) : null; },
+      saveSnapshot() {
+        if (!state) return null;
+        const copy = JSON.parse(JSON.stringify(state));
+        copy.privateMasked = false;
+        copy.fullState = true;
+        return copy;
+      },
       netLoad(snapshot) {
         if (!snapshot) return;
         const prevEvent = state && state.lastEvent ? state.lastEvent.id : 0;
         applyingNet = true;
         try {
-          state = BG.netCodec.decode(snapshot);
+          const incoming = BG.netCodec.decode(snapshot);
+          const full = !!(incoming && incoming.fullState);
+          state = incoming;
+          if (state) delete state.fullState;
           normalizeState();
-          if (isGuest()) {
-            const mine = state.players[mySeat()];
-            if (mine && privateHand.length) {
-              const uids = {};
-              mine.hand.forEach((card) => { uids[card.uid] = true; });
-              privateHand = privateHand.filter((card) => uids[card.uid]);
-            }
+          const mine = state.players[mySeat()];
+          if (full) {
+            privateHand = mine ? mine.hand.map((card) => ({ uid: card.uid, suit: card.suit, number: card.number })) : [];
+          } else if (isGuest() && mine && privateHand.length) {
+            const uids = {};
+            mine.hand.forEach((card) => { uids[card.uid] = true; });
+            privateHand = privateHand.filter((card) => uids[card.uid]);
           }
+          if (isGuest()) selectedUid = null;
           if (state.lastEvent && state.lastEvent.id > prevEvent) playEventSound(state.lastEvent);
           render();
-          if (isGuest()) requestHand(true);
+          if (isGuest() && mine && privateHand.length !== handCountFor(mine)) requestHand(false);
         } finally {
           applyingNet = false;
         }
@@ -1558,7 +1582,6 @@
         destroyed = true;
         if (aiTimer) clearInterval(aiTimer);
         aiTimer = null;
-        if (chatOff) chatOff();
         if (netOff) netOff();
         if (rootRef) rootRef.removeEventListener("click", onClick);
         if (debugRef && window.__bgDebug === debugRef) window.__bgDebug = null;

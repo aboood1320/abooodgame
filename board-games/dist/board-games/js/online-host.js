@@ -696,7 +696,7 @@
     const candidates = peers.filter((p) => !p.host);
     const meId = st.selfId;
     const baseCode = st.code || (s.lastJoin && s.lastJoin.code) || "";
-    const snap = s.inGame && BG.app ? BG.app.netSnapshot() : null;
+    const snap = s.inGame && BG.app ? BG.app.netFullSnapshot() : null;
     const activeSeat = s.inGame && BG.app ? BG.app.netSeat() : -1;
     const reason = (info && info.reason) || "انقطع المضيف.";
 
@@ -827,7 +827,7 @@
     const target = humanPeers().find((p) => p.id === peerId);
     if (!target || target.host) return;
     const code = derive(BG.net.roomCode, 1);
-    const snap = s.inGame && BG.app ? BG.app.netSnapshot() : null;
+    const snap = s.inGame && BG.app ? BG.app.netFullSnapshot() : null;
     const msg = {
       t: "migrate-host",
       code,

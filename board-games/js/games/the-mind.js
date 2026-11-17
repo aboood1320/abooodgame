@@ -187,6 +187,7 @@
   let privateLevel = 0;
   let handRequestTimer = null;
   let handRequestAt = 0;
+  let lastActionAt = 0;
   let pendingFocusRender = false;
   let applyingNet = false;
   let shakeUntil = 0;
@@ -296,6 +297,7 @@
       difficulty: DIFFICULTIES[difficulty] ? difficulty : "medium",
       maxLevels: maxLevelsFor(players.length),
       level: 1,
+      reachedLevel: 1,
       lives: players.length,
       stars: 1,
       deck: [],
@@ -350,6 +352,7 @@
     if (!state) return;
     lastReward = null;
     state.level = Math.max(1, Math.min(state.maxLevels, Number(level) || 1));
+    state.reachedLevel = Math.max(Number(state.reachedLevel) || 1, state.level);
     resetPlayersForLevel();
     state.notice = "المستوى " + ar(state.level) + ": " + cardWord(state.level) + " لكل لاعب. ركّزوا… ولا تتحدثوا.";
     note("<strong>المستوى " + ar(state.level) + "</strong> — " + cardWord(state.level) + " لكل لاعب. الفريق كله يلعب معاً.", "accent");
@@ -386,8 +389,11 @@
   function playLowest(seat, opts) {
     if (!state || state.over || state.phase !== "play") return false;
     if (!isHostOrLocal()) return false;
+    const now = Date.now();
+    if (now - lastActionAt < 180) return false;
     const player = state.players[seat];
     if (!player || !player.hand || !player.hand.length) return false;
+    lastActionAt = now;
     sortedHand(player);
     const card = player.hand.shift();
     const value = card.value;
@@ -450,6 +456,9 @@
   function useStar(seat, opts) {
     if (!state || state.over || state.phase !== "play" || state.stars <= 0) return false;
     if (!isHostOrLocal()) return false;
+    const now = Date.now();
+    if (now - lastActionAt < 180) return false;
+    lastActionAt = now;
     state.stars -= 1;
     state.usedStars += 1;
     const discarded = [];
@@ -493,15 +502,26 @@
     render();
     sendHandsToGuests();
     if (flowTimer) clearTimeout(flowTimer);
-    flowTimer = setTimeout(() => {
-      flowTimer = null;
-      if (!state || state.over) return;
-      if (state.level >= state.maxLevels) {
-        finishGame(true, "levels");
-        return;
-      }
-      startLevel(state.level + 1);
-    }, 1700);
+    flowTimer = setTimeout(advanceAfterLevel, 1700);
+  }
+
+  function advanceAfterLevel() {
+    flowTimer = null;
+    if (!state || state.over || state.phase !== "levelComplete") return;
+    if (state.level >= state.maxLevels) {
+      finishGame(true, "levels");
+      return;
+    }
+    startLevel(state.level + 1);
+  }
+
+  function resumeFlow() {
+    if (!state || state.over || !isHostOrLocal()) return;
+    if (state.phase === "focus") {
+      scheduleFlow(Math.max(120, (Number(state.focusAt) || Date.now()) - Date.now()));
+    } else if (state.phase === "levelComplete" && !flowTimer) {
+      flowTimer = setTimeout(advanceAfterLevel, 1200);
+    }
   }
 
   function finishGame(win, reason) {
@@ -532,7 +552,7 @@
         tone: win ? "win" : "lose",
         standings: state.players.map((player) => ({
           name: player.name + (player.isCpu ? " · زميل آلي" : " · إنسان"),
-          value: "أفضل تزامن: مستوى " + ar(state.perfectLevels) + " · أخطاء: " + ar(state.mistakeCount),
+          value: "أعلى مستوى وصل إليه الفريق: " + ar(state.win ? state.maxLevels : (state.reachedLevel || state.level)) + " · أخطاء: " + ar(state.mistakeCount),
         })),
       });
     }
@@ -681,7 +701,7 @@
       playLowest(candidates[0].player.index);
       return;
     }
-    if (info.autoStar && state.stars > 0 && now - state.lastPlayAt > info.autoStar) {
+    if (info.autoStar && state.players.some((player) => player.isCpu) && state.stars > 0 && now - state.lastPlayAt > info.autoStar) {
       const holders = state.players.filter((player) => handLength(player) > 0);
       if (holders.length >= 2) {
         note("زميلك الآلي يقترح نجمة لكسر الجمود. الفريق يوافق ويستخدمها.", "accent");
@@ -798,6 +818,12 @@
           (pileCards || '<div class="mind-empty"><span>✦</span><p>أول بطاقة تنتظر إحساس الفريق</p></div>') +
           (state.pile.length > 9 ? '<span class="mind-pile-more">+' + ar(state.pile.length - 9) + "</span>" : "") +
         "</div>" +
+        (state.discard.length
+          ? '<div class="mind-discard" aria-label="البطاقات المطروحة"><span>المهملات</span>' +
+            state.discard.slice(-10).map((card) => '<b>' + ar(card.value) + "</b>").join("") +
+            (state.discard.length > 10 ? '<small>+' + ar(state.discard.length - 10) + "</small>" : "") +
+            "</div>"
+          : "") +
         '<p class="mind-note">' + esc(notice) + "</p>" +
         (state.phase === "focus" ? '<div class="mind-focus"><span class="mind-focus-ring" aria-hidden="true"></span><strong>استعدوا للمستوى ' + ar(state.level) + "</strong><p>يد الجميع على الطاولة… تنفّسوا معاً</p><b>" + (focusLeft ? ar(focusLeft) : "ابدأوا") + "</b></div>" : "") +
         (state.phase === "levelComplete" ? '<div class="mind-banner is-good">✦ تم المستوى ' + ar(state.level) + " بنجاح" + (lastReward ? " · مكافأة الفريق: " + esc(lastReward.text) : "") + "</div>" : "") +
@@ -906,15 +932,6 @@
       "</section>";
   }
 
-  function renderLog() {
-    return '<section class="coop-panel mind-log-panel"><div class="coop-panel-head"><h3>همسة الفريق</h3><small>ما حدث الآن</small></div>' +
-      '<div class="mind-log">' +
-      (state.log.length
-        ? state.log.slice().reverse().map((line) => '<div class="coop-log-line ' + esc(line.kind || "") + '">' + line.html + "</div>").join("")
-        : '<p class="coop-note">لم تبدأ بعد. خذوا نفساً عميقاً.</p>') +
-      "</div></section>";
-  }
-
   function paint() {
     if (!rootRef || !state || destroyed) return;
     if (apiRef && typeof apiRef.setStatus === "function") apiRef.setStatus(statusText(), "live");
@@ -923,11 +940,9 @@
     const stage = renderStage();
     const teamPanel = renderTeamPanel();
     const ladder = renderLevelLadder();
-    const logPanel = renderLog();
-    const chat = '<div class="coop-panel"><div class="coop-panel-head"><h3>دردشة الفريق</h3><small>تشجيع فقط — دون كشف الأرقام</small></div>' + BG.coop.chatDock("همسات مشتركة") + "</div>";
     rootRef.innerHTML = '<div class="coop-shell mind-shell">' +
       '<div class="coop-main">' + team + objective + stage + "</div>" +
-      '<aside class="coop-side">' + teamPanel + ladder + logPanel + chat + "</aside>" +
+      '<aside class="coop-side">' + teamPanel + ladder + "</aside>" +
       "</div>";
     if (!applyingNet) netSync();
   }
@@ -968,7 +983,6 @@
 
   function onClick(event) {
     if (!state) return;
-    if (BG.coop.handleChatClick(event, apiRef, myPlayer() ? myPlayer().name : "لاعب")) return;
     const view = event.target.closest ? event.target.closest("[data-mind-view]") : null;
     if (view) {
       const seat = Number(view.getAttribute("data-mind-view"));
@@ -1025,6 +1039,7 @@
     });
     copy.deck = [];
     copy.privateMasked = true;
+    delete copy.fullState;
     return copy;
   }
 
@@ -1048,7 +1063,6 @@
     state.notice = "مرحباً بالفريق. المستوى ١: بطاقة واحدة لكل لاعب. استعدوا…";
     note("بدأت رحلة <strong>ذا مايند</strong> — فريق واحد ضد اللعبة. لا كلام، فقط تزامن.", "accent");
     rootRef.addEventListener("click", onClick);
-    const chatOff = BG.coop.listenChat();
     const netOff = bindNet();
     render();
     sendHandsToGuests();
@@ -1096,6 +1110,13 @@
 
     return {
       netSnapshot() { return state ? BG.netCodec.encode(publicSnapshot()) : null; },
+      saveSnapshot() {
+        if (!state) return null;
+        const copy = JSON.parse(JSON.stringify(state));
+        copy.privateMasked = false;
+        copy.fullState = true;
+        return copy;
+      },
       netLoad(snapshot) {
         if (!snapshot) return;
         if (flowTimer) clearTimeout(flowTimer);
@@ -1104,27 +1125,42 @@
         try {
           const seat = mySeat();
           const saved = privateHand.slice();
-          state = BG.netCodec.decode(snapshot);
+          const incoming = BG.netCodec.decode(snapshot);
+          const full = !!(incoming && incoming.fullState);
+          state = incoming;
+          if (state) delete state.fullState;
           if (!state.log) state.log = [];
           if (!Array.isArray(state.players)) state.players = [];
           state.players.forEach((player, index) => {
+            if (full) {
+              player.hand = (Array.isArray(player.hand) ? player.hand : [])
+                .map((card) => (card && typeof card === "object" ? card : makeCard(card)));
+              player.handCount = player.hand.length;
+              return;
+            }
             const count = Number.isFinite(player.handCount) ? player.handCount : (player.hand ? player.hand.length : 0);
             player.handCount = count;
             player.hand = index === seat && saved.length ? saved.map((value) => makeCard(value, "p" + index + "-" + value)) : [];
             if (player.hand.length) player.handCount = player.hand.length;
           });
+          if (full) {
+            const me = state.players[seat];
+            privateHand = me && Array.isArray(me.hand) ? me.hand.map((card) => card.value) : [];
+            privateLevel = state.level;
+          }
           render();
           if (isGuest()) {
             const me = state.players[seat];
             if (state.phase === "play" && me && handLength(me) && privateLevel !== state.level) requestHand(true);
           }
+          resumeFlow();
         } finally {
           applyingNet = false;
         }
       },
       netSeat() { return -1; },
       netOver() { return !!(state && state.over); },
-      netResume() { if (state) render(); },
+      netResume() { if (state) { render(); resumeFlow(); } },
       destroy() {
         destroyed = true;
         if (aiTimer) clearInterval(aiTimer);
@@ -1132,7 +1168,6 @@
         if (handRequestTimer) clearInterval(handRequestTimer);
         if (renderFrame) cancelAnimationFrame(renderFrame);
         aiTimer = flowTimer = handRequestTimer = renderFrame = null;
-        if (chatOff) chatOff();
         if (netOff) netOff();
         if (rootRef) rootRef.removeEventListener("click", onClick);
         if (debugRef && window.__bgDebug === debugRef) window.__bgDebug = null;

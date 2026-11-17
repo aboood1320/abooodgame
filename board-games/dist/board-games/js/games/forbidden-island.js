@@ -190,6 +190,11 @@
     return BG.coop.canAct(apiRef, state.players[state.turn], state.turn, state.over);
   }
 
+  function isHostOrLocal() {
+    if (!apiRef || !apiRef.net || !apiRef.net.enabled) return true;
+    return !!apiRef.net.isHost;
+  }
+
   function note(html, kind) {
     if (!state) return;
     state.log.push({ html: html, kind: kind || "" });
@@ -403,9 +408,13 @@
         const tile = queue.shift();
         neighbours(tile, false).forEach((next) => {
           if (seen.has(next.id)) return;
+          if (!next.flooded && !next.sunk) {
+            out.add(next.id);
+            return;
+          }
           seen.add(next.id);
-          queue.push(next);
           if (!next.sunk) out.add(next.id);
+          queue.push(next);
         });
       }
     }
@@ -526,6 +535,7 @@
     player.pos = tileId;
     state.actionsLeft -= 1;
     state.mode = null;
+    state.engineerBonus = false;
     flashTile(tileId, "move");
     sound("move");
     note("<strong>" + esc(player.name) + "</strong> انتقل إلى <strong>" + esc(destination.name) + "</strong>.", "");
@@ -593,6 +603,7 @@
     sortedHand(target);
     state.actionsLeft -= 1;
     state.mode = null;
+    state.engineerBonus = false;
     sound("card");
     note("<strong>" + esc(player.name) + "</strong> أعطى <strong>" + esc(target.name) + "</strong> " + esc(cardName(item)) + ".", "accent");
     afterAction();
@@ -638,6 +649,7 @@
     state.treasures[type].got = true;
     state.actionsLeft -= 1;
     state.mode = null;
+    state.engineerBonus = false;
     sound("unlock");
     flashTile(tile.id, "treasure");
     note("🏆 استخرج الفريق <strong>" + esc(TREASURES[type].name) + "</strong> على <strong>" + esc(tile.name) + "</strong>!", "good");
@@ -781,7 +793,7 @@
     render();
     if (player.hand.length > 5) {
       state.phase = "discard";
-      state.discardReturn = "treasure";
+      state.discardReturn = "drawTreasure";
       state.notice = "تجاوزت الحد المسموح (٥ بطاقات). اختر بطاقة لتتخلص منها.";
       render();
       if (player.isCpu) later(aiDiscard, 460);
@@ -823,7 +835,7 @@
       return;
     }
     if (state.floodDiscard.length) {
-      state.floodDeck = U.shuffle(state.floodDiscard).concat(state.floodDeck);
+      state.floodDeck = state.floodDeck.concat(U.shuffle(state.floodDiscard));
       state.floodDiscard = [];
     }
     const level = waterNumber();
@@ -946,7 +958,7 @@
     };
     state.notice = "تايل غارق! اختاروا وجهة نجاة " + state.players[queue[0]].name + ".";
     render();
-    if (current() && current().isCpu) queueAi(700);
+    if (state.players[queue[0]] && state.players[queue[0]].isCpu) queueAi(700);
     return "paused";
   }
 
@@ -976,7 +988,7 @@
       rescue.options = options.map((item) => item.id);
       state.notice = "أنقذوا " + state.players[rescue.playerIndex].name + " من التايل الغارق.";
       render();
-      if (current() && current().isCpu) queueAi(650);
+      if (state.players[rescue.playerIndex] && state.players[rescue.playerIndex].isCpu) queueAi(650);
       return true;
     }
     state.pendingRescue = null;
@@ -985,6 +997,22 @@
     render();
     later(floodNext, 520);
     return true;
+  }
+
+  function resumePhase() {
+    if (!state || state.over || destroyed || !isHostOrLocal()) return;
+    if (state.phase === "drawTreasure") {
+      later(drawNextTreasure, 500);
+    } else if (state.phase === "flood" && !state.pendingRescue) {
+      later(floodNext, 500);
+    } else if (state.phase === "discard") {
+      if (current() && current().isCpu) later(aiDiscard, 450);
+    } else if (state.phase === "rescue") {
+      const stranded = state.pendingRescue ? state.players[state.pendingRescue.playerIndex] : null;
+      if (stranded && stranded.isCpu) queueAi(550);
+    } else if (state.phase === "actions") {
+      queueAi(550);
+    }
   }
 
   function beginNextTurn() {
@@ -1195,6 +1223,18 @@
       return;
     }
 
+    if (player.role === "navigator" && allTreasures()) {
+      const fools = foolsTile();
+      if (fools && !fools.sunk) {
+        const mate = state.players.find((other) => other.index !== player.index && other.pos !== fools.id && legalNavMoves(other).has(fools.id));
+        if (mate) {
+          state.mode = { kind: "navigate", target: mate.index };
+          navigateMove(fools.id);
+          return;
+        }
+      }
+    }
+
     const floodedCritical = state.tiles.filter((tile) => tile.flooded && !tile.sunk && (
       tile.id === "fools-landing" || (tile.treasure && !state.treasures[tile.treasure].got)
     ));
@@ -1299,7 +1339,9 @@
 
   function queueAi(ms) {
     if (!state || state.over || destroyed) return;
-    const player = current();
+    const player = state.phase === "rescue" && state.pendingRescue
+      ? state.players[state.pendingRescue.playerIndex]
+      : current();
     if (!player || !player.isCpu) return;
     if (!AI.autoAllowed(apiRef, player)) return;
     if (aiTimer) clearTimeout(aiTimer);
@@ -1331,6 +1373,7 @@
     target.pos = tileId;
     state.actionsLeft -= 1;
     state.mode = null;
+    state.engineerBonus = false;
     sound("move");
     flashTile(tileId, "move");
     note("<strong>" + esc(player.name) + "</strong> حرّك <strong>" + esc(target.name) + "</strong> إلى <strong>" + esc(destination.name) + "</strong>.", "accent");
@@ -1497,9 +1540,9 @@
     const player = current();
     const mode = state.mode || {};
     return state.players.filter((mate) => mate.index !== player.index).map((mate) => {
-      let allowed = mate.hand.length < 5;
+      let allowed = true;
       if (kind === "give") {
-        allowed = allowed && (player.role === "messenger" || mate.pos === player.pos);
+        allowed = mate.hand.length < 5 && (player.role === "messenger" || mate.pos === player.pos);
       }
       return '<button type="button" class="fi-give-card' + (mode.target === mate.index ? " is-picked" : "") + '" data-' + kind + '-target="' + mate.index + '"' + (allowed ? "" : " disabled") + ">" +
         esc(mate.name) + " · " + ar(mate.hand.length) + "/٥</button>";
@@ -1609,7 +1652,6 @@
       return '<span class="fi-water-pip' + (index <= state.waterIndex ? " is-on" : "") + (high ? " is-high" : "") + (currentLevel ? " is-current" : "") + '" title="' + (value === "skull" ? "الجمجمة" : "مستوى " + value) + '"></span>';
     }).join("");
 
-    const logItems = state.log.slice(-8).map((line) => '<div class="coop-log-line ' + (line.kind || "") + '">' + line.html + "</div>").join("");
     const specials = state.players.reduce((totals, player) => {
       player.hand.forEach((item) => {
         if (item.kind === "heli") totals.heli += 1;
@@ -1630,9 +1672,7 @@
       "</div></div>" +
       '<div class="coop-panel"><div class="coop-panel-head"><h3>يد الفريق</h3><small>معلومات مفتوحة</small></div>' +
       state.players.map((player) => '<div class="coop-note"><strong>' + esc(player.name) + ":</strong> " + (player.hand.length ? player.hand.map(cardShort).join("") : '<span style="color:var(--coop-dim)">لا بطاقات</span>') + "</div>").join("") +
-      "</div>" +
-      '<div class="coop-panel"><div class="coop-panel-head"><h3>دردشة سريعة</h3><small>تنسيق الفريق</small></div>' + BG.coop.chatDock("قولوا لزميلكم") + "</div>" +
-      '<div class="coop-panel"><div class="coop-panel-head"><h3>سجل الفريق</h3><small>آخر الأحداث</small></div><div class="coop-log">' + (logItems || '<div class="coop-hand-empty">لم يبدأ شيء بعد.</div>') + "</div></div>";
+      "</div>";
   }
 
   function render() {
@@ -1658,21 +1698,8 @@
 
   /* ------------------------------ أحداث الواجهة ------------------------------ */
 
-  function chatName() {
-    if (apiRef && apiRef.net && apiRef.net.enabled && apiRef.net.seat >= 0) {
-      const player = state.players[apiRef.net.seat];
-      if (player) return player.name;
-    }
-    return current() ? current().name : "لاعب";
-  }
-
   function onClick(event) {
     if (!state) return;
-    if (BG.coop.handleChatClick(event, apiRef, chatName())) return;
-
-    const emote = event.target.closest("[data-coop-emote]");
-    if (emote) return;
-
     const rescue = event.target.closest("[data-rescue]");
     if (rescue) {
       if (canControl()) chooseRescue(rescue.getAttribute("data-rescue"));
@@ -1904,7 +1931,6 @@
       });
 
       rootRef.addEventListener("click", onClick);
-      const chatOff = BG.coop.listenChat();
       render();
       queueAi(1000);
 
@@ -1983,6 +2009,13 @@
 
       return {
         netSnapshot() { return state ? BG.netCodec.encode(state) : null; },
+        saveSnapshot() {
+          if (!state) return null;
+          const copy = JSON.parse(JSON.stringify(state));
+          copy.privateMasked = false;
+          copy.fullState = true;
+          return copy;
+        },
         netLoad(snapshot) {
           if (!snapshot) return;
           if (flowTimer) clearTimeout(flowTimer);
@@ -1994,21 +2027,23 @@
           BG.closeDialogs();
           applyingNet = true;
           try {
-            state = BG.netCodec.decode(snapshot);
+            const incoming = BG.netCodec.decode(snapshot);
+            state = incoming;
+            if (state) delete state.fullState;
             if (!state.log) state.log = [];
             if (state.players) state.players.forEach(sortedHand);
             render();
           } finally {
             applyingNet = false;
           }
-          queueAi(500);
+          resumePhase();
         },
         netSeat() { return state ? state.turn : -1; },
         netOver() { return !!(state && state.over); },
         netResume() {
           if (state) {
             render();
-            queueAi(600);
+            resumePhase();
           }
         },
         destroy() {
@@ -2017,7 +2052,6 @@
           if (aiTimer) clearTimeout(aiTimer);
           if (flashTimer) clearTimeout(flashTimer);
           flowTimer = aiTimer = flashTimer = null;
-          if (chatOff) chatOff();
           if (rootRef) rootRef.removeEventListener("click", onClick);
           if (debugRef && window.__bgDebug === debugRef) window.__bgDebug = null;
           rootRef = null;

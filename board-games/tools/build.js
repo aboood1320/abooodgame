@@ -215,6 +215,7 @@ function tryRun(cmd, args, opts) {
 
 function makeZip() {
   const attempts = [];
+  attempts.push(() => tryRun("tar", ["-a", "-c", "-f", zipPath, "-C", DIST, "."]));
   if (process.platform === "win32") {
     attempts.push(() => tryRun("powershell", [
       "-NoProfile", "-NonInteractive", "-Command",
@@ -222,7 +223,6 @@ function makeZip() {
     ]));
   }
   attempts.push(() => tryRun("zip", ["-r", "-q", zipPath, "."], { cwd: DIST }));
-  attempts.push(() => tryRun("tar", ["-a", "-c", "-f", zipPath, "-C", DIST, "."]));
   attempts.push(() => tryRun("python3", ["-c",
     "import shutil,sys;shutil.make_archive(sys.argv[1],'zip',sys.argv[2])",
     zipPath.replace(/\.zip$/, ""), DIST]));

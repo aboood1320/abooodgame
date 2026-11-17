@@ -641,11 +641,22 @@
     els.libraryGrid.insertBefore(card, els.libraryGrid.firstChild);
   }
 
+  function fullSnapshot() {
+    if (!instance) return null;
+    try {
+      if (typeof instance.saveSnapshot === "function") return instance.saveSnapshot();
+      if (typeof instance.netSnapshot === "function") return instance.netSnapshot();
+    } catch (err) {
+      console.warn(err);
+    }
+    return null;
+  }
+
   function saveProgress() {
     if (!currentGame || !instance || isOnlineGame() || (currentApi && currentApi.finished)) return;
-    if (typeof instance.netSnapshot !== "function") return;
+    if (typeof instance.netSnapshot !== "function" && typeof instance.saveSnapshot !== "function") return;
     try {
-      const state = instance.netSnapshot();
+      const state = fullSnapshot();
       if (!state) return;
       BG.store.set(SAVE_KEY, {
         gameId: currentGame.id,
@@ -1702,9 +1713,8 @@
   /* تبديل متحكّم مقعد أثناء اللعب (بشري ↔ كمبيوتر): نعدّل لقطة الحالة نفسها، فيعمل مع كل الألعاب
      لأنها تخزّن players[i].isCpu/type/level/name في حالتها. */
   function netPatchPlayer(index, patch) {
-    if (!instance || typeof instance.netSnapshot !== "function" || typeof instance.netLoad !== "function") return false;
-    let snap = null;
-    try { snap = instance.netSnapshot(); } catch (err) { return false; }
+    if (!instance || (typeof instance.netSnapshot !== "function" && typeof instance.saveSnapshot !== "function") || typeof instance.netLoad !== "function") return false;
+    const snap = fullSnapshot();
     if (!snap || !Array.isArray(snap.players) || !snap.players[index]) return false;
     const p = snap.players[index];
     if (patch.cpu !== undefined) {
@@ -1737,9 +1747,9 @@
     roster.profile = profile;
     roster.avatar = BG.playerProfile.avatarEmoji(profile.avatar);
     roster.profileColor = profile.color;
-    if (instance && typeof instance.netSnapshot === "function" && typeof instance.netLoad === "function" && !(currentNet && currentNet.spectate)) {
+    if (instance && (typeof instance.netSnapshot === "function" || typeof instance.saveSnapshot === "function") && typeof instance.netLoad === "function" && !(currentNet && currentNet.spectate)) {
       try {
-        const snapshot = instance.netSnapshot();
+        const snapshot = fullSnapshot();
         const player = snapshot && snapshot.players && snapshot.players[index];
         if (player) applyRosterProfile(player, roster);
         if (snapshot) {
@@ -1754,7 +1764,7 @@
   /* إعادة بناء نسخة اللعبة لمقعد محلي جديد (تبديل مواقع اللاعبين أثناء اللعب) */
   function netRebuild(newSeat) {
     if (!currentGame || !currentNet) return false;
-    const snap = netSnapshot();
+    const snap = fullSnapshot();
     currentNet.seat = newSeat;
     if (currentApi && currentApi.net) currentApi.net.seat = newSeat;
     if (!snap) return false;
@@ -1768,7 +1778,7 @@
     currentNet.spectate = false;
     if (currentApi && currentApi.net) currentApi.net.isHost = true;
     if (gameMount) gameMount.removeAttribute("data-spectate");
-    const state = snapshot || netSnapshot();
+    const state = snapshot || fullSnapshot();
     const created = createInstance(currentGame, currentNet, state);
     if (!created) return false;
     if (gameMount) gameMount.hidden = false;
@@ -1800,6 +1810,7 @@
     netDeactivate,
     netReceiveState,
     netSnapshot,
+    netFullSnapshot: fullSnapshot,
     netSeat,
     netOver,
     netResume,

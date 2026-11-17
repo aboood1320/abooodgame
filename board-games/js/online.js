@@ -1731,10 +1731,6 @@
       showReaction(data.e, who);
       return;
     }
-    if (data.t === "coop-chat") {
-      BG.net.broadcast(data, from);
-      return;
-    }
     if (data.t === "state") {
       if (!state.inGame || state.overShown) return;
       const senderSeat = state.seats.findIndex((seat) => seat && seat.peerId === from);

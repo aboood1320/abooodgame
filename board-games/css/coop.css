@@ -196,6 +196,7 @@
 
 .coop-objective-card {
   position: relative;
+  min-width: 0;
   overflow: hidden;
   padding: 10px 12px;
   border: 1px solid var(--coop-line);
@@ -229,6 +230,7 @@
   color: var(--coop-ink);
   font-size: 1.08rem;
   font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
 }
 
 .coop-objective-card small {
@@ -528,131 +530,6 @@
     linear-gradient(160deg, #16414a, #0a1d24);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
 }
-
-/* ------------------------------ الدردشة السريعة ------------------------------ */
-
-.coop-dock {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-  padding: 8px 10px;
-  border: 1px solid var(--coop-line);
-  border-radius: 14px;
-  background: rgba(5, 17, 22, 0.86);
-}
-
-.coop-dock-label {
-  color: var(--coop-dim);
-  font-size: 0.62rem;
-  margin-inline-end: 2px;
-  white-space: nowrap;
-}
-
-.coop-emote {
-  display: grid;
-  place-items: center;
-  width: 34px;
-  height: 34px;
-  border: 1px solid var(--coop-line);
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.04);
-  font-size: 1rem;
-  line-height: 1;
-  cursor: pointer;
-  transition: transform 0.16s ease, background 0.16s ease;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.coop-emote:hover { transform: translateY(-2px) scale(1.06); background: rgba(98, 214, 180, 0.16); }
-.coop-emote:active { transform: scale(0.94); }
-
-.coop-bubbles {
-  position: absolute;
-  inset-inline-end: 8px;
-  bottom: calc(100% + 6px);
-  display: flex;
-  flex-direction: column-reverse;
-  gap: 4px;
-  pointer-events: none;
-  max-width: 70%;
-}
-
-.coop-bubble {
-  align-self: flex-end;
-  padding: 4px 9px;
-  border: 1px solid rgba(98, 214, 180, 0.34);
-  border-radius: 999px;
-  background: rgba(8, 33, 37, 0.96);
-  color: #d9fff5;
-  font-size: 0.66rem;
-  box-shadow: 0 8px 18px -10px #000;
-  animation: coopBubble 3.4s ease forwards;
-}
-
-@keyframes coopBubble {
-  0% { opacity: 0; transform: translateY(9px) scale(0.94); }
-  10% { opacity: 1; transform: translateY(0) scale(1); }
-  82% { opacity: 1; transform: translateY(0) scale(1); }
-  100% { opacity: 0; transform: translateY(-7px) scale(0.98); }
-}
-
-.coop-chat-layer {
-  position: fixed;
-  inset-inline-start: max(12px, env(safe-area-inset-left));
-  bottom: max(14px, env(safe-area-inset-bottom));
-  z-index: 70;
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  max-width: min(74vw, 320px);
-  pointer-events: none;
-}
-
-.coop-chat-bubble {
-  align-self: flex-start;
-  padding: 6px 11px;
-  border: 1px solid rgba(98, 214, 180, 0.36);
-  border-radius: 999px 999px 999px 4px;
-  background: rgba(7, 30, 35, 0.96);
-  color: #ddfff6;
-  font-size: 0.72rem;
-  line-height: 1.4;
-  box-shadow: 0 10px 24px -12px #000;
-  animation: coopChatIn 0.3s cubic-bezier(0.2, 0.9, 0.2, 1);
-}
-
-@keyframes coopChatIn {
-  from { opacity: 0; transform: translateY(8px) scale(0.94); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
-}
-
-/* ------------------------------ السجل ------------------------------ */
-
-.coop-log {
-  max-height: 168px;
-  overflow: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  padding: 3px 2px;
-  scrollbar-width: thin;
-}
-
-.coop-log-line {
-  padding: 5px 8px;
-  border-inline-start: 2px solid var(--coop-line-strong);
-  border-radius: 0 8px 8px 0;
-  background: rgba(255, 255, 255, 0.025);
-  color: var(--coop-muted);
-  font-size: 0.66rem;
-  line-height: 1.65;
-}
-
-.coop-log-line.is-good { border-color: var(--coop-good); color: #c9f8dd; }
-.coop-log-line.is-warn { border-color: var(--coop-danger); color: #ffd0d3; }
-.coop-log-line.is-accent { border-color: var(--coop-accent); color: #c3fff1; }
 
 /* ------------------------------ شاشة النهاية ------------------------------ */
 
@@ -1523,6 +1400,14 @@
   font-size: 0.48rem;
 }
 
+.mys-final-card .mys-final-names {
+  display: block;
+  margin-top: 2px;
+  color: #cbb9e2;
+  font-size: 0.48rem;
+  line-height: 1.5;
+}
+
 .mys-progress {
   display: grid;
   gap: 3px;
@@ -1636,17 +1521,6 @@
 .mys-ghost-card > span { font-size: 1.5rem; }
 .mys-ghost-card strong { display: block; font-size: 0.68rem; color: #f0e3ff; }
 .mys-ghost-card small { display: block; margin-top: 2px; color: var(--coop-dim); font-size: 0.54rem; }
-
-.mys-log {
-  display: grid;
-  gap: 4px;
-  max-height: 150px;
-  overflow: auto;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(231, 168, 95, 0.3) transparent;
-}
-
-.mys-log .coop-log-line { font-size: 0.6rem; }
 
 @keyframes mysFloat {
   0%, 100% { transform: translateY(0) scale(0.96); opacity: 0.86; }
@@ -1966,16 +1840,29 @@
 
 .han-status-grid b { color: #fff6e4; font-size: 0.6rem; }
 
-.han-log {
-  display: grid;
+.han-discard {
+  display: flex;
+  flex-wrap: wrap;
   gap: 4px;
-  max-height: 170px;
-  overflow: auto;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(240, 180, 92, 0.3) transparent;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed rgba(240, 180, 92, 0.16);
 }
 
-.han-log .coop-log-line { font-size: 0.6rem; }
+.han-discard span {
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 28px;
+  border-radius: 5px;
+  background: linear-gradient(160deg, var(--c1), var(--c2, var(--c1)));
+  color: var(--ink, #fff8ea);
+  font-size: 0.6rem;
+  font-weight: 700;
+  box-shadow: 0 4px 10px -6px #000;
+}
+
+.han-discard small { color: var(--coop-dim); font-size: 0.55rem; align-self: center; }
 
 .han-end {
   display: grid;
@@ -2431,6 +2318,40 @@
   font-size: 0.6rem;
 }
 
+.mind-discard {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 6px 10px;
+  border: 1px dashed rgba(183, 156, 255, 0.22);
+  border-radius: 10px;
+  background: rgba(20, 10, 36, 0.34);
+  color: #b3a4dd;
+  font-size: 0.6rem;
+}
+
+.mind-discard > span {
+  flex: none;
+  color: #9c8ecb;
+}
+
+.mind-discard b {
+  display: inline-grid;
+  place-items: center;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 3px;
+  border-radius: 6px;
+  background: rgba(183, 156, 255, 0.13);
+  color: #e7ddff;
+  font-size: 0.66rem;
+}
+
+.mind-discard small {
+  color: #8d7dbe;
+}
+
 .mind-note {
   width: 100%;
   margin: 0;
@@ -2610,17 +2531,6 @@
   justify-content: center;
   padding: 4px 0;
 }
-
-.mind-log {
-  display: grid;
-  gap: 4px;
-  max-height: 132px;
-  overflow: auto;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(183, 156, 255, 0.3) transparent;
-}
-
-.mind-log .coop-log-line { font-size: 0.62rem; }
 
 .mind-viewer-switch {
   display: grid;
@@ -2880,7 +2790,6 @@
 
 @media (prefers-reduced-motion: reduce) {
   .mind-stars,
-  .fi-tile.is-target,
-  .coop-bubble { animation: none !important; }
+  .fi-tile.is-target { animation: none !important; }
   .coop-shell * { transition-duration: 0.01ms !important; }
 }

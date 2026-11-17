@@ -295,6 +295,9 @@
   let selectedClues = [];
   let lastDealKey = "";
   let overReported = false;
+  let ghostHandCache = [];
+  let ghostTargetsCache = null;
+  let ghostTrueSeatCache = -1;
 
   function difficultyInfo() {
     return DIFFICULTIES[(state && state.difficulty) || "medium"] || DIFFICULTIES.medium;
@@ -323,9 +326,35 @@
 
   function canControlGhost() {
     if (!state || !state.ghostIsHuman) return false;
-    if (!isHostOrLocal()) return false;
     if (isNet()) return mySeat() === state.ghostSeat;
     return true;
+  }
+
+  function isGhostViewer() {
+    return !!(state && state.ghostIsHuman && isNet() && mySeat() === state.ghostSeat);
+  }
+
+  function applyGhostCache() {
+    if (!state || !isGhostViewer() || !ghostTargetsCache) return;
+    state.ghostHand = ghostHandCache.slice();
+    state.targets = JSON.parse(JSON.stringify(ghostTargetsCache));
+    state.trueSeat = ghostTrueSeatCache;
+  }
+
+  function sendGhostData() {
+    if (!isNet() || !isHostOrLocal() || !state || !state.ghostIsHuman) return;
+    const seatIndex = state.ghostSeat;
+    const seat = apiRef && apiRef.net && Array.isArray(apiRef.net.seats) ? apiRef.net.seats[seatIndex] : null;
+    if (!seat || seat.type !== "human" || !seat.peerId) return;
+    if (seatIndex === apiRef.net.seat) return;
+    try {
+      BG.net.sendTo(seat.peerId, {
+        t: "mys-ghost",
+        hand: state.ghostHand.slice(),
+        targets: JSON.parse(JSON.stringify(state.targets || {})),
+        trueSeat: state.trueSeat,
+      });
+    } catch (err) { /* الشبكة اختيارية */ }
   }
 
   function canHumanGuess() {
@@ -366,6 +395,7 @@
     if (apiRef.net.sendState) {
       try { apiRef.net.sendState(); } catch (err) { /* الشبكة اختيارية */ }
     }
+    sendGhostData();
   }
 
   function note(html, kind) {
@@ -422,10 +452,18 @@
     const out = [];
     for (let i = 0; i < count; i += 1) {
       if (!state.visionDeck.length) {
-        state.visionDeck = shuffle(VISIONS.map((vision) => vision.id).filter((id) => state.ghostHand.indexOf(id) < 0));
+        const used = state.ghostHand.slice();
+        out.forEach((id) => { if (used.indexOf(id) < 0) used.push(id); });
+        Object.keys(state.visions || {}).forEach((seat) => {
+          (state.visions[seat] || []).forEach((id) => { if (used.indexOf(id) < 0) used.push(id); });
+        });
+        if (state.finalVision != null && used.indexOf(state.finalVision) < 0) used.push(state.finalVision);
+        state.visionDeck = shuffle(VISIONS.map((vision) => vision.id).filter((id) => used.indexOf(id) < 0));
       }
       if (!state.visionDeck.length) break;
-      out.push(state.visionDeck.pop());
+      const picked = state.visionDeck.pop();
+      if (out.indexOf(picked) >= 0) { i -= 1; continue; }
+      out.push(picked);
     }
     return out;
   }
@@ -458,16 +496,18 @@
     }
     const ghostIsHuman = ghostSeat >= 0;
     const team = players.filter((player) => player.role === "psychic");
-    const suspects = shuffle(SUSPECTS);
-    const locations = shuffle(LOCATIONS);
-    const weapons = shuffle(WEAPONS);
+    const combos = [];
+    SUSPECTS.forEach((suspect) => {
+      LOCATIONS.forEach((location) => {
+        WEAPONS.forEach((weapon) => {
+          combos.push({ suspect: suspect.id, location: location.id, weapon: weapon.id });
+        });
+      });
+    });
+    shuffle(combos);
     const targets = {};
     team.forEach((player, index) => {
-      targets[player.index] = {
-        suspect: suspects[index % suspects.length].id,
-        location: locations[index % locations.length].id,
-        weapon: weapons[index % weapons.length].id,
-      };
+      targets[player.index] = Object.assign({}, combos[index % combos.length]);
     });
     const trueSeat = team.length ? team[Math.floor(Math.random() * team.length)].index : -1;
     const info = DIFFICULTIES[difficulty] || DIFFICULTIES.medium;
@@ -761,6 +801,7 @@
 
   function finishGame(win, reason) {
     if (!state || state.over) return;
+    const reachedPhase = state.phase;
     state.over = true;
     state.win = !!win;
     state.step = "over";
@@ -798,7 +839,7 @@
             name: player.name + (player.isCpu ? " · زميل آلي" : " · إنسان"),
             value: (player.progress.suspect && player.progress.location && player.progress.weapon
               ? "أكمل المراحل الثلاث · بصائر: " + ar(player.clairvoyance)
-              : "وصل إلى " + phaseLongName(state.phase)),
+              : "وصل إلى " + phaseLongName(reachedPhase)),
           })).concat(state.ghostIsHuman
             ? [{ name: (state.players[state.ghostSeat] || {}).name || "الروح", value: "الروح · أرسل الرؤى طوال التحقيق" }]
             : [{ name: "الروح الآلية", value: "زميل الفريق · أرسل الرؤى بلا كلام" }]),
@@ -919,7 +960,7 @@
       chips:
         BG.coop.chip("الساعات", ar(state.hours) + " / " + ar(state.maxHours), state.hours <= 2 ? "is-danger" : "is-warn") +
         BG.coop.chip("المرحلة", phaseName(state.phase), "is-gold") +
-        BG.coop.chip("الروح", state.ghostIsHuman ? (state.players[state.ghostSeat] || {}).name || "لاعب" : "زميل آلي") +
+        BG.coop.chip("الروح", esc(state.ghostIsHuman ? (state.players[state.ghostSeat] || {}).name || "لاعب" : "زميل آلي")) +
         BG.coop.chip("المستوى", info.label),
     });
   }
@@ -934,7 +975,7 @@
       BG.coop.objectiveCard("المرحلة", phaseName(state.phase), phaseLongName(state.phase), "is-gold", Math.round((phaseIndex(state.phase) / 3) * 100)) +
       BG.coop.objectiveCard("تقدّم الفريق", ar(done) + " / " + ar(team.length * 3), "إجابات صحيحة", "", pct) +
       BG.coop.objectiveCard("الساعات", ar(state.hours) + " / " + ar(state.maxHours), "قبل نهاية التحقيق", state.hours <= 2 ? "is-danger" : "") +
-      BG.coop.objectiveCard("الروح", ghostName, "تعاون لا منافسة", state.ghostIsHuman ? "" : "is-gold") +
+      BG.coop.objectiveCard("الروح", esc(ghostName), "تعاون لا منافسة", state.ghostIsHuman ? "" : "is-gold") +
       BG.coop.objectiveCard("الفوز", state.step === "vote" ? "التصويت الآن" : "كشف الحقيقة", "فوز مشترك للجميع") +
       "</div>";
   }
@@ -1039,6 +1080,10 @@
           const card = cardById(kind, player.progress[kind]);
           return card ? card.icon : "؟";
         }).join(" ") + "</small>" +
+        '<span class="mys-final-names">' + esc(KIND_ORDER.map((kind) => {
+          const card = cardById(kind, player.progress[kind]);
+          return card ? card.name : "؟";
+        }).join(" · ")) + "</span>" +
         '<span class="mys-vote-count">' + (voted ? "أصوات: " + ar(voted) : "بلا أصوات") + "</span>" +
         "</button>";
     }).join("");
@@ -1143,17 +1188,7 @@
         "</section>";
     }
 
-    const logPanel = '<section class="coop-panel mys-log-panel"><div class="coop-panel-head"><h3>سجل التحقيق</h3><small>ما حدث الآن</small></div>' +
-      '<div class="mys-log">' +
-      (state.log.length
-        ? state.log.slice().reverse().map((line) => '<div class="coop-log-line ' + esc(line.kind || "") + '">' + line.html + "</div>").join("")
-        : '<p class="coop-note">لم تبدأ الرؤى بعد.</p>') +
-      "</div></section>";
-
-    const chat = '<section class="coop-panel"><div class="coop-panel-head"><h3>دردشة الفريق</h3><small>تشجيع وتنسيق</small></div>' +
-      BG.coop.chatDock("همسات الروحانيين") + "</section>";
-
-    return ghostPanel + logPanel + chat;
+    return ghostPanel;
   }
 
   function render() {
@@ -1177,15 +1212,6 @@
 
   /* ------------------------------ التفاعل ------------------------------ */
 
-  function chatName() {
-    if (state && isNet() && mySeat() >= 0 && state.players[mySeat()]) return state.players[mySeat()].name;
-    if (state && state.players) {
-      const human = state.players.find((player) => !player.isCpu);
-      if (human) return human.name;
-    }
-    return "روحاني";
-  }
-
   function toggleClue(id) {
     if (!state || !canControlGhost()) return;
     const max = state.step === "deal" ? 2 : state.step === "finalDeal" ? 1 : 0;
@@ -1204,16 +1230,25 @@
     if (!state || !canControlGhost()) return;
     if (state.step === "deal") {
       if (selectedClues.length !== 2) return;
-      const seat = state.activeSeat;
       const ids = selectedClues.slice();
       selectedClues = [];
-      dealVisions(seat, ids);
+      if (isGuest()) {
+        guestSend({ t: "mys-deal", ids: ids });
+        render();
+        return;
+      }
+      dealVisions(state.activeSeat, ids);
       return;
     }
     if (state.step === "finalDeal") {
       if (selectedClues.length !== 1) return;
       const id = selectedClues[0];
       selectedClues = [];
+      if (isGuest()) {
+        guestSend({ t: "mys-final", id: id });
+        render();
+        return;
+      }
       sendFinalVision(id);
     }
   }
@@ -1256,7 +1291,6 @@
 
   function onClick(event) {
     if (!state) return;
-    if (BG.coop.handleChatClick(event, apiRef, chatName())) return;
     const clue = event.target.closest ? event.target.closest("[data-mys-clue]") : null;
     if (clue && !clue.disabled) {
       toggleClue(Number(clue.getAttribute("data-mys-clue")));
@@ -1297,9 +1331,30 @@
   function onNetMessage(event) {
     const data = event && event.data;
     if (!data || typeof data.t !== "string" || data.t.indexOf("mys-") !== 0) return;
+    if (data.t === "mys-ghost") {
+      if (!data || !Array.isArray(data.hand) || !state) return;
+      ghostHandCache = data.hand.map((id) => Number(id)).filter((id) => Number.isFinite(id));
+      ghostTargetsCache = data.targets && typeof data.targets === "object" ? data.targets : null;
+      ghostTrueSeatCache = Number.isInteger(data.trueSeat) ? data.trueSeat : -1;
+      applyGhostCache();
+      render();
+      return;
+    }
     if (!isHostOrLocal() || !state) return;
     const seat = seatForPeer(event.from);
     if (seat < 0) return;
+    if (data.t === "mys-deal") {
+      if (state.ghostIsHuman && seat === state.ghostSeat && state.step === "deal") {
+        dealVisions(state.activeSeat, (Array.isArray(data.ids) ? data.ids : []).map((id) => Number(id)));
+      }
+      return;
+    }
+    if (data.t === "mys-final") {
+      if (state.ghostIsHuman && seat === state.ghostSeat && state.step === "finalDeal") {
+        sendFinalVision(Number(data.id));
+      }
+      return;
+    }
     if (data.t === "mys-guess") {
       if (state.step === "guess" && seat === state.activeSeat) makeGuess(seat, String(data.id));
       return;
@@ -1322,6 +1377,7 @@
     copy.deckCount = state.visionDeck.length;
     copy.targets = {};
     copy.privateMasked = true;
+    delete copy.fullState;
     if (!state.over) {
       copy.trueSeat = -1;
       copy.culprit = null;
@@ -1352,7 +1408,6 @@
     note("بدأ تحقيق <strong>ميستيريوم</strong> — فريق واحد: " + esc(ghostName) + " و" + ar(psychics().length) + " روحانيين. الفوز للجميع.", "accent");
     note("المرحلة الأولى: <strong>الاشتباه</strong>. على الروح إرسال رؤيتين، وعلى " + esc((state.players[state.activeSeat] || {}).name || "الروحاني") + " الاختيار.", "accent");
     rootRef.addEventListener("click", onClick);
-    const chatOff = BG.coop.listenChat();
     const netOff = bindNet();
     render();
     if (tickTimer) clearInterval(tickTimer);
@@ -1396,11 +1451,21 @@
 
     return {
       netSnapshot() { return state ? BG.netCodec.encode(publicSnapshot()) : null; },
+      saveSnapshot() {
+        if (!state) return null;
+        const copy = JSON.parse(JSON.stringify(state));
+        copy.privateMasked = false;
+        copy.fullState = true;
+        return copy;
+      },
       netLoad(snapshot) {
         if (!snapshot) return;
         applyingNet = true;
         try {
-          state = BG.netCodec.decode(snapshot);
+          const incoming = BG.netCodec.decode(snapshot);
+          const full = !!(incoming && incoming.fullState);
+          state = incoming;
+          if (state) delete state.fullState;
           if (!state.log) state.log = [];
           if (!Array.isArray(state.players)) state.players = [];
           state.players.forEach((player) => {
@@ -1414,6 +1479,15 @@
           if (!state.visionDeck) state.visionDeck = [];
           if (!Number.isFinite(state.hours)) state.hours = state.maxHours || 7;
           if (!state.targets) state.targets = {};
+          if (isGhostViewer()) {
+            if (full) {
+              ghostHandCache = (state.ghostHand || []).map((id) => Number(id));
+              ghostTargetsCache = JSON.parse(JSON.stringify(state.targets || {}));
+              ghostTrueSeatCache = Number.isInteger(state.trueSeat) ? state.trueSeat : -1;
+            } else {
+              applyGhostCache();
+            }
+          }
           lastDealKey = "";
           render();
         } finally {
@@ -1427,7 +1501,6 @@
         destroyed = true;
         if (tickTimer) clearInterval(tickTimer);
         tickTimer = null;
-        if (chatOff) chatOff();
         if (netOff) netOff();
         if (rootRef) rootRef.removeEventListener("click", onClick);
         if (debugRef && window.__bgDebug === debugRef) window.__bgDebug = null;
