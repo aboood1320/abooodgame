@@ -386,7 +386,8 @@ function handleSignalMessage(peer, msg) {
     if (!room || room.hostId !== peer.id) return;
     const target = room.peers.get(String(msg.id || ""));
     if (!target || target.id === peer.id) return;
-    sendJson(target.socket, { t: "kicked", reason: "طردك المضيف من الغرفة." });
+    const why = String(msg.reason || "").trim().slice(0, 140) || "طردك المضيف من الغرفة.";
+    sendJson(target.socket, { t: "kicked", reason: why });
     removePeer(target, "طُرد أحد اللاعبين.");
     return;
   }

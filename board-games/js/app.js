@@ -15,6 +15,7 @@
   let currentNet = null;
   let gameMount = null;
   let currentOptions = null;
+  let gameOverHandle = null;
   let saveTimer = null;
   let lastFatal = 0;
   let stopPieceObserver = null;
@@ -1512,18 +1513,30 @@
     }
     els.gameStatus.textContent = "انتهت";
     els.gameStatus.className = "game-status over";
+    const rematchLabel = BG.online && BG.online.isHost ? "🔄 إعادة اللعبة" : "🔄 طلب إعادة";
     const actions = online
-      ? [{ label: "المكتبة", value: "library" }, { label: "الغرفة", value: "lobby", primary: true }]
+      ? [{ label: "المكتبة", value: "library" }, { label: "الغرفة", value: "lobby" }, { label: rematchLabel, value: "rematch", primary: true }]
       : [{ label: "المكتبة", value: "library" }, { label: "لعبة جديدة", value: "new", primary: true }];
-    BG.openDialog({
+    const handle = BG.openDialog({
       title: data.title,
       body,
       actions,
-    }).promise.then((value) => {
+    });
+    gameOverHandle = handle;
+    handle.promise.then((value) => {
+      if (gameOverHandle === handle) gameOverHandle = null;
       if (value === "new") openSetup(currentGame, lastSetup);
       else if (value === "lobby") { if (BG.online) BG.online.returnToLobby(); }
+      else if (value === "rematch") { if (BG.online) BG.online.requestRematch(); }
       else if (value === "library") goLibrary();
     });
+  }
+
+  function closeGameOver() {
+    const handle = gameOverHandle;
+    gameOverHandle = null;
+    if (!handle) return;
+    try { handle.close(); } catch (err) { /* ignore */ }
   }
 
   /* ------------------------------ الشبكة ------------------------------ */
@@ -1540,6 +1553,7 @@
       BG.toast("اللعبة المطلوبة غير متاحة.", "warn");
       return null;
     }
+    closeGameOver();
     const seats = payload.seats || [];
     const localSeat = findLocalSeat(seats);
     destroyInstance();
@@ -1802,6 +1816,7 @@
     netPromoteToHost,
     netSetRole,
     showGameOver,
+    closeGameOver,
     startNetworkGame,
     netBeginHost,
     netActivate,

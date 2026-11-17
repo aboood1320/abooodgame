@@ -1239,20 +1239,21 @@
     return lanCreateRoom(name, wanted);
   }
 
-  /** طرد لاعب (للمضيف فقط). يُرسل إشعارًا ثم يقطع الاتصال. */
-  function kick(peerId) {
+  /** طرد لاعب (للمضيف فقط). يُرسل إشعارًا ثم يقطع الاتصال. reason يخصّص نص الإشعار. */
+  function kick(peerId, reason) {
     if (role !== "host" || !peerId || peerId === selfId) return false;
+    const why = String(reason || "").trim().slice(0, 140) || "طردك المضيف من الغرفة.";
     if (mode === "cloud") {
       const conn = guestConns.get(peerId);
       if (!conn) return false;
       try {
-        if (channelOpen(conn)) conn.dc.send(JSON.stringify({ t: "kicked", reason: "طردك المضيف من الغرفة." }));
+        if (channelOpen(conn)) conn.dc.send(JSON.stringify({ t: "kicked", reason: why }));
       } catch (err) { /* ignore */ }
       setTimeout(() => { try { onCloudHostClose(peerId); } catch (err) { /* ignore */ } }, 350);
       return true;
     }
     try {
-      rawSend({ t: "kick", id: peerId });
+      rawSend({ t: "kick", id: peerId, reason: why });
       return true;
     } catch (err) {
       return false;

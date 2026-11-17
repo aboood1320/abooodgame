@@ -38,9 +38,11 @@
     aloneTimer: null,
     handingOver: false,
     peakHumans: 0,
+    allowSpectators: true,
     lastTrouble: 0,
     lastSelfId: "",
   };
+  try { st.allowSpectators = localStorage.getItem("bg.netAllowSpectators") !== "0"; } catch (err) { /* ignore */ }
 
   const core = () => (BG.online && BG.online._core) || null;
   const S = () => core().state;
@@ -332,6 +334,18 @@
         if (index < 0) index = s.seats.findIndex((x) => x.type === "cpu" && x.proxyFor);
         if (index < 0) index = s.seats.findIndex((x) => x.type === "cpu");
         if (index >= 0) takeSeat(index, peer);
+      }
+    }
+
+    /* سياسة الانضمام بعد البدء: منع المشاهدين الجدد فقط. العائد صاحب المقعد يُقبل دائمًا. */
+    if (index < 0 && !st.allowSpectators) {
+      const knownSeat = s.seats.some((seat) => seat && seat.type === "human" && norm(seat.name) === lname);
+      if (!knownSeat) {
+        st.kicking.add(peer.id);
+        BG.net.kick(peer.id, "الغرفة لا تستقبل مشاهدين بعد بدء اللعبة.");
+        BG.toast("رُفض " + (peer.name || "لاعب") + " — استقبال المشاهدين متوقف.", "warn");
+        note("رُفض انضمام <strong>" + esc(peer.name || "لاعب") + "</strong> — استقبال المشاهدين متوقف.", "warn");
+        return true;
       }
     }
 
@@ -1087,6 +1101,14 @@
       '<button type="button" class="net-hp-opt' + (st.visibility === "private" ? " is-on" : "") + '" data-hp-vis="private">🔒 خاصة<small>بالرمز فقط</small></button>' +
       '<button type="button" class="net-hp-opt' + (st.visibility === "public" ? " is-on" : "") + '" data-hp-vis="public">🌐 عامة<small>تظهر في الغرف العامة</small></button>' +
       "</div></section>" +
+      (inGame
+        ? '<section class="net-hp-sec"><h3>👁 الانضمام بعد بدء اللعب</h3>' +
+          '<p class="net-hp-note">المشاهد يرى اللوحة مباشرة دون مقعد. المنع يرفض القادمين الجدد فقط، ولا يطرد المشاهدين الحاليين، ويبقى اللاعب العائد قادرًا على استعادة مقعده.</p>' +
+          '<div class="net-hp-seg">' +
+          '<button type="button" class="net-hp-opt' + (st.allowSpectators ? " is-on" : "") + '" data-hp-spectate="allow">👁 السماح<small>القادم الجديد يشاهد</small></button>' +
+          '<button type="button" class="net-hp-opt' + (!st.allowSpectators ? " is-on" : "") + '" data-hp-spectate="block">🚫 المنع<small>رفض الانضمام المتأخر</small></button>' +
+          "</div></section>"
+        : "") +
       '<section class="net-hp-sec"><h3>👥 اللاعبون والمقاعد</h3>' +
       '<p class="net-hp-note">' + (inGame
         ? "▲▼ يبدّل مقعد اللاعب مع جاره أثناء اللعب. من ينقطع يحلّ مكانه كمبيوتر خبير، ومن ينضم يجلس مكان كمبيوتر."
@@ -1141,6 +1163,13 @@
       const t = event.target.closest ? event.target.closest("button") : null;
       if (!t) return;
       if (t.hasAttribute("data-hp-vis")) { await setVisibility(t.getAttribute("data-hp-vis")); return; }
+      if (t.hasAttribute("data-hp-spectate")) {
+        st.allowSpectators = t.getAttribute("data-hp-spectate") === "allow";
+        try { localStorage.setItem("bg.netAllowSpectators", st.allowSpectators ? "1" : "0"); } catch (err) { /* ignore */ }
+        BG.toast(st.allowSpectators ? "استقبال المشاهدين مفعّل." : "استقبال المشاهدين متوقف — العائدون لمقاعدهم فقط.", st.allowSpectators ? "good" : "warn");
+        renderPanel();
+        return;
+      }
       if (t.hasAttribute("data-hp-move")) {
         const parts = t.getAttribute("data-hp-move").split("|");
         moveSeat(Number(parts[0]), Number(parts[1]));

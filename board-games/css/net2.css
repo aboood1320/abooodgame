@@ -284,6 +284,48 @@
   50% { opacity: 0.35; }
 }
 
+/* زر تنبيهات الدور في شريط الجلسة واللوبي */
+.net-hud-bell {
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(246, 242, 232, 0.16);
+  background: rgba(255, 255, 255, 0.05);
+  font: inherit;
+  font-size: 0.86rem;
+  line-height: 1.2;
+  cursor: pointer;
+  filter: grayscale(0.6);
+  opacity: 0.75;
+  transition: background 0.15s ease, opacity 0.15s ease, filter 0.15s ease;
+}
+.net-hud-bell:hover { background: rgba(255, 255, 255, 0.12); opacity: 1; }
+.net-hud-bell.is-on {
+  opacity: 1;
+  filter: none;
+  border-color: rgba(76, 201, 164, 0.55);
+  background: rgba(76, 201, 164, 0.16);
+}
+
+.net-foot-btns {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.net-foot-btns .bg-btn {
+  min-height: 34px;
+  padding: 6px 12px;
+  font-size: 0.78rem;
+}
+
+@media (max-width: 480px) {
+  .net-hud { gap: 6px; padding: 7px 10px; font-size: 0.7rem; }
+  .net-hud-ping { display: none; }
+  .net-hud-bell { padding: 2px 7px; }
+  .net-room-foot { justify-content: center; text-align: center; }
+  .net-foot-btns { width: 100%; justify-content: center; }
+}
+
 @media (max-width: 420px) {
   .net-player-ping { font-size: 0.6rem; }
   .net-conn-line { flex-wrap: wrap; }

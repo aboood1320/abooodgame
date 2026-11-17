@@ -65,6 +65,12 @@
     titleTimer: null,
     baseTitle: "",
     connState: "online",
+    notify: false,
+    rematchStarting: false,
+    rematchPending: null,
+    rematchTimer: null,
+    inviteFromUrl: false,
+    lastOverPayload: null,
   };
 
   /* منع انطفاء الشاشة أثناء اللعب الجماعي: انطفاء الجوال هو أكثر أسباب انقطاع الاتصال */
@@ -306,6 +312,18 @@
 
   function clearResume() {
     try { localStorage.removeItem(RESUME_KEY); } catch (err) { /* ignore */ }
+  }
+
+  function clearInviteParam() {
+    if (!state.inviteFromUrl) return;
+    state.inviteFromUrl = false;
+    try {
+      const url = new URL(location.href);
+      if (!url.searchParams.has("join")) return;
+      url.searchParams.delete("join");
+      url.searchParams.delete("autocreate");
+      history.replaceState(history.state, "", url.toString());
+    } catch (err) { /* ignore */ }
   }
 
   function pageWasReloaded() {
@@ -998,7 +1016,9 @@
           '<p data-net-guest-state>' + (state.config && state.config.gameId ? "اختار المضيف: <strong>" + esc((gameDef(state.config.gameId) || {}).name || "") + "</strong>. انتظر بدء اللعبة…" : "انتظر أن يختار المضيف اللعبة ويبدأ.") + "</p>" +
           (state.config && state.config.options ? '<p class="net-option-summary" data-net-guest-options>' + esc(optionsSummary(gameDef(state.config.gameId), state.config.options)) + "</p>" : "") +
           "</div>") +
-      '<div class="net-room-foot"><button type="button" class="bg-btn ghost" data-net-leave>مغادرة الغرفة</button><span>' +
+      '<div class="net-room-foot"><div class="net-foot-btns"><button type="button" class="bg-btn ghost" data-net-leave>مغادرة الغرفة</button>' +
+      (notificationsSupported() ? '<button type="button" class="bg-btn ghost" data-net-notify>' + (notificationsEnabled() ? "🔔 التنبيهات مفعّلة" : "🔔 فعّل تنبيهات الدور") + "</button>" : "") +
+      "</div><span>" +
       (cloud ? "إشارات عالمية + اتصال مشفّر نقطة بنقطة عبر WebRTC" : BG.net.mode === "web" ? "اتصال HTTPS عادي عبر الموقع نفسه" : "الاتصال عبر خادم اللعب المحلي") + "</span></div>"
     );
   }
@@ -1114,6 +1134,9 @@
     if (leave) {
       leave.addEventListener("click", () => requestLeave("مغادرة الغرفة"));
     }
+
+    const notifyBtn = body.querySelector("[data-net-notify]");
+    if (notifyBtn) notifyBtn.addEventListener("click", toggleNotifications);
 
     if (gameSel) {
       gameSel.addEventListener("change", () => {
@@ -1633,6 +1656,7 @@
       '<span class="net-hud-role"></span>' +
       '<span class="net-hud-status" aria-live="polite"></span>' +
       '<span class="net-hud-ping" data-quality="unknown" title="زمن الاستجابة">— ms</span>' +
+      '<button type="button" class="net-hud-bell" aria-label="تنبيهات الدور" aria-pressed="false" title="تفعيل تنبيهات الدور عند ترك التبويب">🔔</button>' +
       '<button type="button" class="net-hud-react" aria-label="ردود فعل سريعة" aria-expanded="false">😀</button>' +
       '<div class="net-react-tray" role="menu" hidden>' +
       REACTIONS.map((emoji) => '<button type="button" role="menuitem" data-react="' + emoji + '">' + emoji + "</button>").join("") +
@@ -1653,6 +1677,9 @@
       reactBtn.setAttribute("aria-expanded", "false");
     });
     hud.querySelector(".net-hud-leave").addEventListener("click", () => requestLeave("مغادرة الطاولة"));
+    const bell = hud.querySelector(".net-hud-bell");
+    if (!notificationsSupported()) bell.hidden = true;
+    else bell.addEventListener("click", toggleNotifications);
     view.appendChild(hud);
     state.hud = hud;
     if (state.isHost) {
@@ -1663,6 +1690,7 @@
     updateHud();
     updateHudPing();
     updateHudConnection(state.connState);
+    refreshNotifyButtons();
   }
 
   function updateHudConnection(next) {
@@ -1679,7 +1707,104 @@
   }
 
   const REACTIONS = ["👍", "😂", "😮", "😡", "👏", "🔥", "🤝", "😭"];
+  const NOTIFY_KEY = "bg.netNotify";
   let reactAt = 0;
+
+  function notificationsSupported() {
+    return typeof window.Notification === "function";
+  }
+
+  function notificationsEnabled() {
+    if (!notificationsSupported() || !state.notify) return false;
+    try { return Notification.permission === "granted"; } catch (err) { return false; }
+  }
+
+  function refreshNotifyButtons() {
+    const enabled = notificationsEnabled();
+    if (state.hud) {
+      const btn = state.hud.querySelector(".net-hud-bell");
+      if (btn) {
+        btn.classList.toggle("is-on", enabled);
+        btn.setAttribute("aria-pressed", enabled ? "true" : "false");
+        btn.title = enabled ? "تنبيهات الدور مفعّلة" : "تفعيل تنبيهات الدور عند ترك التبويب";
+      }
+    }
+    if (state.overlay) {
+      state.overlay.querySelectorAll("[data-net-notify]").forEach((btn) => {
+        btn.textContent = enabled ? "🔔 التنبيهات مفعّلة" : "🔔 فعّل تنبيهات الدور";
+      });
+    }
+  }
+
+  function toggleNotifications() {
+    if (!notificationsSupported()) {
+      BG.toast("هذا المتصفح لا يدعم تنبيهات النظام.", "warn");
+      return;
+    }
+    if (notificationsEnabled()) {
+      state.notify = false;
+      try { localStorage.setItem(NOTIFY_KEY, "0"); } catch (err) { /* ignore */ }
+      refreshNotifyButtons();
+      BG.toast("أُوقفت تنبيهات الدور.");
+      return;
+    }
+    state.notify = true;
+    try { localStorage.setItem(NOTIFY_KEY, "1"); } catch (err) { /* ignore */ }
+    if (Notification.permission === "granted") {
+      refreshNotifyButtons();
+      BG.toast("تنبيهات الدور مفعّلة — ستصلك رسالة عند دورك وأنت في تبويب آخر.", "good");
+      return;
+    }
+    if (Notification.permission === "denied") {
+      state.notify = false;
+      try { localStorage.setItem(NOTIFY_KEY, "0"); } catch (err) { /* ignore */ }
+      refreshNotifyButtons();
+      BG.toast("المتصفح يمنع التنبيهات. اسمح بها من إعدادات الموقع ثم أعد المحاولة.", "warn");
+      return;
+    }
+    Notification.requestPermission().then((permission) => {
+      const ok = permission === "granted";
+      state.notify = ok;
+      try { localStorage.setItem(NOTIFY_KEY, ok ? "1" : "0"); } catch (err) { /* ignore */ }
+      refreshNotifyButtons();
+      BG.toast(ok ? "تنبيهات الدور مفعّلة." : "لم يُسمح بالتنبيهات — سنكتفي بالصوت والاهتزاز.", ok ? "good" : "warn");
+    }).catch(() => {
+      state.notify = false;
+      try { localStorage.setItem(NOTIFY_KEY, "0"); } catch (err) { /* ignore */ }
+      refreshNotifyButtons();
+      BG.toast("تعذّر طلب إذن التنبيهات — سنكتفي بالصوت والاهتزاز.", "warn");
+    });
+  }
+
+  function alertLocalTurn() {
+    BG.toast("🎯 دورك الآن — نفّذ حركتك ثم انتظر بقية اللاعبين.", "good");
+    BG.fx.sound("yourturn");
+    try {
+      if (navigator.vibrate) navigator.vibrate([35, 45, 35]);
+    } catch (err) { /* ignore */ }
+    /* عنوان التبويب يتغيّر دائمًا — مفيد أيضًا حين يكون اللاعب في تبويب آخر. */
+    state.baseTitle = state.baseTitle || document.title.replace(/^🎯 دورك — /, "");
+    document.title = "🎯 دورك — " + state.baseTitle;
+    clearTimeout(state.titleTimer);
+    state.titleTimer = setTimeout(() => {
+      if (state.baseTitle) document.title = state.baseTitle;
+      state.titleTimer = null;
+    }, 15000);
+    if (document.hidden && notificationsEnabled()) {
+      try {
+        const note = new Notification("🎯 دورك الآن — " + ((state.game && state.game.name) || "لعبة جماعية"), {
+          body: "غرفة " + ((BG.net && BG.net.roomCode) || "") + " · نفّذ حركتك",
+          icon: "assets/icons/icon-192.png",
+          tag: "bg-turn",
+          renotify: true,
+        });
+        note.onclick = () => {
+          try { window.focus(); } catch (err) { /* ignore */ }
+          note.close();
+        };
+      } catch (err) { /* ignore */ }
+    }
+  }
 
   function latencyLabel(quality) {
     return ({ excellent: "ممتاز", good: "جيد", fair: "متوسط", poor: "ضعيف" })[quality] || "غير مقيس";
@@ -1717,24 +1842,6 @@
       el.textContent = Number.isFinite(ms) ? ms + " ms" : "— ms";
       el.title = "زمن الاستجابة: " + latencyLabel(quality);
     });
-  }
-
-  /** تنبيه لطيف عند انتقال الدور إلى اللاعب المحلي. */
-  function alertLocalTurn() {
-    BG.toast("🎯 دورك الآن — نفّذ حركتك ثم انتظر بقية اللاعبين.", "good");
-    BG.fx.sound("yourturn");
-    try {
-      if (navigator.vibrate) navigator.vibrate([35, 45, 35]);
-    } catch (err) { /* ignore */ }
-    if (!document.hidden) {
-      state.baseTitle = state.baseTitle || document.title;
-      document.title = "🎯 دورك — " + state.baseTitle;
-      clearTimeout(state.titleTimer);
-      state.titleTimer = setTimeout(() => {
-        if (state.baseTitle) document.title = state.baseTitle;
-        state.baseTitle = "";
-      }, 6000);
-    }
   }
 
   function trackTurn(seat, over) {
@@ -1814,6 +1921,19 @@
 
   function onHostMessage(from, data) {
     if (BG.onlineHost && BG.onlineHost.onHostMessage(from, data)) return;
+    if (data.t === "rematch") {
+      if (!state.inGame || !state.isHost || state.rematchStarting) return;
+      const who = (BG.net.peerName && BG.net.peerName(from)) || "أحد اللاعبين";
+      BG.confirm("إعادة اللعبة", "يطلب " + who + " إعادة اللعبة من البداية. سيعود الجميع إلى غرفة الانتظار ثم تبدأ الطاولة نفسها.", "أعد اللعبة", "ليس الآن").then((ok) => {
+        if (ok) initiateRematch();
+        else if (from) BG.net.sendTo(from, { t: "rematch-no" });
+      });
+      return;
+    }
+    if (data.t === "rematch-ready") {
+      onRematchReady(from);
+      return;
+    }
     if (data.t === "log") {
       BG.app.appendLog(data.message, data.kind);
       BG.net.broadcast({ t: "log", message: data.message, kind: data.kind }, from);
@@ -1959,12 +2079,13 @@
       return;
     }
     if (data.t === "over") {
+      state.lastOverPayload = data.payload || {};
       if (!state.overShown) {
         state.overShown = true;
         if (data.state) {
           try { BG.app.netReceiveState({ state: data.state }); } catch (err) { /* ignore */ }
         }
-        BG.app.showGameOver(data.payload || {}, true);
+        BG.app.showGameOver(state.lastOverPayload, true);
       }
       return;
     }
@@ -2016,6 +2137,21 @@
     }
     if (data.t === "lobby") {
       returnToLobbyLocal();
+      return;
+    }
+    if (data.t === "rematch-go") {
+      if (!state.inGame) return;
+      if (BG.app && BG.app.closeGameOver) BG.app.closeGameOver();
+      returnToLobbyLocal();
+      BG.net.send({ t: "rematch-ready" });
+      BG.toast("المضيف يعيد اللعبة — جارٍ التجهيز…", "good");
+      return;
+    }
+    if (data.t === "rematch-no") {
+      BG.toast("رفض المضيف إعادة اللعبة حاليًا.", "warn");
+      if (state.inGame && state.overShown && state.lastOverPayload) {
+        BG.app.showGameOver(state.lastOverPayload, true);
+      }
     }
   }
 
@@ -2249,6 +2385,7 @@
   function gameOver(payload) {
     if (!state.inGame || state.overShown) return;
     state.overShown = true;
+    state.lastOverPayload = payload || {};
     if (state.isHost) {
       BG.net.broadcast(overMessage(payload));
       BG.app.showGameOver(payload, true);
@@ -2312,9 +2449,82 @@
     if (instance) setTimeout(hostTick, 80);
   }
 
+  /* ------------------------------ إعادة اللعبة ------------------------------ */
+
+  function onRematchReady(from) {
+    if (!state.isHost || !state.rematchStarting || !state.rematchPending) return;
+    state.rematchPending.delete(from);
+    if (state.rematchPending.size) return;
+    clearTimeout(state.rematchTimer);
+    state.rematchTimer = setTimeout(finishRematch, 320);
+  }
+
+  function finishRematch() {
+    state.rematchTimer = null;
+    state.rematchStarting = false;
+    state.rematchPending = null;
+    if (!state.isHost || state.inGame) return;
+    startAsHost();
+  }
+
+  /** يبدأ المضيف جولة جديدة باللعبة والإعدادات نفسها، بعد أن يعود الجميع إلى اللوبي. */
+  function initiateRematch() {
+    if (!state.inGame || !state.isHost || state.rematchStarting) return;
+    const self = BG.net && BG.net.selfId;
+    const humans = state.seats.filter((seat) => seat && seat.type === "human" && seat.peerId);
+    const connected = new Set((BG.net.connectedPeers && BG.net.connectedPeers()) || []);
+    const missing = humans.find((seat) => seat.peerId !== self && connected.size && !connected.has(seat.peerId));
+    if (missing) {
+      BG.toast("تعذّرت إعادة اللعبة — " + (missing.name || "أحد اللاعبين") + " غير متصل الآن.", "warn");
+      return;
+    }
+    const guests = humans.filter((seat) => seat.peerId !== self).map((seat) => seat.peerId);
+    if (BG.app && BG.app.closeGameOver) BG.app.closeGameOver();
+    BG.net.broadcast({ t: "rematch-go" });
+    returnToLobbyLocal();
+    state.rematchStarting = true;
+    state.rematchPending = new Set(guests);
+    BG.toast("جارٍ إعادة اللعبة…", "good");
+    if (!guests.length) {
+      state.rematchTimer = setTimeout(finishRematch, 350);
+      return;
+    }
+    state.rematchTimer = setTimeout(() => {
+      state.rematchTimer = null;
+      const left = state.rematchPending ? state.rematchPending.size : 0;
+      state.rematchStarting = false;
+      state.rematchPending = null;
+      if (!left) {
+        finishRematch();
+        return;
+      }
+      if (state.isHost && !state.inGame) BG.toast("لم يجهز بعض اللاعبين — اضغط «ابدأ اللعبة» عندما يعودون.", "warn");
+    }, 3200);
+  }
+
+  /** زر شاشة النهاية: المضيف يبدأ فورًا، والضيف يرسل طلبًا للمضيف. */
+  function requestRematch() {
+    if (!state.inGame) {
+      BG.toast("لا توجد لعبة منتهية لإعادتها.", "warn");
+      return;
+    }
+    if (state.isHost) {
+      initiateRematch();
+      return;
+    }
+    if (!BG.net) return;
+    BG.net.send({ t: "rematch" });
+    BG.toast("أُرسل طلب إعادة اللعبة إلى المضيف.", "good");
+  }
+
   function returnToLobbyLocal() {
     clearInterval(state.hostTimer);
     clearTimeout(state.titleTimer);
+    clearTimeout(state.rematchTimer);
+    state.rematchTimer = null;
+    state.rematchStarting = false;
+    state.rematchPending = null;
+    if (BG.app && BG.app.closeGameOver) BG.app.closeGameOver();
     if (state.baseTitle) document.title = state.baseTitle;
     state.baseTitle = "";
     clearAway();
@@ -2341,6 +2551,7 @@
     state.lastSeat = -1;
     state.lastHash = "";
     state.overShown = false;
+    state.lastOverPayload = null;
     state.pendingAsks.clear();
     state.pendingRefutes.clear();
     state.pendingTrades.clear();
@@ -2557,6 +2768,7 @@
       state.name = state.name || savedName() || "اللاعب";
       if (BG.net.isHost && !state.owner) state.owner = state.name;
       saveResume();
+      clearInviteParam();
       if (BG.net.isHost) {
         if (!state.lobbyGame) state.lobbyGame = (BG.games[0] && BG.games[0].id) || "";
         state.seatCount = clampSeatCount(currentGameDef(), state.seatCount);
@@ -2687,6 +2899,7 @@
     const btn = document.getElementById("btnOnline");
     if (btn) btn.addEventListener("click", openLobby);
     state.name = savedName() || "اللاعب";
+    try { state.notify = localStorage.getItem(NOTIFY_KEY) === "1"; } catch (err) { state.notify = false; }
     try {
       const params = new URLSearchParams(location.search);
       state.autoCreateLanRoom = params.get("autocreate") === "1";
@@ -2698,6 +2911,7 @@
       if (join.length >= 4) {
         state.pendingInvite = join;
         state.inviteTried = false;
+        state.inviteFromUrl = true;
       }
       if (state.autoCreateLanRoom) {
         if (state.pendingInvite) state.autoCreateLanRoom = false;
@@ -2736,6 +2950,7 @@
     confirmTrade,
     auctionBid,
     returnToLobby,
+    requestRematch,
     shutdown,
     abortGame,
     get active() { return state.inGame; },
@@ -2774,6 +2989,7 @@
     broadcastTurn,
     turnMessage,
     updateHud,
+    alertLocalTurn,
     clearAway,
     acquireWake,
     savedName,
