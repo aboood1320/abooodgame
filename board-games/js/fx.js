@@ -930,6 +930,7 @@
 
   function savePrefs() {
     BG.store.set(STORE_KEY, { sound: prefs.sound, volume: prefs.volume, motion: prefs.motion, pack: prefs.pack, music: prefs.music });
+    document.dispatchEvent(new CustomEvent("bgfxstored", { detail: Object.assign({}, prefs) }));
   }
 
   function setSound(on) {
@@ -981,11 +982,37 @@
     savePrefs();
     if (prefs.music && prefs.sound) { unlock(); startMusicNow(); }
     else stopMusicNow();
+    document.dispatchEvent(new CustomEvent("bgfxchange", { detail: Object.assign({}, prefs) }));
     return prefs.music;
   }
 
   function icon(id) {
     return '<svg class="ic" aria-hidden="true" focusable="false"><use href="#' + id + '"/></svg>';
+  }
+
+  function weakDevice() {
+    let weak = false;
+    try {
+      const n = navigator;
+      const conn = n.connection || {};
+      weak = (n.hardwareConcurrency && n.hardwareConcurrency <= 4) ||
+        (n.deviceMemory && n.deviceMemory <= 4) ||
+        conn.saveData === true ||
+        (window.matchMedia && window.matchMedia("(pointer: coarse)").matches);
+    } catch (err) { /* تجاهل */ }
+    return !!weak;
+  }
+
+  function perfLite(value) {
+    return value === "lite" || (value !== "full" && weakDevice());
+  }
+
+  function applyPerformance(value) {
+    const next = value === "lite" || value === "full" ? value : "auto";
+    const lite = perfLite(next);
+    document.documentElement.classList.toggle("lite", lite);
+    document.documentElement.setAttribute("data-perf", lite ? "lite" : "full");
+    return lite;
   }
 
   function openSettings() {
@@ -1022,8 +1049,8 @@
       "</div>" +
       "</div>" +
       '<div class="fx-profile-tools">' +
-      '<button type="button" class="fx-profile-tool" data-profile-random>🎲 اختر لي</button>' +
-      '<button type="button" class="fx-profile-tool" data-profile-reset>↺ استعادة الافتراضي</button>' +
+      '<button type="button" class="fx-profile-tool" data-profile-random>🎲 مظهر عشوائي</button>' +
+      '<button type="button" class="fx-profile-tool" data-profile-reset>↺ إعادة ضبط الملف</button>' +
       "</div>" +
       '<label class="fx-profile-name">' +
       '<span class="fx-profile-name-label"><span>اسم اللاعب</span><small>حتى ' + BG.playerProfile.nameMax + " حرفًا</small></span>" +
@@ -1036,7 +1063,7 @@
       '<div class="fx-profile-color-head"><span class="fx-profile-label">اختر الأفتار</span><span class="fx-profile-hint" data-profile-avatar-name>' + U.escape(BG.playerProfile.avatarName(playerProfile.avatar)) + "</span></div>" +
       '<div class="fx-avatar-grid' + (avatarExpanded ? " is-expanded" : "") + '" role="group" aria-label="أفتار اللاعب">' +
       avatarList.map((avatar, index) =>
-        '<button type="button" class="fx-avatar-choice' + (avatar.id === playerProfile.avatar ? " is-selected" : "") + (index >= avatarInitial ? " is-extra" : "") + '" data-profile-avatar="' + U.escape(avatar.id) + '" aria-label="' + U.escape(avatar.name) + '" aria-pressed="' + (avatar.id === playerProfile.avatar ? "true" : "false") + '">' + BG.playerProfile.avatarSVG(avatar.id, "fx-avatar-art") + '<small>' + U.escape(avatar.name) + "</small></button>"
+        '<button type="button" class="fx-avatar-choice' + (avatar.id === playerProfile.avatar ? " is-selected" : "") + (index >= avatarInitial ? " is-extra" : "") + '" data-profile-avatar="' + U.escape(avatar.id) + '" aria-label="' + U.escape(avatar.name) + '" aria-pressed="' + (avatar.id === playerProfile.avatar ? "true" : "false") + '" title="' + U.escape(avatar.name) + '">' + BG.playerProfile.avatarSVG(avatar.id, "fx-avatar-art") + '<small>' + U.escape(avatar.name) + "</small></button>"
       ).join("") +
       "</div>" +
       (avatarExtras
@@ -1047,72 +1074,140 @@
           "</button>"
         : "") +
       "</div>" +
-      "</div>" +
       '<div class="fx-profile-group">' +
       '<div class="fx-profile-color-head"><span class="fx-profile-label">اختر اللون</span><span class="fx-profile-hint" data-profile-color-name>' + U.escape(profileColorName(playerProfile.color)) + "</span></div>" +
       '<div class="fx-color-grid" role="group" aria-label="ألوان اللاعب">' +
       BG.playerProfile.colors.map((color) =>
-        '<button type="button" class="fx-color-choice' + (color.value === playerProfile.color ? " is-selected" : "") + '" data-profile-color="' + U.escape(color.value) + '" style="--swatch-color:' + U.escape(color.value) + '" aria-label="' + U.escape(color.name) + '" aria-pressed="' + (color.value === playerProfile.color ? "true" : "false") + '"></button>'
+        '<button type="button" class="fx-color-choice' + (color.value === playerProfile.color ? " is-selected" : "") + '" data-profile-color="' + U.escape(color.value) + '" style="--swatch-color:' + U.escape(color.value) + '" aria-label="' + U.escape(color.name) + '" aria-pressed="' + (color.value === playerProfile.color ? "true" : "false") + '" title="' + U.escape(color.name) + '"></button>'
       ).join("") +
       "</div>" +
       '<label class="fx-custom-color"><span>لون مخصص</span><input type="color" data-profile-custom-color value="' + U.escape(playerProfile.color) + '" aria-label="اختر لونًا مخصصًا" /><b data-profile-custom-value>' + U.escape(playerProfile.color.toUpperCase()) + "</b></label>" +
       "</div>" +
       "</section>";
-    body.innerHTML =
+    const pct = Math.round(prefs.volume * 100);
+    const audibleNow = prefs.sound && prefs.volume > 0;
+    const packList = (BG.soundPacks && BG.soundPacks.list) || [{ id: "classic", name: "كلاسيكي" }];
+    const packHintFor = (id) => {
+      const pack = packList.find((item) => item.id === id) || packList[0];
+      return (pack && pack.note ? pack.note + " — " : "") +
+        (audibleNow ? "تُعزف معاينة عند التغيير" : "ستُعزف المعاينة عند تفعيل الصوت");
+    };
+    const tabButton = (id, label, iconId, active) =>
+      '<button type="button" class="fx-tab' + (active ? " is-active" : "") + '" id="fx-tab-' + id + '" role="tab" aria-selected="' + (active ? "true" : "false") + '" aria-controls="fx-panel-' + id + '" tabindex="' + (active ? "0" : "-1") + '" data-fx-tab="' + id + '">' +
+      icon(iconId) + "<span>" + label + "</span></button>";
+    const testButton = (type, label) =>
+      '<button type="button" class="bg-btn small" data-test="' + type + '"' + (audibleNow ? "" : " disabled") + ">" + label + "</button>";
+    const musicHint = !prefs.sound
+      ? "تتطلب تفعيل المؤثرات الصوتية"
+      : "نغمات متولّدة بهدوء أثناء اللعب (مغلقة افتراضيًا)";
+    const soundPanel =
+      '<div class="fx-panel is-active" id="fx-panel-sound" role="tabpanel" aria-labelledby="fx-tab-sound" data-fx-panel="sound">' +
+        '<div class="fx-option" data-row-sound>' +
+          '<div class="fx-option-copy"><span class="fx-option-icon">' + icon("i-speaker") + '</span><div>' +
+            '<strong id="fx-opt-sound">المؤثرات الصوتية</strong>' +
+            '<small id="fx-opt-sound-desc">نقرات، نرد، أوراق، فوز وخسارة</small>' +
+          "</div></div>" +
+          '<button type="button" class="fx-switch" data-toggle="sound" role="switch" aria-checked="' + (prefs.sound ? "true" : "false") + '" aria-labelledby="fx-opt-sound" aria-describedby="fx-opt-sound-desc"><span></span></button>' +
+        "</div>" +
+        '<div class="fx-option fx-option-volume" data-row-volume>' +
+          '<div class="fx-option-copy"><span class="fx-option-icon">' + icon("i-volume") + '</span><div>' +
+            '<strong id="fx-opt-volume">مستوى الصوت</strong>' +
+            '<small id="fx-opt-volume-desc"><output data-volume-label for="fx-volume">' + pct + "%</output></small>" +
+          "</div></div>" +
+          '<input id="fx-volume" type="range" min="0" max="100" step="5" value="' + pct + '" data-volume aria-label="مستوى الصوت" aria-labelledby="fx-opt-volume" aria-describedby="fx-opt-volume-desc" style="--fx-fill:' + pct + '%" />' +
+        "</div>" +
+        '<div class="fx-option" data-row-pack>' +
+          '<div class="fx-option-copy"><span class="fx-option-icon">' + icon("i-speaker") + '</span><div>' +
+            '<strong id="fx-opt-pack">حزمة الأصوات</strong>' +
+            '<small id="fx-opt-pack-desc">' + U.escape(packHintFor(prefs.pack)) + "</small>" +
+          "</div></div>" +
+          '<select class="fx-select" data-pack aria-labelledby="fx-opt-pack" aria-describedby="fx-opt-pack-desc">' +
+          packList.map((pack) =>
+            '<option value="' + U.escape(pack.id) + '"' + (pack.id === prefs.pack ? " selected" : "") + ">" + U.escape(pack.name) + "</option>"
+          ).join("") +
+          "</select>" +
+        "</div>" +
+        '<div class="fx-option" data-row-music>' +
+          '<div class="fx-option-copy"><span class="fx-option-icon">' + icon("i-speaker") + '</span><div>' +
+            '<strong id="fx-opt-music">موسيقى هادئة للخلفية</strong>' +
+            '<small id="fx-opt-music-desc"><span data-music-desc>' + musicHint + "</span></small>" +
+          "</div></div>" +
+          '<button type="button" class="fx-switch" data-toggle="music" role="switch" aria-checked="' + (prefs.music ? "true" : "false") + '" aria-labelledby="fx-opt-music" aria-describedby="fx-opt-music-desc"' + (prefs.sound ? "" : " disabled") + '><span></span></button>' +
+        "</div>" +
+        '<div class="fx-preview" data-preview>' +
+          '<div class="fx-preview-copy"><span>جرّب المؤثرات</span><small data-preview-hint>' + (audibleNow ? "تُشغَّل فورًا" : "فعّل المؤثرات الصوتية أولًا") + "</small></div>" +
+          "<div>" +
+          testButton("dice", "🎲 نرد") +
+          testButton("card", "🃏 ورقة") +
+          testButton("win", "🏆 فوز") +
+          testButton("lose", "💤 خسارة") +
+          "</div>" +
+        "</div>" +
+        '<p class="fx-note">تُحفظ اختياراتك تلقائيًا على هذا الجهاز. الأصوات لا تعمل إلا بعد أول تفاعل مع الصفحة (سياسة المتصفح). الأصول: Kenney.nl — CC0 1.0.</p>' +
+      "</div>";
+    const displayPanel =
+      '<div class="fx-panel" id="fx-panel-display" role="tabpanel" aria-labelledby="fx-tab-display" data-fx-panel="display" hidden>' +
+        '<div class="fx-option" data-row-motion>' +
+          '<div class="fx-option-copy"><span class="fx-option-icon">' + icon("i-motion") + '</span><div>' +
+            '<strong id="fx-opt-motion">الحركات والأنميشن</strong>' +
+            '<small id="fx-opt-motion-desc">سحب الأوراق، النرد، حركة القطع والاحتفال</small>' +
+          "</div></div>" +
+          '<button type="button" class="fx-switch" data-toggle="motion" role="switch" aria-checked="' + (prefs.motion ? "true" : "false") + '" aria-labelledby="fx-opt-motion" aria-describedby="fx-opt-motion-desc"><span></span></button>' +
+        "</div>" +
+        '<p class="fx-inline-note" data-reduced-note hidden>نظامك يطلب تقليل الحركة، لذا ستظهر الحركات بشكل مخفّف حتى لو كان هذا الخيار مفعّلًا.</p>' +
+        '<div class="fx-option" data-row-secrets>' +
+          '<div class="fx-option-copy"><span class="fx-option-icon">' + icon("i-eye") + '</span><div>' +
+            '<strong id="fx-opt-secrets">إخفاء المعلومات السرية</strong>' +
+            '<small id="fx-opt-secrets-desc">أضف زر «إخفاء/إظهار» لأوراقك وبطاقاتك وسجلك في كل الألعاب. عند إيقافه تُعرض معلوماتك مباشرة بلا أزرار إخفاء.</small>' +
+          "</div></div>" +
+          '<button type="button" class="fx-switch" data-toggle="hideSecrets" role="switch" aria-checked="' + (BG.prefs.hideSecrets ? "true" : "false") + '" aria-labelledby="fx-opt-secrets" aria-describedby="fx-opt-secrets-desc"><span></span></button>' +
+        "</div>" +
+        '<div class="fx-option fx-option-perf" data-row-perf>' +
+          '<div class="fx-option-copy"><span class="fx-option-icon">' + icon("i-gauge") + '</span><div>' +
+            '<strong id="fx-opt-perf">وضع الأداء</strong>' +
+            '<small id="fx-opt-perf-desc">«خفيف» يقلّل الظلال والمؤثرات ليعمل الموقع بسلاسة على الأجهزة الضعيفة (يُختار تلقائيًا على الجوال)</small>' +
+          "</div></div>" +
+          '<div class="fx-perf-control">' +
+            '<div class="seg seg-compact" role="group" aria-labelledby="fx-opt-perf" aria-describedby="fx-opt-perf-desc" data-perf-seg>' +
+              '<button type="button" class="seg-btn" data-perf="auto" aria-pressed="false">تلقائي</button>' +
+              '<button type="button" class="seg-btn" data-perf="lite" aria-pressed="false">خفيف</button>' +
+              '<button type="button" class="seg-btn" data-perf="full" aria-pressed="false">كامل</button>' +
+            "</div>" +
+            '<small class="fx-perf-status" data-perf-status aria-live="polite"></small>' +
+          "</div>" +
+        "</div>" +
+        '<p class="fx-note">الوضع الخفيف يقلل الظلال والحركات ويُبقي الموقع سلسًا على الأجهزة الضعيفة. «تلقائي» يختار الأنسب حسب جهازك.</p>' +
+      "</div>";
+    const profilePanel =
+      '<div class="fx-panel" id="fx-panel-profile" role="tabpanel" aria-labelledby="fx-tab-profile" data-fx-panel="profile" hidden>' +
       profileSection +
-      '<div class="fx-intro">' +
-      '<span class="fx-intro-icon">' + icon("i-speaker") + "</span>" +
-      "<div><strong>تجربة صوتية وبصرية مصقولة</strong><p>مؤثرات مرخّصة بترخيص CC0 من Kenney، وحركات احترافية للأوراق والنرد والقطع والنتائج. تُحفظ اختياراتك على هذا الجهاز.</p></div>" +
+      "</div>";
+    body.innerHTML =
+      '<div class="fx-tabs" role="tablist" aria-label="أقسام الإعدادات">' +
+      tabButton("sound", "الصوت", "i-speaker", true) +
+      tabButton("display", "الحركة والعرض", "i-motion", false) +
+      tabButton("profile", "ملف اللاعب", "i-users", false) +
       "</div>" +
-      '<div class="fx-option">' +
-      '<div class="fx-option-copy"><span class="fx-option-icon">' + icon("i-speaker") + "</span><div><strong>المؤثرات الصوتية</strong><small>نقرات، نرد، أوراق، فوز وخسارة</small></div></div>" +
-      '<button type="button" class="fx-switch" data-toggle="sound" role="switch" aria-checked="' + (prefs.sound ? "true" : "false") + '"><span></span></button>' +
-      "</div>" +
-      '<div class="fx-option fx-option-volume">' +
-      '<div class="fx-option-copy"><span class="fx-option-icon">' + icon("i-volume") + "</span><div><strong>مستوى الصوت</strong><small><output data-volume-label>" + Math.round(prefs.volume * 100) + "%</output></small></div></div>" +
-      '<input type="range" min="0" max="100" step="5" value="' + Math.round(prefs.volume * 100) + '" data-volume aria-label="مستوى الصوت" />' +
-      "</div>" +
-      '<div class="fx-option">' +
-      '<div class="fx-option-copy"><span class="fx-option-icon">' + icon("i-speaker") + "</span><div><strong>حزمة الأصوات</strong><small>غيّر شخصية المؤثرات: خشبي، ريترو، كريستال أو هادئ</small></div></div>" +
-      '<select class="fx-select" data-pack aria-label="حزمة الأصوات">' +
-      ((BG.soundPacks && BG.soundPacks.list) || [{ id: "classic", name: "كلاسيكي" }]).map((pack) =>
-        '<option value="' + pack.id + '"' + (pack.id === prefs.pack ? " selected" : "") + ">" + pack.name + (pack.note ? " — " + pack.note : "") + "</option>"
-      ).join("") +
-      "</select>" +
-      "</div>" +
-      '<div class="fx-option">' +
-      '<div class="fx-option-copy"><span class="fx-option-icon">' + icon("i-speaker") + "</span><div><strong>موسيقى هادئة للخلفية</strong><small>نغمات متولّدة بهدوء أثناء اللعب (مغلقة افتراضيًا)</small></div></div>" +
-      '<button type="button" class="fx-switch" data-toggle="music" role="switch" aria-checked="' + (prefs.music ? "true" : "false") + '"><span></span></button>' +
-      "</div>" +
-      '<div class="fx-option">' +
-      '<div class="fx-option-copy"><span class="fx-option-icon">' + icon("i-motion") + "</span><div><strong>الحركات والأنميشن</strong><small>سحب الأوراق، النرد، حركة القطع والاحتفال</small></div></div>" +
-      '<button type="button" class="fx-switch" data-toggle="motion" role="switch" aria-checked="' + (prefs.motion ? "true" : "false") + '"><span></span></button>' +
-      "</div>" +
-      '<div class="fx-option">' +
-      '<div class="fx-option-copy"><span class="fx-option-icon">' + icon("i-eye") + "</span><div><strong>إخفاء المعلومات السرية</strong><small>أضف زر «إخفاء/إظهار» لأوراقك وبطاقاتك وسجلك في كل الألعاب. عند إيقافه تُعرض معلوماتك مباشرة بلا أزرار إخفاء.</small></div></div>" +
-      '<button type="button" class="fx-switch" data-toggle="hideSecrets" role="switch" aria-label="إخفاء المعلومات السرية" aria-checked="' + (BG.prefs.hideSecrets ? "true" : "false") + '"><span></span></button>' +
-      "</div>" +
-      '<div class="fx-option">' +
-      '<div class="fx-option-copy"><span class="fx-option-icon">' + icon("i-gauge") + "</span><div><strong>وضع الأداء</strong><small>«خفيف» يقلّل الظلال والمؤثرات ليعمل الموقع بسلاسة على الأجهزة الضعيفة (يُختار تلقائيًا على الجوال)</small></div></div>" +
-      '<div class="seg seg-compact" data-perf-seg>' +
-      '<button type="button" class="seg-btn" data-perf="auto">تلقائي</button>' +
-      '<button type="button" class="seg-btn" data-perf="lite">خفيف</button>' +
-      '<button type="button" class="seg-btn" data-perf="full">كامل</button>' +
-      "</div>" +
-      "</div>" +
-      '<div class="fx-preview"><span>جرّب المؤثرات</span><div>' +
-      '<button type="button" class="bg-btn small" data-test="dice">🎲 نرد</button>' +
-      '<button type="button" class="bg-btn small" data-test="card">🃏 ورقة</button>' +
-      '<button type="button" class="bg-btn small" data-test="win">🏆 فوز</button>' +
-      '<button type="button" class="bg-btn small" data-test="lose">💤 خسارة</button>' +
-      "</div></div>" +
-      '<p class="fx-note">إذا كان «تقليل الحركة» مفعّلًا في نظامك، فستُخفَّض الحركات تلقائيًا. الأصوات لا تعمل إلا بعد أول تفاعل مع الصفحة (سياسة المتصفح). الأصول: Kenney.nl — CC0 1.0.</p>';
+      soundPanel +
+      displayPanel +
+      profilePanel;
 
     const soundSwitch = body.querySelector('[data-toggle="sound"]');
     const motionSwitch = body.querySelector('[data-toggle="motion"]');
     const hideSecretsSwitch = body.querySelector('[data-toggle="hideSecrets"]');
     const packSelect = body.querySelector("[data-pack]");
     const musicSwitch = body.querySelector('[data-toggle="music"]');
+    const soundRow = body.querySelector("[data-row-sound]");
+    const volumeRow = body.querySelector("[data-row-volume]");
+    const musicRow = body.querySelector("[data-row-music]");
+    const musicDesc = body.querySelector("[data-music-desc]");
+    const preview = body.querySelector("[data-preview]");
+    const previewHint = body.querySelector("[data-preview-hint]");
+    const testButtons = Array.from(body.querySelectorAll("[data-test]"));
+    const reducedNote = body.querySelector("[data-reduced-note]");
+    const perfStatus = body.querySelector("[data-perf-status]");
+    const volume = body.querySelector("[data-volume]");
+    const label = body.querySelector("[data-volume-label]");
     const avatarChoices = Array.from(body.querySelectorAll("[data-profile-avatar]"));
     const avatarGrid = body.querySelector(".fx-avatar-grid");
     const avatarMore = body.querySelector("[data-profile-more]");
@@ -1267,50 +1362,97 @@
       });
     }
     syncPlayerProfile();
-    if (packSelect) {
-      packSelect.addEventListener("change", () => {
-        setPack(packSelect.value);
-        sound("card", { force: true });
-        setTimeout(() => sound("score", { force: true }), 260);
-        setTimeout(() => sound("win", { force: true }), 620);
-      });
-    }
-    if (musicSwitch) {
-      musicSwitch.classList.toggle("on", prefs.music);
-      musicSwitch.addEventListener("click", () => {
-        const on = setMusic(!prefs.music);
-        musicSwitch.classList.toggle("on", on);
-        musicSwitch.setAttribute("aria-checked", on ? "true" : "false");
-      });
-    }
-    const volume = body.querySelector("[data-volume]");
-    const label = body.querySelector("[data-volume-label]");
+    const packDesc = body.querySelector("#fx-opt-pack-desc");
 
     const perfButtons = Array.from(body.querySelectorAll("[data-perf]"));
+    const currentPerf = () => {
+      const raw = BG.store.get("perf", "auto");
+      return raw === "lite" || raw === "full" ? raw : "auto";
+    };
     function syncPerf() {
-      const cur = BG.store.get("perf", "auto") || "auto";
+      const cur = currentPerf();
+      const lite = perfLite(cur);
       perfButtons.forEach((b) => {
         const on = b.getAttribute("data-perf") === cur;
         b.classList.toggle("active", on);
         b.setAttribute("aria-pressed", on ? "true" : "false");
       });
+      if (perfStatus) {
+        perfStatus.textContent = cur === "auto"
+          ? "تلقائي — يعمل الآن بالوضع " + (lite ? "الخفيف" : "الكامل")
+          : "الوضع " + (lite ? "الخفيف" : "الكامل") + " مفعّل";
+      }
+      const row = body.querySelector("[data-row-perf]");
+      if (row) row.classList.toggle("is-lite", lite);
     }
     perfButtons.forEach((b) => b.addEventListener("click", () => {
       const val = b.getAttribute("data-perf");
       BG.store.set("perf", val);
-      let weak = false;
-      try {
-        const n = navigator;
-        weak = (n.hardwareConcurrency && n.hardwareConcurrency <= 4) || (n.deviceMemory && n.deviceMemory <= 4) ||
-          (window.matchMedia && window.matchMedia("(pointer: coarse)").matches);
-      } catch (err) { /* تجاهل */ }
-      const lite = val === "lite" || (val !== "full" && !!weak);
-      document.documentElement.classList.toggle("lite", lite);
-      document.documentElement.setAttribute("data-perf", lite ? "lite" : "full");
+      const lite = applyPerformance(val);
       syncPerf();
-      BG.toast(lite ? "تفعّل الوضع الخفيف." : "تفعّل الوضع الكامل.", "good");
+      markSaved();
+      if (val === "auto") BG.toast("الوضع التلقائي: " + (lite ? "الخفيف" : "الكامل") + ".", "good");
+      else BG.toast(lite ? "فُعّل الوضع الخفيف." : "فُعّل الوضع الكامل.", "good");
     }));
-    syncPerf();
+
+    const audible = () => prefs.sound && prefs.volume > 0;
+
+    function syncVolumeUI() {
+      const value = Math.round(prefs.volume * 100);
+      if (volume) {
+        volume.disabled = !prefs.sound;
+        volume.value = String(value);
+        volume.style.setProperty("--fx-fill", value + "%");
+      }
+      if (label) {
+        label.textContent = !prefs.sound
+          ? "مكتوم · " + value + "%"
+          : value === 0 ? "صامت · 0%" : value + "%";
+      }
+      if (volumeRow) {
+        volumeRow.classList.toggle("is-disabled", !prefs.sound);
+        volumeRow.classList.toggle("is-silent", prefs.sound && value === 0);
+      }
+    }
+
+    function syncSoundUI() {
+      soundSwitch.classList.toggle("on", prefs.sound);
+      soundSwitch.setAttribute("aria-checked", prefs.sound ? "true" : "false");
+      if (soundRow) soundRow.classList.toggle("is-muted", !prefs.sound);
+      if (packSelect && packSelect.value !== prefs.pack) packSelect.value = prefs.pack;
+      syncVolumeUI();
+      if (musicSwitch) {
+        musicSwitch.classList.toggle("on", prefs.music);
+        musicSwitch.setAttribute("aria-checked", prefs.music ? "true" : "false");
+        musicSwitch.disabled = !prefs.sound;
+      }
+      if (musicRow) musicRow.classList.toggle("is-disabled", !prefs.sound);
+      if (musicDesc) {
+        musicDesc.textContent = !prefs.sound
+          ? (prefs.music ? "ستُستأنف عند تفعيل المؤثرات الصوتية" : "تتطلب تفعيل المؤثرات الصوتية")
+          : "نغمات متولّدة بهدوء أثناء اللعب (مغلقة افتراضيًا)";
+      }
+      if (packDesc) {
+        const pack = packList.find((item) => item.id === prefs.pack) || packList[0];
+        const packNote = pack && pack.note ? pack.note + " — " : "";
+        packDesc.textContent = packNote + (audible()
+          ? "تُعزف معاينة عند التغيير"
+          : "ستُعزف المعاينة عند تفعيل الصوت");
+      }
+      if (preview) preview.classList.toggle("is-disabled", !audible());
+      if (previewHint) {
+        previewHint.textContent = !prefs.sound
+          ? "فعّل المؤثرات الصوتية أولًا"
+          : prefs.volume <= 0 ? "ارفع مستوى الصوت أولًا" : "تُشغَّل فورًا";
+      }
+      testButtons.forEach((btn) => { btn.disabled = !audible(); });
+    }
+
+    function syncMotionUI() {
+      motionSwitch.classList.toggle("on", prefs.motion);
+      motionSwitch.setAttribute("aria-checked", prefs.motion ? "true" : "false");
+      if (reducedNote) reducedNote.hidden = !(reducedQuery && reducedQuery.matches);
+    }
 
     function syncHideSecrets() {
       const on = BG.prefs.hideSecrets;
@@ -1318,30 +1460,56 @@
       hideSecretsSwitch.setAttribute("aria-checked", on ? "true" : "false");
     }
 
+    function syncAll() {
+      syncSoundUI();
+      syncMotionUI();
+      syncHideSecrets();
+      syncPerf();
+    }
+
+    if (packSelect) {
+      packSelect.addEventListener("change", () => {
+        setPack(packSelect.value);
+        if (!audible()) return;
+        sound("card", { force: true });
+        setTimeout(() => sound("score", { force: true }), 260);
+        setTimeout(() => sound("win", { force: true }), 620);
+      });
+    }
+    if (musicSwitch) {
+      musicSwitch.addEventListener("click", () => {
+        setMusic(!prefs.music);
+        syncSoundUI();
+      });
+    }
+
     soundSwitch.addEventListener("click", () => {
-      const on = setSound(!prefs.sound);
-      soundSwitch.classList.toggle("on", on);
-      soundSwitch.setAttribute("aria-checked", on ? "true" : "false");
+      setSound(!prefs.sound);
+      syncSoundUI();
     });
     motionSwitch.addEventListener("click", () => {
-      const on = setMotion(!prefs.motion);
-      motionSwitch.classList.toggle("on", on);
-      motionSwitch.setAttribute("aria-checked", on ? "true" : "false");
+      setMotion(!prefs.motion);
+      syncMotionUI();
     });
     hideSecretsSwitch.addEventListener("click", () => {
       const on = BG.prefs.setHideSecrets(!BG.prefs.hideSecrets);
       syncHideSecrets();
+      markSaved();
       if (on) BG.toast("أصبح زر «إخفاء/إظهار» متاحًا في الألعاب.", "good");
       else BG.toast("ستظهر معلوماتك السرية مباشرة بلا أزرار إخفاء.");
     });
-    volume.addEventListener("input", () => {
-      label.textContent = Math.round(Number(volume.value)) + "%";
-      setVolume(Number(volume.value) / 100);
-    });
-    volume.addEventListener("change", () => { if (prefs.sound) sound("click"); });
+    if (volume) {
+      volume.addEventListener("input", () => {
+        setVolume(Number(volume.value) / 100);
+      });
+      volume.addEventListener("change", () => {
+        if (audible()) sound("click");
+      });
+    }
 
-    body.querySelectorAll("[data-test]").forEach((btn) => {
+    testButtons.forEach((btn) => {
       btn.addEventListener("click", () => {
+        if (!audible()) return;
         const type = btn.dataset.test;
         if (type === "dice") sound("dice", { force: true });
         else if (type === "card") sound("draw", { force: true });
@@ -1356,41 +1524,138 @@
       });
     });
 
-    soundSwitch.classList.toggle("on", prefs.sound);
-    motionSwitch.classList.toggle("on", prefs.motion);
-    syncHideSecrets();
-    if (volume) volume.disabled = !prefs.sound;
+    syncAll();
 
-    document.addEventListener("bgfxchange", function sync() {
-      const stillOpen = document.body.contains(body);
-      if (!stillOpen) {
-        document.removeEventListener("bgfxchange", sync);
-        return;
-      }
-      soundSwitch.classList.toggle("on", prefs.sound);
-      soundSwitch.setAttribute("aria-checked", prefs.sound ? "true" : "false");
-      motionSwitch.classList.toggle("on", prefs.motion);
-      motionSwitch.setAttribute("aria-checked", prefs.motion ? "true" : "false");
-      volume.disabled = !prefs.sound;
-      volume.value = String(Math.round(prefs.volume * 100));
-      label.textContent = Math.round(prefs.volume * 100) + "%";
-    });
+    function resetAllPrefs() {
+      prefs.sound = DEFAULTS.sound;
+      prefs.volume = DEFAULTS.volume;
+      prefs.motion = DEFAULTS.motion;
+      prefs.pack = DEFAULTS.pack;
+      prefs.music = DEFAULTS.music;
+      savePrefs();
+      applyVolume();
+      stopMusicNow();
+      BG.prefs.setHideSecrets(false);
+      BG.store.set("perf", "auto");
+      applyPerformance("auto");
+      syncAll();
+      document.dispatchEvent(new CustomEvent("bgfxchange", { detail: Object.assign({}, prefs) }));
+      if (audible()) sound("select");
+      BG.toast("أُعيدت إعدادات الصوت والحركة والأداء إلى الافتراضي.", "good");
+    }
 
-    document.addEventListener("bgprefschange", function syncPrefs() {
-      if (!document.body.contains(body)) {
-        document.removeEventListener("bgprefschange", syncPrefs);
-        return;
-      }
-      syncHideSecrets();
-    });
+    function requestReset() {
+      BG.confirm(
+        "إعادة ضبط الإعدادات",
+        "سيُعاد ضبط الصوت والحركة والأداء والخصوصية إلى الوضع الافتراضي. ملف اللاعب لن يتغيّر.",
+        "إعادة الضبط",
+        "إلغاء",
+        { keep: true }
+      ).then((yes) => { if (yes) resetAllPrefs(); });
+    }
 
-    BG.openDialog({
+    const dlg = BG.openDialog({
       title: "الإعدادات",
       className: "fx-dialog",
       body,
-      actions: [{ label: "تم", value: "ok", primary: true }],
-      onClose: commitProfileName,
+      actions: [
+        { label: "إعادة الضبط", onClick: requestReset },
+        { label: "تم", value: "ok", primary: true },
+      ],
+      onClose: () => {
+        cleanup();
+        commitProfileName();
+      },
     });
+
+    const tabs = Array.from(body.querySelectorAll("[data-fx-tab]"));
+    const panels = Array.from(body.querySelectorAll("[data-fx-panel]"));
+    function activateTab(name, focusTab) {
+      let active = null;
+      tabs.forEach((tab) => {
+        const on = tab.getAttribute("data-fx-tab") === name;
+        if (on) active = tab;
+        tab.classList.toggle("is-active", on);
+        tab.setAttribute("aria-selected", on ? "true" : "false");
+        tab.setAttribute("tabindex", on ? "0" : "-1");
+      });
+      panels.forEach((panel) => {
+        const on = panel.getAttribute("data-fx-panel") === name;
+        panel.classList.toggle("is-active", on);
+        panel.hidden = !on;
+      });
+      if (dlg && dlg.body) dlg.body.scrollTop = 0;
+      if (focusTab && active) active.focus();
+    }
+    tabs.forEach((tab, index) => {
+      tab.addEventListener("click", () => activateTab(tab.getAttribute("data-fx-tab"), false));
+      tab.addEventListener("keydown", (event) => {
+        let next = null;
+        // في واجهة RTL ينتقل السهم الأيمن إلى التبويب السابق والأيسر إلى التالي.
+        if (event.key === "ArrowRight") next = (index - 1 + tabs.length) % tabs.length;
+        else if (event.key === "ArrowLeft") next = (index + 1) % tabs.length;
+        else if (event.key === "Home") next = 0;
+        else if (event.key === "End") next = tabs.length - 1;
+        if (next == null) return;
+        event.preventDefault();
+        activateTab(tabs[next].getAttribute("data-fx-tab"), true);
+      });
+    });
+
+    const saveStatus = document.createElement("span");
+    saveStatus.className = "fx-save-status";
+    saveStatus.setAttribute("role", "status");
+    saveStatus.setAttribute("aria-live", "polite");
+    saveStatus.innerHTML = icon("i-check") + "<span>حفظ تلقائي</span>";
+    dlg.foot.prepend(saveStatus);
+
+    let saveTimer = 0;
+    let disposed = false;
+    function markSaved() {
+      if (!saveStatus || disposed) return;
+      saveStatus.classList.add("is-saved");
+      const text = saveStatus.querySelector("span");
+      if (text) text.textContent = "تم الحفظ";
+      clearTimeout(saveTimer);
+      saveTimer = setTimeout(() => {
+        saveStatus.classList.remove("is-saved");
+        if (text) text.textContent = "حفظ تلقائي";
+      }, 1700);
+    }
+
+    const syncFx = () => {
+      if (!document.body.contains(body)) return;
+      syncSoundUI();
+      syncMotionUI();
+    };
+    const syncPrefs = () => {
+      if (!document.body.contains(body)) return;
+      syncHideSecrets();
+    };
+    const syncProfile = () => markSaved();
+    const syncReduced = () => syncMotionUI();
+    document.addEventListener("bgfxchange", syncFx);
+    document.addEventListener("bgprefschange", syncPrefs);
+    document.addEventListener("bgfxstored", markSaved);
+    document.addEventListener("bgprofilechange", syncProfile);
+    if (reducedQuery) {
+      if (reducedQuery.addEventListener) reducedQuery.addEventListener("change", syncReduced);
+      else if (reducedQuery.addListener) reducedQuery.addListener(syncReduced);
+    }
+
+    function cleanup() {
+      if (disposed) return;
+      disposed = true;
+      clearTimeout(saveTimer);
+      document.removeEventListener("bgfxchange", syncFx);
+      document.removeEventListener("bgprefschange", syncPrefs);
+      document.removeEventListener("bgfxstored", markSaved);
+      document.removeEventListener("bgprofilechange", syncProfile);
+      if (reducedQuery) {
+        if (reducedQuery.removeEventListener) reducedQuery.removeEventListener("change", syncReduced);
+        else if (reducedQuery.removeListener) reducedQuery.removeListener(syncReduced);
+      }
+    }
   }
 
   /* ------------------------------ ربط عام ------------------------------ */
