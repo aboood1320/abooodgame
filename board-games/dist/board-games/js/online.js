@@ -580,8 +580,16 @@
       "</div>";
 
     const status = '<div class="net-status" data-net-status role="status" aria-live="polite"></div>';
+    const profile = BG.playerProfile ? BG.playerProfile.get() : null;
+    const profileAvatar = BG.playerProfile ? BG.playerProfile.avatarHTML(profile, "net-profile-avatar") : "";
+    const profileName = BG.playerProfile ? BG.playerProfile.cleanName(profile.name) : "";
     const nameField =
-      '<label class="net-field"><span>اسمك على الطاولة</span><input data-net-name type="text" maxlength="18" value="' + esc(state.name) + '" placeholder="اسم اللاعب" /></label>';
+      '<div class="net-profile-card" data-net-profile-card>' +
+      '<span class="net-profile-avatar-wrap" data-net-profile-avatar title="' + esc(profileName || "ملف اللاعب") + '">' + profileAvatar + "</span>" +
+      '<label class="net-profile-main"><span class="net-profile-label">اسمك على الطاولة</span>' +
+      '<input data-net-name type="text" maxlength="18" value="' + esc(state.name) + '" placeholder="اسم اللاعب" autocomplete="nickname" /></label>' +
+      '<button type="button" class="bg-btn small net-profile-edit" data-net-profile-open aria-label="تعديل ملف اللاعب"><span aria-hidden="true">✏️</span><span>ملفي</span></button>' +
+      "</div>";
 
     if (!cloud) {
       return (
@@ -756,6 +764,7 @@
     const modeButtons = Array.from(body.querySelectorAll("[data-net-mode]"));
     const resumeBtn = body.querySelector("[data-net-resume]");
     const resumeClear = body.querySelector("[data-net-resume-clear]");
+    const profileOpen = body.querySelector("[data-net-profile-open]");
 
     if (resumeBtn) {
       resumeBtn.addEventListener("click", () => {
@@ -768,6 +777,12 @@
         clearResume();
         renderLobby();
         BG.toast("تم تجاهل الجلسة السابقة.");
+      });
+    }
+
+    if (profileOpen) {
+      profileOpen.addEventListener("click", () => {
+        if (BG.openFxSettings) BG.openFxSettings("profile");
       });
     }
 
@@ -2758,8 +2773,31 @@
   function bindNetworkEvents() {
     if (!BG.net) return;
     document.addEventListener("bgprofilechange", (event) => {
-      if (!state.inRoom || !BG.net.role) return;
-      const profile = BG.playerProfile.normalize(event.detail);
+      const detail = event.detail || {};
+      const profile = BG.playerProfile.normalize(detail);
+      if (!state.inRoom || !BG.net.role) {
+        const nameInput = state.overlay && state.overlay.querySelector("[data-net-name]");
+        const applyName = !nameInput || document.activeElement !== nameInput;
+        const nextName = BG.playerProfile.cleanName(profile.name);
+        const previousName = BG.playerProfile.cleanName(detail.previous && detail.previous.name);
+        const currentName = BG.playerProfile.cleanName(state.name);
+        const genericName = !currentName || currentName === "اللاعب" || currentName === "لاعب ضيف";
+        if (nextName && applyName && (!previousName || genericName || currentName === previousName)) {
+          state.name = nextName;
+          saveName();
+          if (nameInput) nameInput.value = nextName;
+        } else if (!nextName && applyName && previousName && currentName === previousName) {
+          state.name = "اللاعب";
+          saveName();
+          if (nameInput) nameInput.value = state.name;
+        }
+        const avatarBox = state.overlay && state.overlay.querySelector("[data-net-profile-avatar]");
+        if (avatarBox) {
+          avatarBox.innerHTML = BG.playerProfile.avatarHTML(profile, "net-profile-avatar");
+          avatarBox.title = nextName || "ملف اللاعب";
+        }
+        return;
+      }
       updateSeatProfile(BG.net.selfId, profile);
       publishSelfProfile();
     });

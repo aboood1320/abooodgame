@@ -559,21 +559,22 @@
 
   const PLAYER_PROFILE_KEY = "player-profile.v1";
   const PLAYER_NAME_MAX = 18;
+  const PLAYER_PROFILE_DEFAULTS = { avatar: "human", color: "#4f86f7", name: "" };
   const PLAYER_AVATARS = (BG.avatarArt && Array.isArray(BG.avatarArt.list) && BG.avatarArt.list.length)
     ? BG.avatarArt.list
     : [
-      { id: "human", name: "إنسان", emoji: "🧑" },
-      { id: "cat", name: "قطة", emoji: "🐱" },
-      { id: "dog", name: "كلب", emoji: "🐶" },
-      { id: "car", name: "سيارة", emoji: "🚗" },
-      { id: "alien", name: "فضائي", emoji: "👽" },
-      { id: "rabbit", name: "أرنب", emoji: "🐰" },
-      { id: "fox", name: "ثعلب", emoji: "🦊" },
-      { id: "robot", name: "روبوت", emoji: "🤖" },
-      { id: "dinosaur", name: "ديناصور", emoji: "🦖" },
-      { id: "rocket", name: "مركبة فضائية", emoji: "🚀" },
-      { id: "panda", name: "باندا", emoji: "🐼" },
-      { id: "unicorn", name: "وحيد القرن", emoji: "🦄" },
+      { id: "human", name: "إنسان", emoji: "🧑", tint: "#5f8ed6", group: "faces" },
+      { id: "cat", name: "قطة", emoji: "🐱", tint: "#e8a15a", group: "animals" },
+      { id: "dog", name: "كلب", emoji: "🐶", tint: "#d9a568", group: "animals" },
+      { id: "car", name: "سيارة", emoji: "🚗", tint: "#6fb2de", group: "world" },
+      { id: "alien", name: "فضائي", emoji: "👽", tint: "#7fd6a4", group: "world" },
+      { id: "rabbit", name: "أرنب", emoji: "🐰", tint: "#f0e8df", group: "animals" },
+      { id: "fox", name: "ثعلب", emoji: "🦊", tint: "#e88445", group: "animals" },
+      { id: "robot", name: "روبوت", emoji: "🤖", tint: "#75b8c9", group: "world" },
+      { id: "dinosaur", name: "ديناصور", emoji: "🦖", tint: "#73c283", group: "animals" },
+      { id: "rocket", name: "مركبة فضائية", emoji: "🚀", tint: "#7d9fe0", group: "world" },
+      { id: "panda", name: "باندا", emoji: "🐼", tint: "#a8b6c2", group: "animals" },
+      { id: "unicorn", name: "وحيد القرن", emoji: "🦄", tint: "#cbb6ea", group: "animals" },
     ];
   const PLAYER_COLORS = [
     { name: "أزرق", value: "#4f86f7" },
@@ -589,13 +590,39 @@
     { name: "سماوي", value: "#00b4d8" },
     { name: "بني", value: "#8d6e63" },
   ];
+  const PLAYER_AVATAR_GROUPS = [
+    { id: "all", name: "الكل" },
+    { id: "faces", name: "وجوه" },
+    { id: "animals", name: "حيوانات" },
+    { id: "world", name: "عوالم" },
+  ];
+  const AVATAR_GROUP_BY_ID = {
+    human: "faces", astronaut: "faces", wizard: "faces", pirate: "faces", ninja: "faces",
+    king: "faces", knight: "faces", ghost: "faces", vampire: "faces", zombie: "faces",
+    mermaid: "faces", superhero: "faces", snowman: "faces", genie: "faces", elf: "faces",
+    cat: "animals", dog: "animals", fox: "animals", panda: "animals", rabbit: "animals",
+    dinosaur: "animals", unicorn: "animals", penguin: "animals", lion: "animals", tiger: "animals",
+    koala: "animals", bear: "animals", owl: "animals", frog: "animals", dragon: "animals",
+    horse: "animals", sheep: "animals", monkey: "animals", chicken: "animals", fish: "animals",
+    octopus: "animals",
+    robot: "world", alien: "world", car: "world", rocket: "world",
+  };
 
   function cleanPlayerProfileName(value) {
     return String(value == null ? "" : value)
       .replace(/[\u0000-\u001f\u007f]+/g, " ")
+      .replace(/[\u200e\u200f\u202a-\u202e\u2066-\u2069\ufeff]+/g, "")
       .replace(/\s+/g, " ")
       .trim()
       .slice(0, PLAYER_NAME_MAX);
+  }
+
+  function normalizeHexColor(value) {
+    let color = String(value == null ? "" : value).trim().toLowerCase();
+    if (/^#[0-9a-f]{3}$/.test(color)) {
+      color = "#" + color.slice(1).split("").map((part) => part + part).join("");
+    }
+    return /^#[0-9a-f]{6}$/.test(color) ? color : "";
   }
 
   function normalizePlayerProfile(value, fallback) {
@@ -603,10 +630,10 @@
     const safeFallback = fallback && typeof fallback === "object" ? fallback : {};
     const avatar = PLAYER_AVATARS.some((item) => item.id === source.avatar)
       ? source.avatar
-      : PLAYER_AVATARS.some((item) => item.id === safeFallback.avatar) ? safeFallback.avatar : "human";
-    const color = /^#[0-9a-f]{6}$/i.test(String(source.color || ""))
-      ? String(source.color).toLowerCase()
-      : /^#[0-9a-f]{6}$/i.test(String(safeFallback.color || "")) ? String(safeFallback.color).toLowerCase() : PLAYER_COLORS[0].value;
+      : PLAYER_AVATARS.some((item) => item.id === safeFallback.avatar) ? safeFallback.avatar : PLAYER_PROFILE_DEFAULTS.avatar;
+    const sourceColor = normalizeHexColor(source.color);
+    const fallbackColor = normalizeHexColor(safeFallback.color);
+    const color = sourceColor || fallbackColor || PLAYER_PROFILE_DEFAULTS.color;
     const name = cleanPlayerProfileName(source.name) || cleanPlayerProfileName(safeFallback.name);
     return { avatar, color, name };
   }
@@ -615,10 +642,40 @@
     avatars: PLAYER_AVATARS,
     avatarInitial: BG.avatarArt && BG.avatarArt.initial ? BG.avatarArt.initial : PLAYER_AVATARS.length,
     colors: PLAYER_COLORS,
+    groups: PLAYER_AVATAR_GROUPS,
     nameMax: PLAYER_NAME_MAX,
+    defaults: Object.assign({}, PLAYER_PROFILE_DEFAULTS),
     roster: [],
     normalize: normalizePlayerProfile,
     cleanName: cleanPlayerProfileName,
+    normalizeColor: normalizeHexColor,
+    avatarGroup(value) {
+      const id = value && typeof value === "object" ? value.avatar : value;
+      const avatar = PLAYER_AVATARS.find((item) => item.id === id);
+      return (avatar && avatar.group) || AVATAR_GROUP_BY_ID[id] || "faces";
+    },
+    avatarTint(value) {
+      const id = value && typeof value === "object" ? value.avatar : value;
+      const avatar = PLAYER_AVATARS.find((item) => item.id === id);
+      return avatar && normalizeHexColor(avatar.tint) ? avatar.tint : PLAYER_PROFILE_DEFAULTS.color;
+    },
+    colorName(value) {
+      const color = normalizeHexColor(value) || PLAYER_PROFILE_DEFAULTS.color;
+      const found = PLAYER_COLORS.find((item) => item.value === color);
+      return found ? found.name : "مخصص " + color.toUpperCase();
+    },
+    isCustomColor(value) {
+      const color = normalizeHexColor(value);
+      return !!color && !PLAYER_COLORS.some((item) => item.value === color);
+    },
+    randomize(value) {
+      const base = normalizePlayerProfile(value || this.get());
+      const avatarPool = PLAYER_AVATARS.filter((avatar) => avatar.id !== base.avatar);
+      const colorPool = PLAYER_COLORS.filter((color) => color.value !== base.color);
+      const avatar = avatarPool[Math.floor(Math.random() * avatarPool.length)] || PLAYER_AVATARS[0];
+      const color = colorPool[Math.floor(Math.random() * colorPool.length)] || PLAYER_COLORS[0];
+      return { avatar: avatar.id, color: color.value, name: base.name };
+    },
     setRoster(players) {
       this.roster = Array.isArray(players) ? players.slice() : [];
     },
@@ -628,11 +685,18 @@
     set(value) {
       const previous = this.get();
       const next = normalizePlayerProfile(value);
+      if (previous.avatar === next.avatar && previous.color === next.color && previous.name === next.name) return next;
       BG.store.set(PLAYER_PROFILE_KEY, next);
       document.dispatchEvent(new CustomEvent("bgprofilechange", {
         detail: Object.assign({}, next, { previous }),
       }));
       return next;
+    },
+    patch(partial) {
+      return this.set(Object.assign({}, this.get(), partial || {}));
+    },
+    reset() {
+      return this.set(Object.assign({}, PLAYER_PROFILE_DEFAULTS));
     },
     defaultFor(index, isCpu) {
       return {
@@ -678,6 +742,20 @@
       return playerProfile.avatarHTML(profile, extra);
     },
   });
+
+  /* مزامنة ملف اللاعب بين تبويبات الموقع دون إعادة تحميل. */
+  try {
+    window.addEventListener("storage", (event) => {
+      if (event.key !== "bg." + PLAYER_PROFILE_KEY) return;
+      let next = normalizePlayerProfile({});
+      try {
+        next = normalizePlayerProfile(event.newValue ? JSON.parse(event.newValue) : {});
+      } catch (err) { /* تجاهل */ }
+      document.dispatchEvent(new CustomEvent("bgprofilechange", {
+        detail: Object.assign({}, next, { previous: null, external: true }),
+      }));
+    });
+  } catch (err) { /* تجاهل */ }
 
   /* ------------------------------ التفضيلات العامة ------------------------------ */
 

@@ -130,6 +130,19 @@
 
   document.addEventListener("DOMContentLoaded", init);
 
+  function syncProfileChip() {
+    if (!els.btnProfile || !BG.playerProfile) return;
+    const profile = BG.playerProfile.get();
+    const name = BG.playerProfile.displayName(profile);
+    els.btnProfile.style.setProperty("--profile-color", profile.color);
+    els.btnProfile.setAttribute("aria-label", "ملفي — " + name);
+    els.btnProfile.title = "ملفي — " + name;
+    const avatar = els.btnProfile.querySelector("[data-profile-chip-avatar]");
+    if (avatar) avatar.innerHTML = BG.playerProfile.avatarSVG(profile.avatar);
+    const nameNode = els.btnProfile.querySelector("[data-profile-chip-name]");
+    if (nameNode) nameNode.textContent = name;
+  }
+
   function init() {
     els.libraryView = document.getElementById("libraryView");
     els.gameView = document.getElementById("gameView");
@@ -145,6 +158,7 @@
     els.btnNew = document.getElementById("btnGameNew");
     els.btnBack = document.getElementById("btnGameBack");
     els.btnSettings = document.getElementById("btnSettings");
+    els.btnProfile = document.getElementById("btnProfile");
     els.btnSearch = document.getElementById("btnSearch");
     els.btnFullscreen = document.getElementById("btnGameFullscreen");
     els.btnExitFullscreen = document.getElementById("btnExitFullscreen");
@@ -206,7 +220,9 @@
     });
     els.btnBack.addEventListener("click", () => goLibrary());
     if (els.btnSettings) els.btnSettings.addEventListener("click", () => BG.openFxSettings());
+    if (els.btnProfile) els.btnProfile.addEventListener("click", () => BG.openFxSettings("profile"));
     document.addEventListener("bgprofilechange", (event) => {
+      syncProfileChip();
       const detail = event.detail || {};
       const previousName = BG.playerProfile.cleanName(detail.previous && detail.previous.name);
       const nextName = BG.playerProfile.cleanName(detail.name);
@@ -232,6 +248,7 @@
     });
 
     installErrorHandling();
+    syncProfileChip();
     window.addEventListener("pagehide", () => saveProgress());
     document.addEventListener("visibilitychange", () => {
       if (document.visibilityState === "hidden") saveProgress();

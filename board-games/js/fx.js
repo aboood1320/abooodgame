@@ -1015,73 +1015,112 @@
     return lite;
   }
 
-  function openSettings() {
+  function openSettings(options) {
+    const opts = typeof options === "string" ? { tab: options } : (options || {});
+    const initialTab = ["sound", "display", "profile"].indexOf(opts.tab) >= 0 ? opts.tab : "sound";
     unlock();
     const body = document.createElement("div");
     body.className = "fx-settings";
     const playerProfile = BG.playerProfile.get();
-    const profileColorName = (value) => {
-      const found = BG.playerProfile.colors.find((color) => color.value.toLowerCase() === String(value || "").toLowerCase());
-      return found ? found.name : "مخصص " + String(value || "").toUpperCase();
-    };
+    const profileColorName = (value) => BG.playerProfile.colorName(value);
     const profileMeta = (profile) =>
       BG.playerProfile.avatarName(profile.avatar) + " · " + profileColorName(profile.color);
     const avatarList = BG.playerProfile.avatars;
     const avatarInitial = Math.max(1, Number(BG.playerProfile.avatarInitial) || Math.min(12, avatarList.length));
-    const avatarExtras = Math.max(0, avatarList.length - avatarInitial);
     const selectedAvatarIndex = avatarList.findIndex((avatar) => avatar.id === playerProfile.avatar);
-    const avatarExpanded = selectedAvatarIndex >= avatarInitial;
+    const avatarGroups = (BG.playerProfile.groups || []).filter((group) => group.id !== "all");
+    const avatarFilterDefs = [
+      { id: "featured", name: "المميزة", count: avatarInitial },
+      { id: "all", name: "الكل", count: avatarList.length },
+    ].concat(avatarGroups.map((group) => ({
+      id: group.id,
+      name: group.name,
+      count: avatarList.filter((avatar) => BG.playerProfile.avatarGroup(avatar.id) === group.id).length,
+    })));
+    const initialAvatarFilter = selectedAvatarIndex >= avatarInitial ? "all" : "featured";
+    const avatarIsVisible = (avatar, index, filter) =>
+      filter === "all" || (filter === "featured" ? index < avatarInitial : BG.playerProfile.avatarGroup(avatar.id) === filter);
+    const nameHintText = (value) => {
+      const clean = BG.playerProfile.cleanName(value);
+      return clean
+        ? "سيظهر «" + clean + "» في المقاعد والغرف ولوحات اللاعبين."
+        : "سيظهر «لاعب ضيف» حتى تكتب اسمًا — يمكنك تركه فارغًا.";
+    };
     const profileSection =
       '<section class="fx-profile-settings" aria-labelledby="fx-profile-title">' +
       '<div class="fx-profile-head">' +
       '<div class="fx-profile-heading">' +
       '<span class="fx-profile-heading-icon" aria-hidden="true">👤</span>' +
-      '<div><strong id="fx-profile-title">ملف اللاعب</strong><small>اسمك وأفتارك ولونك يظهرون في المقاعد ولوحات اللاعبين داخل كل الألعاب.</small></div>' +
+      '<div><strong id="fx-profile-title">ملف اللاعب</strong><small>هويتك في كل الألعاب: اسمك وأفتارك ولونك يظهرون في المقاعد والغرف ولوحات اللاعبين.</small></div>' +
       "</div>" +
-      '<span class="fx-profile-badge">يُحفظ على هذا الجهاز</span>' +
+      '<span class="fx-profile-badge">حفظ تلقائي</span>' +
       "</div>" +
-      '<div class="fx-profile-preview" data-profile-preview style="--profile-color:' + U.escape(playerProfile.color) + '">' +
-      BG.playerProfile.avatarHTML(playerProfile, "fx-profile-preview-avatar") +
-      '<div class="fx-profile-preview-copy" aria-live="polite">' +
-      '<span class="fx-profile-preview-kicker">معاينة مباشرة</span>' +
+      '<div class="fx-profile-preview fx-profile-card" data-profile-preview style="--profile-color:' + U.escape(playerProfile.color) + '">' +
+      '<div class="fx-profile-card-top">' +
+      '<span class="fx-profile-card-kicker">بطاقة اللاعب</span>' +
+      '<span class="fx-profile-card-live"><i aria-hidden="true"></i> معاينة مباشرة</span>' +
+      "</div>" +
+      '<div class="fx-profile-card-main">' +
+      BG.playerProfile.avatarHTML(playerProfile, "fx-profile-preview-avatar fx-profile-card-avatar") +
+      '<div class="fx-profile-preview-copy fx-profile-card-copy" aria-live="polite">' +
       '<strong data-profile-preview-name>' + U.escape(BG.playerProfile.displayName(playerProfile)) + "</strong>" +
       '<small data-profile-preview-meta>' + U.escape(profileMeta(playerProfile)) + "</small>" +
+      '<span class="fx-profile-card-role">🎮 تظهر في المقاعد والغرف ولوحات اللاعبين</span>' +
       "</div>" +
       "</div>" +
-      '<div class="fx-profile-tools">' +
-      '<button type="button" class="fx-profile-tool" data-profile-random>🎲 مظهر عشوائي</button>' +
-      '<button type="button" class="fx-profile-tool" data-profile-reset>↺ إعادة ضبط الملف</button>' +
+      '<div class="fx-profile-card-foot">' +
+      '<button type="button" class="fx-profile-tool fx-profile-tool-shuffle" data-profile-random>🎲 مظهر عشوائي</button>' +
+      '<span class="fx-profile-card-note">يغيّر الأفتار واللون فقط</span>' +
       "</div>" +
-      '<label class="fx-profile-name">' +
-      '<span class="fx-profile-name-label"><span>اسم اللاعب</span><small>حتى ' + BG.playerProfile.nameMax + " حرفًا</small></span>" +
-      '<span class="fx-profile-name-field">' +
-      '<input type="text" maxlength="' + BG.playerProfile.nameMax + '" data-profile-name value="' + U.escape(playerProfile.name) + '" placeholder="اكتب اسمك…" autocomplete="nickname" spellcheck="false" />' +
+      "</div>" +
+      '<div class="fx-profile-name">' +
+      '<label class="fx-profile-name-label" for="fx-profile-name-input"><span>اسم اللاعب</span><small>حتى ' + BG.playerProfile.nameMax + " حرفًا</small></label>" +
+      '<div class="fx-profile-name-field">' +
+      '<button type="button" class="fx-profile-name-clear" data-profile-name-clear aria-label="مسح الاسم" title="مسح الاسم"' + (playerProfile.name ? "" : " hidden") + ">✕</button>" +
+      '<input id="fx-profile-name-input" type="text" maxlength="' + BG.playerProfile.nameMax + '" data-profile-name value="' + U.escape(playerProfile.name) + '" placeholder="اكتب اسمك…" autocomplete="nickname" spellcheck="false" aria-describedby="fx-profile-name-hint" />' +
       '<small class="fx-profile-name-count" data-profile-name-count>' + playerProfile.name.length + "/" + BG.playerProfile.nameMax + "</small>" +
-      "</span>" +
-      "</label>" +
+      "</div>" +
+      '<small class="fx-profile-name-hint" id="fx-profile-name-hint" data-profile-name-hint>' + U.escape(nameHintText(playerProfile.name)) + "</small>" +
+      "</div>" +
       '<div class="fx-profile-group">' +
-      '<div class="fx-profile-color-head"><span class="fx-profile-label">اختر الأفتار</span><span class="fx-profile-hint" data-profile-avatar-name>' + U.escape(BG.playerProfile.avatarName(playerProfile.avatar)) + "</span></div>" +
-      '<div class="fx-avatar-grid' + (avatarExpanded ? " is-expanded" : "") + '" role="group" aria-label="أفتار اللاعب">' +
-      avatarList.map((avatar, index) =>
-        '<button type="button" class="fx-avatar-choice' + (avatar.id === playerProfile.avatar ? " is-selected" : "") + (index >= avatarInitial ? " is-extra" : "") + '" data-profile-avatar="' + U.escape(avatar.id) + '" aria-label="' + U.escape(avatar.name) + '" aria-pressed="' + (avatar.id === playerProfile.avatar ? "true" : "false") + '" title="' + U.escape(avatar.name) + '">' + BG.playerProfile.avatarSVG(avatar.id, "fx-avatar-art") + '<small>' + U.escape(avatar.name) + "</small></button>"
+      '<div class="fx-profile-group-head">' +
+      '<div class="fx-profile-group-title"><span class="fx-profile-label">اختر الأفتار</span><span class="fx-profile-hint" data-profile-avatar-name>' + U.escape(BG.playerProfile.avatarName(playerProfile.avatar)) + "</span></div>" +
+      '<button type="button" class="fx-profile-mini" data-profile-random-avatar title="اختر أفتارًا عشوائيًا">🎲 أفتار عشوائي</button>' +
+      "</div>" +
+      '<div class="fx-avatar-filters" role="group" aria-label="تصفية الأفتارات">' +
+      avatarFilterDefs.map((filter) =>
+        '<button type="button" class="fx-avatar-filter' + (filter.id === initialAvatarFilter ? " is-active" : "") + '" data-avatar-filter="' + filter.id + '" aria-pressed="' + (filter.id === initialAvatarFilter ? "true" : "false") + '">' + U.escape(filter.name) + "<b>" + filter.count + "</b></button>"
       ).join("") +
       "</div>" +
-      (avatarExtras
-        ? '<button type="button" class="fx-avatar-more' + (avatarExpanded ? " is-open" : "") + '" data-profile-more aria-expanded="' + (avatarExpanded ? "true" : "false") + '">' +
-          '<span class="fx-avatar-more-icon" aria-hidden="true">' + (avatarExpanded ? "−" : "+") + "</span>" +
-          '<span data-profile-more-label>' + (avatarExpanded ? "عرض أقل" : "المزيد من الأفتارات") + "</span>" +
-          '<small data-profile-more-count>' + (avatarExpanded ? avatarExtras + " إضافية" : "+" + avatarExtras) + "</small>" +
-          "</button>"
-        : "") +
+      '<div class="fx-avatar-grid" role="group" aria-label="أفتار اللاعب">' +
+      avatarList.map((avatar, index) => {
+        const visible = avatarIsVisible(avatar, index, initialAvatarFilter);
+        return '<button type="button" class="fx-avatar-choice' + (avatar.id === playerProfile.avatar ? " is-selected" : "") + '" data-profile-avatar="' + U.escape(avatar.id) + '" data-avatar-index="' + index + '" data-avatar-group="' + U.escape(BG.playerProfile.avatarGroup(avatar.id)) + '" aria-label="' + U.escape(avatar.name) + '" aria-pressed="' + (avatar.id === playerProfile.avatar ? "true" : "false") + '" title="' + U.escape(avatar.name) + '" tabindex="' + (avatar.id === playerProfile.avatar ? "0" : "-1") + '"' + (visible ? "" : " hidden") + ">" +
+          '<span class="fx-avatar-check" aria-hidden="true">✓</span>' +
+          BG.playerProfile.avatarSVG(avatar.id, "fx-avatar-art") +
+          "<small>" + U.escape(avatar.name) + "</small></button>";
+      }).join("") +
+      "</div>" +
       "</div>" +
       '<div class="fx-profile-group">' +
-      '<div class="fx-profile-color-head"><span class="fx-profile-label">اختر اللون</span><span class="fx-profile-hint" data-profile-color-name>' + U.escape(profileColorName(playerProfile.color)) + "</span></div>" +
+      '<div class="fx-profile-group-head">' +
+      '<div class="fx-profile-group-title"><span class="fx-profile-label">اختر اللون</span><span class="fx-profile-hint" data-profile-color-name>' + U.escape(profileColorName(playerProfile.color)) + "</span></div>" +
+      '<button type="button" class="fx-profile-mini" data-profile-color-from-avatar title="استخدم لون الأفتار الحالي">🎨 لون الأفتار</button>' +
+      "</div>" +
       '<div class="fx-color-grid" role="group" aria-label="ألوان اللاعب">' +
       BG.playerProfile.colors.map((color) =>
         '<button type="button" class="fx-color-choice' + (color.value === playerProfile.color ? " is-selected" : "") + '" data-profile-color="' + U.escape(color.value) + '" style="--swatch-color:' + U.escape(color.value) + '" aria-label="' + U.escape(color.name) + '" aria-pressed="' + (color.value === playerProfile.color ? "true" : "false") + '" title="' + U.escape(color.name) + '"></button>'
       ).join("") +
       "</div>" +
-      '<label class="fx-custom-color"><span>لون مخصص</span><input type="color" data-profile-custom-color value="' + U.escape(playerProfile.color) + '" aria-label="اختر لونًا مخصصًا" /><b data-profile-custom-value>' + U.escape(playerProfile.color.toUpperCase()) + "</b></label>" +
+      '<label class="fx-custom-color' + (BG.playerProfile.isCustomColor(playerProfile.color) ? " is-selected" : "") + '" data-profile-custom-row>' +
+      '<input type="color" data-profile-custom-color value="' + U.escape(playerProfile.color) + '" aria-label="اختر لونًا مخصصًا" />' +
+      '<span class="fx-custom-color-copy"><strong>لون مخصص</strong><small>أي درجة تريدها — تُحفظ فورًا</small></span>' +
+      '<b data-profile-custom-value>' + U.escape(playerProfile.color.toUpperCase()) + "</b>" +
+      "</label>" +
+      "</div>" +
+      '<div class="fx-profile-danger">' +
+      '<div class="fx-profile-danger-copy"><strong>إدارة الملف</strong><small>إعادة الضبط لا تمسّ إعدادات الصوت أو الحركة أو الأداء.</small></div>' +
+      '<button type="button" class="fx-profile-tool fx-profile-tool-danger" data-profile-reset>↺ إعادة ضبط الملف</button>' +
       "</div>" +
       "</section>";
     const pct = Math.round(prefs.volume * 100);
@@ -1210,45 +1249,100 @@
     const label = body.querySelector("[data-volume-label]");
     const avatarChoices = Array.from(body.querySelectorAll("[data-profile-avatar]"));
     const avatarGrid = body.querySelector(".fx-avatar-grid");
-    const avatarMore = body.querySelector("[data-profile-more]");
-    const avatarMoreLabel = body.querySelector("[data-profile-more-label]");
-    const avatarMoreCount = body.querySelector("[data-profile-more-count]");
+    const avatarFilterButtons = Array.from(body.querySelectorAll("[data-avatar-filter]"));
     const colorChoices = Array.from(body.querySelectorAll("[data-profile-color]"));
     const customColor = body.querySelector("[data-profile-custom-color]");
     const customColorValue = body.querySelector("[data-profile-custom-value]");
+    const customColorRow = body.querySelector("[data-profile-custom-row]");
     const profilePreview = body.querySelector("[data-profile-preview]");
     const previewName = body.querySelector("[data-profile-preview-name]");
     const previewMeta = body.querySelector("[data-profile-preview-meta]");
     const nameInput = body.querySelector("[data-profile-name]");
     const nameCount = body.querySelector("[data-profile-name-count]");
+    const nameHint = body.querySelector("[data-profile-name-hint]");
+    const nameClear = body.querySelector("[data-profile-name-clear]");
     const avatarNameLabel = body.querySelector("[data-profile-avatar-name]");
     const colorNameLabel = body.querySelector("[data-profile-color-name]");
+    let activeAvatarFilter = initialAvatarFilter;
 
     function updateNameCount(value) {
-      if (nameCount) nameCount.textContent = String(value || "").length + "/" + BG.playerProfile.nameMax;
+      const length = String(value || "").length;
+      const max = BG.playerProfile.nameMax;
+      if (nameCount) {
+        nameCount.textContent = length + "/" + max;
+        nameCount.classList.toggle("is-near", length >= max - 3 && length < max);
+        nameCount.classList.toggle("is-max", length >= max);
+      }
+      if (nameClear) nameClear.hidden = !length;
     }
 
-    function setAvatarExpanded(expanded) {
-      if (!avatarGrid || !avatarMore) return;
-      avatarGrid.classList.toggle("is-expanded", expanded);
-      avatarMore.classList.toggle("is-open", expanded);
-      avatarMore.setAttribute("aria-expanded", expanded ? "true" : "false");
-      if (avatarMoreLabel) avatarMoreLabel.textContent = expanded ? "عرض أقل" : "المزيد من الأفتارات";
-      if (avatarMoreCount) avatarMoreCount.textContent = expanded ? avatarExtras + " إضافية" : "+" + avatarExtras;
-      avatarMore.querySelector(".fx-avatar-more-icon").textContent = expanded ? "−" : "+";
+    function updateNameHint(value) {
+      if (nameHint) nameHint.textContent = nameHintText(value);
+    }
+
+    function avatarButtonVisible(button, filter) {
+      const index = Number(button.getAttribute("data-avatar-index"));
+      if (filter === "all") return true;
+      if (filter === "featured") return index < avatarInitial;
+      return button.getAttribute("data-avatar-group") === filter;
+    }
+
+    function updateAvatarTabStops() {
+      const visible = avatarChoices.filter((button) => !button.hidden);
+      if (!visible.length) return;
+      const selected = visible.find((button) => button.classList.contains("is-selected")) || visible[0];
+      visible.forEach((button) => { button.tabIndex = button === selected ? 0 : -1; });
+    }
+
+    function applyAvatarFilter(filter, focus) {
+      const valid = avatarFilterDefs.some((item) => item.id === filter) ? filter : "all";
+      activeAvatarFilter = valid;
+      avatarChoices.forEach((button) => {
+        button.hidden = !avatarButtonVisible(button, valid);
+      });
+      avatarFilterButtons.forEach((button) => {
+        const on = button.getAttribute("data-avatar-filter") === valid;
+        button.classList.toggle("is-active", on);
+        button.setAttribute("aria-pressed", on ? "true" : "false");
+      });
+      updateAvatarTabStops();
+      if (focus) {
+        const visible = avatarChoices.filter((button) => !button.hidden);
+        const selected = visible.find((button) => button.classList.contains("is-selected")) || visible[0];
+        if (selected) selected.focus();
+      }
+    }
+
+    function ensureSelectedAvatarVisible(avatarId) {
+      const selectedButton = avatarChoices.find((button) => button.getAttribute("data-profile-avatar") === avatarId);
+      if (!selectedButton) return;
+      if (!avatarButtonVisible(selectedButton, activeAvatarFilter)) {
+        applyAvatarFilter(selectedButton.getAttribute("data-avatar-group") || "all", false);
+      }
+    }
+
+    function previewColor(value) {
+      const color = BG.playerProfile.normalizeColor(value) || BG.playerProfile.defaults.color;
+      if (colorNameLabel) colorNameLabel.textContent = profileColorName(color);
+      if (previewMeta) previewMeta.textContent = profileMeta({ avatar: BG.playerProfile.get().avatar, color });
+      if (customColorValue) customColorValue.textContent = color.toUpperCase();
+      if (customColorRow) customColorRow.classList.toggle("is-selected", BG.playerProfile.isCustomColor(color));
+      if (profilePreview) {
+        profilePreview.style.setProperty("--profile-color", color);
+        const avatarNode = profilePreview.querySelector(".fx-profile-preview-avatar");
+        if (avatarNode) avatarNode.style.setProperty("--profile-color", color);
+      }
     }
 
     function syncPlayerProfile() {
       const selected = BG.playerProfile.get();
-      const selectedIndex = avatarChoices.findIndex((button) => button.getAttribute("data-profile-avatar") === selected.avatar);
-      if (selectedIndex >= avatarInitial && avatarGrid && !avatarGrid.classList.contains("is-expanded")) {
-        setAvatarExpanded(true);
-      }
+      ensureSelectedAvatarVisible(selected.avatar);
       avatarChoices.forEach((button) => {
         const on = button.getAttribute("data-profile-avatar") === selected.avatar;
         button.classList.toggle("is-selected", on);
         button.setAttribute("aria-pressed", on ? "true" : "false");
       });
+      updateAvatarTabStops();
       colorChoices.forEach((button) => {
         const on = button.getAttribute("data-profile-color") === selected.color;
         button.classList.toggle("is-selected", on);
@@ -1256,8 +1350,11 @@
       });
       if (customColor && customColor.value.toLowerCase() !== selected.color) customColor.value = selected.color;
       if (customColorValue) customColorValue.textContent = selected.color.toUpperCase();
-      if (nameInput && nameInput.value !== selected.name) nameInput.value = selected.name;
-      updateNameCount(nameInput ? nameInput.value : selected.name);
+      if (customColorRow) customColorRow.classList.toggle("is-selected", BG.playerProfile.isCustomColor(selected.color));
+      if (nameInput && document.activeElement !== nameInput && nameInput.value !== selected.name) nameInput.value = selected.name;
+      const currentName = nameInput ? nameInput.value : selected.name;
+      updateNameCount(currentName);
+      updateNameHint(currentName);
       if (avatarNameLabel) avatarNameLabel.textContent = BG.playerProfile.avatarName(selected.avatar);
       if (colorNameLabel) colorNameLabel.textContent = profileColorName(selected.color);
       if (previewName) previewName.textContent = BG.playerProfile.displayName(selected);
@@ -1272,18 +1369,12 @@
       }
     }
 
-    function draftProfile(extra) {
-      const base = BG.playerProfile.get();
-      const typedName = nameInput ? BG.playerProfile.cleanName(nameInput.value) : base.name;
-      return Object.assign({}, base, { name: typedName }, extra || {});
-    }
-
     function commitProfileName() {
       if (!nameInput) return;
       const clean = BG.playerProfile.cleanName(nameInput.value);
       if (nameInput.value !== clean) nameInput.value = clean;
       if (clean !== BG.playerProfile.get().name) {
-        BG.playerProfile.set(draftProfile({ name: clean }));
+        BG.playerProfile.patch({ name: clean });
       }
       syncPlayerProfile();
     }
@@ -1291,6 +1382,7 @@
     if (nameInput) {
       nameInput.addEventListener("input", () => {
         updateNameCount(nameInput.value);
+        updateNameHint(nameInput.value);
         const typed = BG.playerProfile.cleanName(nameInput.value);
         if (previewName) previewName.textContent = typed || "لاعب ضيف";
       });
@@ -1301,66 +1393,108 @@
         nameInput.blur();
       });
     }
+    if (nameClear) nameClear.addEventListener("click", () => {
+      if (!nameInput) return;
+      nameInput.value = "";
+      updateNameCount("");
+      updateNameHint("");
+      if (previewName) previewName.textContent = "لاعب ضيف";
+      commitProfileName();
+      nameInput.focus();
+      sound("select");
+    });
+
+    avatarFilterButtons.forEach((button) => button.addEventListener("click", () => {
+      applyAvatarFilter(button.getAttribute("data-avatar-filter"), false);
+      sound("select");
+    }));
+
+    if (avatarGrid) {
+      avatarGrid.addEventListener("keydown", (event) => {
+        if (["ArrowRight", "ArrowLeft", "ArrowUp", "ArrowDown", "Home", "End"].indexOf(event.key) < 0) return;
+        const visible = avatarChoices.filter((button) => !button.hidden);
+        if (!visible.length) return;
+        event.preventDefault();
+        let index = visible.indexOf(document.activeElement);
+        if (index < 0) index = visible.findIndex((button) => button.classList.contains("is-selected"));
+        if (index < 0) index = 0;
+        const columns = Math.max(1, getComputedStyle(avatarGrid).gridTemplateColumns.split(" ").filter(Boolean).length || 6);
+        if (event.key === "Home") index = 0;
+        else if (event.key === "End") index = visible.length - 1;
+        else if (event.key === "ArrowRight") index -= 1;
+        else if (event.key === "ArrowLeft") index += 1;
+        else if (event.key === "ArrowUp") index -= columns;
+        else if (event.key === "ArrowDown") index += columns;
+        index = Math.max(0, Math.min(visible.length - 1, index));
+        visible.forEach((button) => { button.tabIndex = button === visible[index] ? 0 : -1; });
+        visible[index].focus();
+      });
+    }
 
     const randomProfileBtn = body.querySelector("[data-profile-random]");
     if (randomProfileBtn) randomProfileBtn.addEventListener("click", () => {
-      const current = BG.playerProfile.get();
-      const avatarPool = BG.playerProfile.avatars.filter((avatar) => avatar.id !== current.avatar);
-      const colorPool = BG.playerProfile.colors.filter((color) => color.value !== current.color);
-      const avatar = avatarPool.length ? avatarPool[Math.floor(Math.random() * avatarPool.length)] : current;
-      const color = colorPool.length ? colorPool[Math.floor(Math.random() * colorPool.length)] : { value: current.color };
-      BG.playerProfile.set(draftProfile({ avatar: avatar.id, color: color.value }));
+      BG.playerProfile.patch(BG.playerProfile.randomize(BG.playerProfile.get()));
       syncPlayerProfile();
       sound("select");
+    });
+
+    const randomAvatarBtn = body.querySelector("[data-profile-random-avatar]");
+    if (randomAvatarBtn) randomAvatarBtn.addEventListener("click", () => {
+      const current = BG.playerProfile.get();
+      const pool = BG.playerProfile.avatars.filter((avatar) => avatar.id !== current.avatar);
+      const avatar = pool[Math.floor(Math.random() * pool.length)] || BG.playerProfile.avatars[0];
+      BG.playerProfile.patch({ avatar: avatar.id });
+      syncPlayerProfile();
+      sound("select");
+    });
+
+    const avatarTintBtn = body.querySelector("[data-profile-color-from-avatar]");
+    if (avatarTintBtn) avatarTintBtn.addEventListener("click", () => {
+      const tint = BG.playerProfile.normalizeColor(BG.playerProfile.avatarTint(BG.playerProfile.get().avatar));
+      if (!tint) return;
+      BG.playerProfile.patch({ color: tint });
+      syncPlayerProfile();
+      sound("select");
+      BG.toast("طُبّق لون الأفتار على ملفك.", "good");
     });
 
     const resetProfileBtn = body.querySelector("[data-profile-reset]");
     if (resetProfileBtn) resetProfileBtn.addEventListener("click", () => {
-      if (nameInput) nameInput.value = "";
-      BG.playerProfile.set({
-        avatar: "human",
-        color: BG.playerProfile.colors[0].value,
-        name: "",
+      BG.confirm(
+        "إعادة ضبط ملف اللاعب",
+        "سيُمسح اسمك وأفتارك ولونك ويعود الملف إلى الوضع الافتراضي. إعدادات الصوت والحركة والأداء لن تتغيّر.",
+        "إعادة الضبط",
+        "إلغاء",
+        { keep: true }
+      ).then((yes) => {
+        if (!yes) return;
+        BG.playerProfile.reset();
+        applyAvatarFilter("featured", false);
+        syncPlayerProfile();
+        sound("select");
+        BG.toast("أُعيد ملف اللاعب إلى الوضع الافتراضي.", "good");
       });
-      syncPlayerProfile();
-      sound("select");
-      BG.toast("أُعيد ملف اللاعب إلى الوضع الافتراضي.");
-    });
-
-    if (avatarMore) avatarMore.addEventListener("click", () => {
-      setAvatarExpanded(!avatarGrid.classList.contains("is-expanded"));
-      sound("select");
     });
 
     avatarChoices.forEach((button) => button.addEventListener("click", () => {
-      BG.playerProfile.set(draftProfile({ avatar: button.getAttribute("data-profile-avatar") }));
+      BG.playerProfile.patch({ avatar: button.getAttribute("data-profile-avatar") });
       syncPlayerProfile();
       sound("select");
     }));
     colorChoices.forEach((button) => button.addEventListener("click", () => {
-      BG.playerProfile.set(draftProfile({ color: button.getAttribute("data-profile-color") }));
+      BG.playerProfile.patch({ color: button.getAttribute("data-profile-color") });
       syncPlayerProfile();
       sound("select");
     }));
     if (customColor) {
-      customColor.addEventListener("input", () => {
-        if (customColorValue) customColorValue.textContent = customColor.value.toUpperCase();
-        if (colorNameLabel) colorNameLabel.textContent = profileColorName(customColor.value);
-        if (previewMeta) {
-          previewMeta.textContent = profileMeta({ avatar: BG.playerProfile.get().avatar, color: customColor.value });
-        }
-        if (profilePreview) {
-          profilePreview.style.setProperty("--profile-color", customColor.value);
-          const avatarNode = profilePreview.querySelector(".fx-profile-preview-avatar");
-          if (avatarNode) avatarNode.style.setProperty("--profile-color", customColor.value);
-        }
-      });
+      customColor.addEventListener("input", () => previewColor(customColor.value));
       customColor.addEventListener("change", () => {
-        BG.playerProfile.set(draftProfile({ color: customColor.value }));
+        BG.playerProfile.patch({ color: customColor.value });
         syncPlayerProfile();
         sound("select");
       });
     }
+    applyAvatarFilter(initialAvatarFilter, false);
     syncPlayerProfile();
     const packDesc = body.querySelector("#fx-opt-pack-desc");
 
@@ -1601,6 +1735,7 @@
         activateTab(tabs[next].getAttribute("data-fx-tab"), true);
       });
     });
+    activateTab(initialTab, false);
 
     const saveStatus = document.createElement("span");
     saveStatus.className = "fx-save-status";
@@ -1632,7 +1767,11 @@
       if (!document.body.contains(body)) return;
       syncHideSecrets();
     };
-    const syncProfile = () => markSaved();
+    const syncProfile = () => {
+      if (!document.body.contains(body)) return;
+      syncPlayerProfile();
+      markSaved();
+    };
     const syncReduced = () => syncMotionUI();
     document.addEventListener("bgfxchange", syncFx);
     document.addEventListener("bgprefschange", syncPrefs);

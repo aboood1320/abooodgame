@@ -335,3 +335,43 @@
   .net-hud.is-my-turn { box-shadow: 0 0 0 1px rgba(76, 201, 164, 0.5); }
   .net-hud.is-reconnecting .net-hud-dot { animation: none; }
 }
+
+/* بطاقة هوية اللاعب في لوبي اللعب الجماعي */
+.net-profile-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 10px 0;
+  padding: 9px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  border-radius: 14px;
+  background:
+    radial-gradient(120% 180% at 100% 0%, rgba(76, 201, 164, 0.12), transparent 72%),
+    rgba(255, 255, 255, 0.03);
+}
+.net-profile-avatar-wrap { display: grid; flex: 0 0 auto; place-items: center; }
+.net-profile-avatar { width: 44px; height: 44px; border-width: 2px; font-size: 1.4rem; }
+.net-profile-main { display: grid; flex: 1 1 auto; gap: 4px; min-width: 0; }
+.net-profile-label { color: var(--muted); font-size: 0.7rem; font-weight: 800; }
+.net-profile-main input {
+  width: 100%;
+  min-height: 40px;
+  padding: 8px 11px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 10px;
+  background: rgba(6, 13, 18, 0.72);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.88rem;
+}
+.net-profile-main input:focus {
+  outline: 2px solid rgba(76, 201, 164, 0.55);
+  outline-offset: 1px;
+  border-color: transparent;
+}
+.net-profile-edit { flex: 0 0 auto; white-space: nowrap; }
+@media (max-width: 460px) {
+  .net-profile-card { flex-wrap: wrap; }
+  .net-profile-main { flex-basis: calc(100% - 58px); }
+  .net-profile-edit { flex: 1 1 100%; justify-content: center; }
+}
