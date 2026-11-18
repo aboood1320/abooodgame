@@ -124,14 +124,95 @@
 .fx-panel {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding-top: 12px;
+  gap: 9px;
+  padding-top: 10px;
 }
 .fx-panel[hidden] { display: none !important; }
 .fx-panel.is-active { animation: fx-panel-in 0.24s cubic-bezier(0.2, 0.8, 0.3, 1) both; }
 @keyframes fx-panel-in {
   from { opacity: 0; transform: translateY(5px); }
   to { opacity: 1; transform: none; }
+}
+
+/* ------------------------------ حالة محرّك الصوت ------------------------------ */
+
+.fx-option[hidden] { display: none !important; }
+
+.fx-audio-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 42px;
+  padding: 6px 10px;
+  border-radius: 12px;
+  border: 1px solid var(--stroke);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.018));
+}
+.fx-audio-dot {
+  flex: 0 0 auto;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--dim);
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.04);
+}
+.fx-audio-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 0.62rem;
+  font-weight: 700;
+  line-height: 1.5;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.fx-audio-status[data-state="ready"] .fx-audio-dot {
+  background: #4cc9a4;
+  box-shadow: 0 0 0 3px rgba(76, 201, 164, 0.18);
+}
+.fx-audio-status[data-state="loading"] .fx-audio-dot {
+  background: var(--accent);
+  animation: fx-audio-pulse 1.3s ease-in-out infinite;
+}
+.fx-audio-status[data-state="waiting"] .fx-audio-dot {
+  background: #e1b45c;
+  box-shadow: 0 0 0 3px rgba(225, 180, 92, 0.16);
+}
+.fx-audio-status[data-state="muted"] .fx-audio-dot,
+.fx-audio-status[data-state="silent"] .fx-audio-dot,
+.fx-audio-status[data-state="off"] .fx-audio-dot {
+  opacity: 0.55;
+}
+@keyframes fx-audio-pulse {
+  0%, 100% { opacity: 0.4; transform: scale(0.82); }
+  50% { opacity: 1; transform: scale(1); }
+}
+.fx-audio-preview {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 4px;
+  min-height: 26px;
+  padding: 0 9px;
+  border: 1px solid var(--stroke);
+  border-radius: 9px;
+  color: var(--accent);
+  background: rgba(255, 255, 255, 0.05);
+  font: inherit;
+  font-size: 0.6rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: border-color 0.16s ease, background 0.16s ease, opacity 0.16s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.fx-audio-preview .ic { width: 14px; height: 14px; }
+.fx-audio-preview:hover:not(:disabled) { border-color: var(--stroke-2); background: rgba(255, 255, 255, 0.09); }
+.fx-audio-preview:disabled { opacity: 0.45; cursor: not-allowed; }
+.fx-audio-preview:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .fx-audio-status[data-state="loading"] .fx-audio-dot { animation: none; }
 }
 
 .fx-save-status {
@@ -670,7 +751,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 14px;
-  padding: 12px 14px;
+  padding: 11px 14px;
   border-radius: 13px;
   border: 1px solid var(--stroke);
   background: rgba(255, 255, 255, 0.035);
@@ -704,7 +785,7 @@
   flex: 1 1 190px;
   min-width: 150px;
   height: 5px;
-  margin: 9px 0;
+  margin: 7px 0;
   border-radius: 99px;
   direction: ltr;
   background:
@@ -833,7 +914,7 @@
 .fx-note {
   margin: 0;
   font-size: 0.68rem;
-  line-height: 1.65;
+  line-height: 1.5;
   color: var(--dim);
   padding: 0 2px;
 }
@@ -1064,4 +1145,13 @@
   .fx-profile-name-field input { height: 44px; font-size: 16px; }
   .fx-save-status { font-size: 0.56rem; }
   .fx-save-status .ic { width: 12px; height: 12px; }
+}
+
+/* لوحة الصوت على الجوال: تبقى كاملة بلا تمرير في الحالة الافتراضية */
+@media (max-width: 430px) {
+  .fx-panel { gap: 7px; padding-top: 8px; }
+  .fx-audio-status { min-height: 36px; padding: 4px 9px; }
+  .fx-audio-text { font-size: 0.58rem; }
+  .fx-audio-preview { min-height: 26px; padding: 0 8px; }
+  .fx-preview { padding: 6px 10px; }
 }

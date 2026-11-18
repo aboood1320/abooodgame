@@ -11,8 +11,27 @@
 
   const STORE_KEY = "fx.v1";
   const isLite = () => document.documentElement.classList.contains("lite");
-  const DEFAULTS = { sound: true, volume: 0.55, motion: true, pack: "classic", music: false };
+  const DEFAULTS = { sound: true, volume: 0.55, motion: true, pack: "classic", music: false, musicVolume: 0.5 };
   const ASSET_BASE = "vendor/kenney/audio/";
+  const MASTER_TRIM = 0.9;
+  const MAX_VOICES = 26;
+
+  /* فاصل زمني لكل مؤثر: يمنع تراكم النقرات المزدوجة ويبقي المزيج نظيفًا */
+  const THROTTLE_MS = {
+    click: 70, select: 60, toggle: 60, tick: 110,
+    card: 50, draw: 50, deal: 50, flip: 50,
+    move: 45, place: 50, meeple: 50, tile: 50,
+    point: 50, score: 65, coin: 50, step: 70,
+    turn: 140, pass: 120, reveal: 120, unlock: 120,
+    join: 140, leave: 140, error: 150, win: 200, lose: 200, yourturn: 400,
+  };
+
+  /* إرسال إلى صدى الخلفية: يمنح أحداث النتائج عمقًا دون إغراق المؤثرات القصيرة */
+  const SAMPLE_SPACE = {
+    win: 0.16, lose: 0.12, crown: 0.14, cure: 0.12,
+    unlock: 0.1, reveal: 0.08, yourturn: 0.1, promote: 0.12,
+    join: 0.08, leave: 0.08, turn: 0.08,
+  };
 
   /* أسماء منطقية → ملفات صوتية (يُختار أحدها عشوائيًا لتجنّب التكرار) */
   const SAMPLES = {
@@ -99,6 +118,7 @@
       motion: saved.motion !== false,
       pack: typeof saved.pack === "string" ? saved.pack : DEFAULTS.pack,
       music: saved.music === true,
+      musicVolume: Number.isFinite(Number(saved.musicVolume)) ? U.clamp(Number(saved.musicVolume), 0, 1) : DEFAULTS.musicVolume,
     };
   }
 
@@ -106,8 +126,14 @@
   let ctx = null;
   let master = null;
   let unlocked = false;
+  let preloadStarted = false;
   let reducedQuery = null;
   const preloaded = new Set();
+  const stats = { plays: 0, suppressed: 0, dropped: 0, failed: 0, last: "", lastAt: 0 };
+  const activeVoices = new Set();
+  const lastFired = new Map();
+  let lastAnyAt = 0;
+  const ALL_FILES = Array.from(new Set(Object.keys(SAMPLES).reduce((all, key) => all.concat(SAMPLES[key]), [])));
 
   try {
     reducedQuery = window.matchMedia ? window.matchMedia("(prefers-reduced-motion: reduce)") : null;
@@ -115,7 +141,40 @@
     reducedQuery = null;
   }
 
-  /* ------------------------------ محرّك الصوت المرخّص ------------------------------ */
+  /* ------------------------------ محرّك الصوت ------------------------------ */
+
+  /* منحنى إدراكي: يمنح شريط الصوت إحساسًا طبيعيًا في المستويات المنخفضة */
+  function volumeCurve(value) {
+    return Math.pow(U.clamp(Number(value) || 0, 0, 1), 1.45) * MASTER_TRIM;
+  }
+
+  let space = null;
+  let spaceSend = null;
+
+  function makeImpulse(seconds, decay) {
+    const length = Math.max(1, Math.floor(ctx.sampleRate * seconds));
+    const buffer = ctx.createBuffer(2, length, ctx.sampleRate);
+    for (let ch = 0; ch < 2; ch++) {
+      const data = buffer.getChannelData(ch);
+      for (let i = 0; i < length; i++) data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / length, decay);
+    }
+    return buffer;
+  }
+
+  function ensureSampleSpace() {
+    if (space || !ctx || !master) return;
+    try {
+      space = ctx.createConvolver();
+      space.buffer = makeImpulse(1.25, 2.7);
+      spaceSend = ctx.createGain();
+      spaceSend.gain.value = 0.32;
+      space.connect(spaceSend);
+      spaceSend.connect(master);
+    } catch (err) {
+      space = null;
+      spaceSend = null;
+    }
+  }
 
   function ensureContext() {
     if (ctx) return ctx;
@@ -125,18 +184,25 @@
       ctx = new AudioCtor();
       const comp = ctx.createDynamicsCompressor ? ctx.createDynamicsCompressor() : null;
       master = ctx.createGain();
-      master.gain.value = prefs.volume * 0.62;
+      master.gain.value = Math.max(0.0001, volumeCurve(prefs.volume));
       if (comp) {
-        comp.threshold.value = -22;
-        comp.knee.value = 22;
-        comp.ratio.value = 5;
+        comp.threshold.value = -16;
+        comp.knee.value = 20;
+        comp.ratio.value = 4;
         comp.attack.value = 0.004;
-        comp.release.value = 0.22;
+        comp.release.value = 0.25;
         master.connect(comp);
         comp.connect(ctx.destination);
       } else {
         master.connect(ctx.destination);
       }
+      ctx.addEventListener("statechange", () => {
+        if (ctx && ctx.state === "running") {
+          unlocked = true;
+          document.documentElement.classList.add("fx-audio-ready");
+        }
+      });
+      ensureSampleSpace();
     } catch (err) {
       ctx = null;
       master = null;
@@ -149,6 +215,18 @@
   const bufLoading = new Set();
   const bufFailed = new Set();
 
+  function peakLevel(buffer) {
+    let peak = 0;
+    for (let ch = 0; ch < buffer.numberOfChannels; ch++) {
+      const data = buffer.getChannelData(ch);
+      for (let i = 0; i < data.length; i += 7) {
+        const value = Math.abs(data[i]);
+        if (value > peak) peak = value;
+      }
+    }
+    return peak;
+  }
+
   function loadBuffer(file) {
     if (!ctx || buffers.has(file) || bufLoading.has(file) || bufFailed.has(file)) return;
     bufLoading.add(file);
@@ -158,8 +236,18 @@
         const p = ctx.decodeAudioData(data, resolve, reject);
         if (p && p.catch) p.catch(reject);
       }))
-      .then((buf) => { buffers.set(file, buf); })
-      .catch(() => { bufFailed.add(file); })
+      .then((buffer) => {
+        const peak = peakLevel(buffer);
+        const gain = peak > 0.04 ? Math.min(1.5, 0.86 / peak) : 1;
+        buffers.set(file, { buffer, gain });
+        document.dispatchEvent(new CustomEvent("bgfxaudio", {
+          detail: { file, loaded: buffers.size, total: ALL_FILES.length },
+        }));
+      })
+      .catch(() => {
+        bufFailed.add(file);
+        stats.failed++;
+      })
       .then(() => { bufLoading.delete(file); });
   }
 
@@ -177,63 +265,111 @@
   }
 
   function preloadAll() {
-    PRELOAD.forEach((file, i) => {
-      if (ctx) setTimeout(() => loadBuffer(file), 400 + i * 180);
-      else preloadFile(file);
+    if (!ctx) {
+      PRELOAD.forEach((file) => preloadFile(file));
+      return;
+    }
+    if (preloadStarted) return;
+    preloadStarted = true;
+    const ordered = PRELOAD.concat(ALL_FILES.filter((file) => PRELOAD.indexOf(file) < 0));
+    ordered.forEach((file, i) => {
+      setTimeout(() => loadBuffer(file), 120 + i * 70);
     });
   }
 
   function applyVolume() {
-    if (!ctx || !master) return;
-    const level = Math.max(0.0001, prefs.volume * 0.62);
+    if (!master || !ctx) {
+      if (BG.soundPacks && BG.soundPacks.setMusicVolume) BG.soundPacks.setMusicVolume(prefs.musicVolume);
+      return;
+    }
+    const level = Math.max(0.0001, volumeCurve(prefs.volume));
     try {
       master.gain.cancelScheduledValues(ctx.currentTime);
-      master.gain.setTargetAtTime(level, ctx.currentTime, 0.03);
+      master.gain.setTargetAtTime(level, ctx.currentTime, 0.035);
     } catch (err) {
       master.gain.value = level;
     }
+    if (BG.soundPacks && BG.soundPacks.setMusicVolume) BG.soundPacks.setMusicVolume(prefs.musicVolume);
   }
 
   function unlock() {
     const audio = ensureContext();
-    if (audio && audio.state === "suspended") {
-      audio.resume().then(() => { unlocked = true; }).catch(() => { /* المتصفح رفض التشغيل */ });
-    } else if (audio) {
+    if (!audio) return;
+    const ready = () => {
       unlocked = true;
+      document.documentElement.classList.add("fx-audio-ready");
+      preloadAll();
+      if (prefs.music && prefs.sound) startMusicNow();
+    };
+    if (audio.state === "suspended") {
+      audio.resume().then(ready).catch(() => { /* المتصفح ينتظر إيماءة أخرى */ });
+    } else {
+      ready();
     }
-    preloadAll();
-    if (prefs.music && prefs.sound) startMusicNow();
-    document.documentElement.classList.add("fx-audio-ready");
   }
 
   /**
    * تشغيل ملف صوتي مرخّص. يعيد كائنًا فيه وعد التشغيل أو null عند الفشل.
-   * نستخدم عنصر صوت جديدًا في كل مرة كي تتداخل المؤثرات دون قطع بعضها.
+   * الأفضلية للعازف المخزّن (Web Audio) لأنه أقل تأخيرًا وأدق في المزج.
    */
   function playSample(name, opts) {
     const o = opts || {};
     const list = SAMPLES[name];
     if (!list || !list.length || typeof window.Audio !== "function") return null;
     const file = list.length === 1 ? list[0] : list[Math.floor(Math.random() * list.length)];
+
     if (ctx && buffers.has(file)) {
-      try {
-        const src = ctx.createBufferSource();
-        const g = ctx.createGain();
-        src.buffer = buffers.get(file);
-        src.playbackRate.value = o.rate || (o.vary !== false ? 0.97 + Math.random() * 0.06 : 1);
-        g.gain.value = U.clamp((o.gain == null ? 0.92 : o.gain) / 0.62, 0, 1.6);
-        src.connect(g);
-        g.connect(master);
-        src.start();
+      if (activeVoices.size >= MAX_VOICES) {
+        stats.dropped++;
         return { el: null, promise: Promise.resolve() };
-      } catch (err) { /* نكمل بالطريقة القديمة */ }
+      }
+      try {
+        const meta = buffers.get(file);
+        const rate = o.rate || (o.vary !== false ? 0.97 + Math.random() * 0.06 : 1);
+        const src = ctx.createBufferSource();
+        src.buffer = meta.buffer;
+        src.playbackRate.value = rate;
+
+        const g = ctx.createGain();
+        const level = Math.max(0.0001, (o.gain == null ? 0.92 : o.gain) * meta.gain * 0.95);
+        const t = ctx.currentTime;
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.linearRampToValueAtTime(level, t + 0.005);
+
+        let tail = g;
+        if (ctx.createStereoPanner) {
+          const panner = ctx.createStereoPanner();
+          panner.pan.value = o.pan == null ? (Math.random() * 0.16 - 0.08) : U.clamp(o.pan, -1, 1);
+          g.connect(panner);
+          tail = panner;
+        }
+        tail.connect(master);
+
+        const send = o.send == null ? (SAMPLE_SPACE[name] || 0) : o.send;
+        if (send > 0 && space) {
+          const s = ctx.createGain();
+          s.gain.value = send;
+          tail.connect(s);
+          s.connect(space);
+        }
+
+        src.connect(g);
+        src.onended = () => activeVoices.delete(src);
+        activeVoices.add(src);
+        src.start(t);
+        setTimeout(() => activeVoices.delete(src), (meta.buffer.duration / rate) * 1000 + 600);
+        return { el: null, promise: Promise.resolve() };
+      } catch (err) {
+        /* نكمل بعنصر الصوت التقليدي */
+      }
     }
+
     if (ctx && !bufFailed.has(file)) loadBuffer(file);
     preloadFile(file);
     try {
       const el = new window.Audio(ASSET_BASE + file);
       el.preload = "auto";
-      el.volume = U.clamp(prefs.volume * (o.gain == null ? 0.92 : o.gain), 0, 1);
+      el.volume = U.clamp(prefs.volume * (o.gain == null ? 0.92 : o.gain) * 1.05, 0, 1);
       if (o.rate) el.playbackRate = o.rate;
       else if (o.vary !== false) el.playbackRate = 0.97 + Math.random() * 0.06;
       const promise = el.play();
@@ -450,6 +586,18 @@
     if (!o.force && !prefs.sound) return;
     const packActive = prefs.pack && prefs.pack !== "classic" && BG.soundPacks && BG.soundPacks.has(prefs.pack);
     if (!SAMPLES[name] && !SYNTH[name] && !packActive) return;
+
+    const now = typeof performance !== "undefined" && performance.now ? performance.now() : Date.now();
+    const gap = THROTTLE_MS[name] || 0;
+    if (!o.force && gap) {
+      const last = lastFired.get(name) || 0;
+      if (now - last < gap) {
+        stats.suppressed++;
+        return;
+      }
+    }
+    lastFired.set(name, now);
+
     const audio = ensureContext();
     if (!audio) {
       synthSound(name);
@@ -457,8 +605,13 @@
       return;
     }
     if (audio.state === "suspended") {
-      audio.resume().catch(() => { /* لا شيء */ });
+      audio.resume().then(() => { preloadAll(); }).catch(() => { /* لا شيء */ });
     }
+
+    stats.plays++;
+    stats.last = name;
+    stats.lastAt = now;
+    lastAnyAt = now;
 
     /* حزمة مولّدة: تعزف الحدث بنغمات الحزمة بدل العيّنات */
     if (packActive && BG.soundPacks.play(prefs.pack, name, audio, master)) return;
@@ -929,7 +1082,14 @@
   /* ------------------------------ الإعدادات ------------------------------ */
 
   function savePrefs() {
-    BG.store.set(STORE_KEY, { sound: prefs.sound, volume: prefs.volume, motion: prefs.motion, pack: prefs.pack, music: prefs.music });
+    BG.store.set(STORE_KEY, {
+      sound: prefs.sound,
+      volume: prefs.volume,
+      motion: prefs.motion,
+      pack: prefs.pack,
+      music: prefs.music,
+      musicVolume: prefs.musicVolume,
+    });
     document.dispatchEvent(new CustomEvent("bgfxstored", { detail: Object.assign({}, prefs) }));
   }
 
@@ -937,7 +1097,7 @@
     prefs.sound = !!on;
     savePrefs();
     if (!prefs.sound) stopMusicNow();
-    else if (prefs.music) startMusicNow();
+    else if (prefs.music) { unlock(); startMusicNow(); }
     if (prefs.sound) sound("click");
     document.dispatchEvent(new CustomEvent("bgfxchange", { detail: Object.assign({}, prefs) }));
     return prefs.sound;
@@ -970,11 +1130,19 @@
   function startMusicNow() {
     if (!BG.soundPacks) return;
     const audio = ensureContext();
-    if (audio && master) BG.soundPacks.startMusic(audio, master);
+    if (audio && master) BG.soundPacks.startMusic(audio, master, prefs.musicVolume);
   }
 
   function stopMusicNow() {
     if (BG.soundPacks) BG.soundPacks.stopMusic();
+  }
+
+  function setMusicVolume(value) {
+    prefs.musicVolume = U.clamp(Number(value) || 0, 0, 1);
+    savePrefs();
+    if (BG.soundPacks && BG.soundPacks.setMusicVolume) BG.soundPacks.setMusicVolume(prefs.musicVolume);
+    document.dispatchEvent(new CustomEvent("bgfxchange", { detail: Object.assign({}, prefs) }));
+    return prefs.musicVolume;
   }
 
   function setMusic(on) {
@@ -1124,13 +1292,26 @@
       "</div>" +
       "</section>";
     const pct = Math.round(prefs.volume * 100);
+    const mpct = Math.round(prefs.musicVolume * 100);
     const audibleNow = prefs.sound && prefs.volume > 0;
     const packList = (BG.soundPacks && BG.soundPacks.list) || [{ id: "classic", name: "كلاسيكي" }];
+    const packInfo = (id) => packList.find((item) => item.id === id) || packList[0];
+    const packLabel = (pack) => (pack && pack.icon ? pack.icon + " " : "") + (pack && pack.name ? pack.name : "كلاسيكي");
     const packHintFor = (id) => {
-      const pack = packList.find((item) => item.id === id) || packList[0];
+      const pack = packInfo(id);
       return (pack && pack.note ? pack.note + " — " : "") +
         (audibleNow ? "تُعزف معاينة عند التغيير" : "ستُعزف المعاينة عند تفعيل الصوت");
     };
+    const engineReady = () => !!(window.AudioContext || window.webkitAudioContext);
+    const initialStatus = !engineReady()
+      ? "هذا المتصفح لا يدعم تشغيل الصوت"
+      : !prefs.sound
+        ? "المؤثرات مكتومة — الموسيقى متوقفة"
+        : prefs.volume <= 0
+          ? "مستوى المؤثرات صفر — لن تسمع شيئًا"
+          : prefs.pack !== "classic"
+            ? "حزمة " + packInfo(prefs.pack).name + " — نغمات مولّدة لحظيًا"
+            : "تجهيز العيّنات الصوتية…";
     const tabButton = (id, label, iconId, active) =>
       '<button type="button" class="fx-tab' + (active ? " is-active" : "") + '" id="fx-tab-' + id + '" role="tab" aria-selected="' + (active ? "true" : "false") + '" aria-controls="fx-panel-' + id + '" tabindex="' + (active ? "0" : "-1") + '" data-fx-tab="' + id + '">' +
       icon(iconId) + "<span>" + label + "</span></button>";
@@ -1141,6 +1322,11 @@
       : "نغمات متولّدة بهدوء أثناء اللعب (مغلقة افتراضيًا)";
     const soundPanel =
       '<div class="fx-panel is-active" id="fx-panel-sound" role="tabpanel" aria-labelledby="fx-tab-sound" data-fx-panel="sound">' +
+        '<div class="fx-audio-status" data-audio-status data-state="idle" role="status" aria-live="polite">' +
+          '<span class="fx-audio-dot" aria-hidden="true"></span>' +
+          '<span class="fx-audio-text" data-audio-status-text>' + U.escape(initialStatus) + "</span>" +
+          '<button type="button" class="fx-audio-preview" data-pack-preview aria-label="معاينة الحزمة الحالية" title="معاينة الحزمة الحالية">' + icon("i-speaker") + "<span>معاينة</span></button>" +
+        "</div>" +
         '<div class="fx-option" data-row-sound>' +
           '<div class="fx-option-copy"><span class="fx-option-icon">' + icon("i-speaker") + '</span><div>' +
             '<strong id="fx-opt-sound">المؤثرات الصوتية</strong>' +
@@ -1153,7 +1339,7 @@
             '<strong id="fx-opt-volume">مستوى الصوت</strong>' +
             '<small id="fx-opt-volume-desc"><output data-volume-label for="fx-volume">' + pct + "%</output></small>" +
           "</div></div>" +
-          '<input id="fx-volume" type="range" min="0" max="100" step="5" value="' + pct + '" data-volume aria-label="مستوى الصوت" aria-labelledby="fx-opt-volume" aria-describedby="fx-opt-volume-desc" style="--fx-fill:' + pct + '%" />' +
+          '<input id="fx-volume" type="range" min="0" max="100" step="5" value="' + pct + '" data-volume aria-label="مستوى الصوت" aria-valuetext="' + pct + '%" aria-labelledby="fx-opt-volume" aria-describedby="fx-opt-volume-desc" style="--fx-fill:' + pct + '%" />' +
         "</div>" +
         '<div class="fx-option" data-row-pack>' +
           '<div class="fx-option-copy"><span class="fx-option-icon">' + icon("i-speaker") + '</span><div>' +
@@ -1162,7 +1348,7 @@
           "</div></div>" +
           '<select class="fx-select" data-pack aria-labelledby="fx-opt-pack" aria-describedby="fx-opt-pack-desc">' +
           packList.map((pack) =>
-            '<option value="' + U.escape(pack.id) + '"' + (pack.id === prefs.pack ? " selected" : "") + ">" + U.escape(pack.name) + "</option>"
+            '<option value="' + U.escape(pack.id) + '"' + (pack.id === prefs.pack ? " selected" : "") + ">" + U.escape(packLabel(pack)) + "</option>"
           ).join("") +
           "</select>" +
         "</div>" +
@@ -1172,6 +1358,13 @@
             '<small id="fx-opt-music-desc"><span data-music-desc>' + musicHint + "</span></small>" +
           "</div></div>" +
           '<button type="button" class="fx-switch" data-toggle="music" role="switch" aria-checked="' + (prefs.music ? "true" : "false") + '" aria-labelledby="fx-opt-music" aria-describedby="fx-opt-music-desc"' + (prefs.sound ? "" : " disabled") + '><span></span></button>' +
+        "</div>" +
+        '<div class="fx-option fx-option-volume" data-row-music-volume' + (prefs.music ? "" : " hidden") + ">" +
+          '<div class="fx-option-copy"><span class="fx-option-icon">' + icon("i-volume") + '</span><div>' +
+            '<strong id="fx-opt-music-volume">مستوى الموسيقى</strong>' +
+            '<small id="fx-opt-music-volume-desc"><output data-music-volume-label for="fx-music-volume">' + mpct + "%</output></small>" +
+          "</div></div>" +
+          '<input id="fx-music-volume" type="range" min="0" max="100" step="5" value="' + mpct + '" data-music-volume aria-label="مستوى الموسيقى" aria-valuetext="' + mpct + '%" aria-labelledby="fx-opt-music-volume" aria-describedby="fx-opt-music-volume-desc" style="--fx-fill:' + mpct + '%" />' +
         "</div>" +
         '<div class="fx-preview" data-preview>' +
           '<div class="fx-preview-copy"><span>جرّب المؤثرات</span><small data-preview-hint>' + (audibleNow ? "تُشغَّل فورًا" : "فعّل المؤثرات الصوتية أولًا") + "</small></div>" +
@@ -1247,6 +1440,12 @@
     const perfStatus = body.querySelector("[data-perf-status]");
     const volume = body.querySelector("[data-volume]");
     const label = body.querySelector("[data-volume-label]");
+    const musicVolumeRow = body.querySelector("[data-row-music-volume]");
+    const musicVolumeInput = body.querySelector("[data-music-volume]");
+    const musicVolumeLabel = body.querySelector("[data-music-volume-label]");
+    const audioStatus = body.querySelector("[data-audio-status]");
+    const audioStatusText = body.querySelector("[data-audio-status-text]");
+    const packPreview = body.querySelector("[data-pack-preview]");
     const avatarChoices = Array.from(body.querySelectorAll("[data-profile-avatar]"));
     const avatarGrid = body.querySelector(".fx-avatar-grid");
     const avatarFilterButtons = Array.from(body.querySelectorAll("[data-avatar-filter]"));
@@ -1537,6 +1736,7 @@
         volume.disabled = !prefs.sound;
         volume.value = String(value);
         volume.style.setProperty("--fx-fill", value + "%");
+        volume.setAttribute("aria-valuetext", value + "%");
       }
       if (label) {
         label.textContent = !prefs.sound
@@ -1547,6 +1747,62 @@
         volumeRow.classList.toggle("is-disabled", !prefs.sound);
         volumeRow.classList.toggle("is-silent", prefs.sound && value === 0);
       }
+    }
+
+    function syncMusicVolumeUI() {
+      const value = Math.round(prefs.musicVolume * 100);
+      const active = prefs.sound && prefs.music;
+      if (musicVolumeRow) musicVolumeRow.hidden = !prefs.music;
+      if (musicVolumeInput) {
+        musicVolumeInput.disabled = !active;
+        musicVolumeInput.value = String(value);
+        musicVolumeInput.style.setProperty("--fx-fill", value + "%");
+        musicVolumeInput.setAttribute("aria-valuetext", value + "%");
+      }
+      if (musicVolumeLabel) {
+        musicVolumeLabel.textContent = !prefs.sound
+          ? "مكتوم · " + value + "%"
+          : value === 0 ? "صامت · 0%" : value + "%";
+      }
+      if (musicVolumeRow) {
+        musicVolumeRow.classList.toggle("is-disabled", !active);
+        musicVolumeRow.classList.toggle("is-silent", active && value === 0);
+      }
+    }
+
+    /* وصف حيّ لمحرّك الصوت: يعرض ما يحدث الآن بدل إعدادات صامتة */
+    function audioStatusInfo() {
+      const loaded = buffers.size;
+      const total = ALL_FILES.length;
+      if (!engineReady()) return { state: "off", text: "هذا المتصفح لا يدعم تشغيل الصوت" };
+      if (!prefs.sound) return { state: "muted", text: "المؤثرات مكتومة — الموسيقى متوقفة" };
+      if (prefs.volume <= 0) return { state: "silent", text: "مستوى المؤثرات صفر — لن تسمع شيئًا" };
+      if (prefs.pack !== "classic") {
+        return {
+          state: "ready",
+          text: "حزمة " + packInfo(prefs.pack).name + " · نغمات مولّدة · الموسيقى " + (prefs.music ? "تعمل" : "متوقفة"),
+        };
+      }
+      if (ctx && ctx.state === "suspended") return { state: "waiting", text: "اضغط أي زر لبدء تشغيل الصوت" };
+      if (loaded + stats.failed >= total && total) {
+        return {
+          state: "ready",
+          text: "العيّنات جاهزة · " + loaded + " مؤثرًا" + (stats.failed ? " · تعذّر تحميل " + stats.failed : "") + " · الموسيقى " + (prefs.music ? "تعمل" : "متوقفة"),
+        };
+      }
+      return {
+        state: "loading",
+        text: "تجهيز العيّنات الصوتية…",
+      };
+    }
+
+    function syncAudioStatus() {
+      if (!audioStatus) return;
+      const info = audioStatusInfo();
+      audioStatus.setAttribute("data-state", info.state);
+      audioStatus.setAttribute("title", info.text);
+      if (audioStatusText) audioStatusText.textContent = info.text;
+      if (packPreview) packPreview.disabled = !audible();
     }
 
     function syncSoundUI() {
@@ -1562,12 +1818,16 @@
       }
       if (musicRow) musicRow.classList.toggle("is-disabled", !prefs.sound);
       if (musicDesc) {
+        const musicPct = Math.round(prefs.musicVolume * 100);
         musicDesc.textContent = !prefs.sound
           ? (prefs.music ? "ستُستأنف عند تفعيل المؤثرات الصوتية" : "تتطلب تفعيل المؤثرات الصوتية")
-          : "نغمات متولّدة بهدوء أثناء اللعب (مغلقة افتراضيًا)";
+          : prefs.music
+            ? "تعمل الآن بهدوء · مستوى " + musicPct + "%"
+            : "نغمات متولّدة بهدوء أثناء اللعب (مغلقة افتراضيًا)";
       }
+      syncMusicVolumeUI();
       if (packDesc) {
-        const pack = packList.find((item) => item.id === prefs.pack) || packList[0];
+        const pack = packInfo(prefs.pack);
         const packNote = pack && pack.note ? pack.note + " — " : "";
         packDesc.textContent = packNote + (audible()
           ? "تُعزف معاينة عند التغيير"
@@ -1580,6 +1840,7 @@
           : prefs.volume <= 0 ? "ارفع مستوى الصوت أولًا" : "تُشغَّل فورًا";
       }
       testButtons.forEach((btn) => { btn.disabled = !audible(); });
+      syncAudioStatus();
     }
 
     function syncMotionUI() {
@@ -1614,6 +1875,23 @@
       musicSwitch.addEventListener("click", () => {
         setMusic(!prefs.music);
         syncSoundUI();
+      });
+    }
+    if (musicVolumeInput) {
+      musicVolumeInput.addEventListener("input", () => {
+        setMusicVolume(Number(musicVolumeInput.value) / 100);
+        syncMusicVolumeUI();
+      });
+    }
+    if (packPreview) {
+      packPreview.addEventListener("click", () => {
+        if (!audible()) {
+          BG.toast("فعّل المؤثرات الصوتية أولًا لسماع المعاينة.");
+          return;
+        }
+        sound("select", { force: true });
+        setTimeout(() => sound("dice", { force: true }), 150);
+        setTimeout(() => sound("win", { force: true }), 620);
       });
     }
 
@@ -1666,6 +1944,7 @@
       prefs.motion = DEFAULTS.motion;
       prefs.pack = DEFAULTS.pack;
       prefs.music = DEFAULTS.music;
+      prefs.musicVolume = DEFAULTS.musicVolume;
       savePrefs();
       applyVolume();
       stopMusicNow();
@@ -1773,10 +2052,15 @@
       markSaved();
     };
     const syncReduced = () => syncMotionUI();
+    const syncAudio = () => {
+      if (!document.body.contains(body)) return;
+      syncAudioStatus();
+    };
     document.addEventListener("bgfxchange", syncFx);
     document.addEventListener("bgprefschange", syncPrefs);
     document.addEventListener("bgfxstored", markSaved);
     document.addEventListener("bgprofilechange", syncProfile);
+    document.addEventListener("bgfxaudio", syncAudio);
     if (reducedQuery) {
       if (reducedQuery.addEventListener) reducedQuery.addEventListener("change", syncReduced);
       else if (reducedQuery.addListener) reducedQuery.addListener(syncReduced);
@@ -1790,6 +2074,7 @@
       document.removeEventListener("bgprefschange", syncPrefs);
       document.removeEventListener("bgfxstored", markSaved);
       document.removeEventListener("bgprofilechange", syncProfile);
+      document.removeEventListener("bgfxaudio", syncAudio);
       if (reducedQuery) {
         if (reducedQuery.removeEventListener) reducedQuery.removeEventListener("change", syncReduced);
         else if (reducedQuery.removeListener) reducedQuery.removeListener(syncReduced);
@@ -1814,6 +2099,8 @@
   document.addEventListener("click", (event) => {
     const target = event.target && event.target.closest ? event.target.closest("button, .game-card, [role='button']") : null;
     if (!target || target.disabled) return;
+    const now = typeof performance !== "undefined" && performance.now ? performance.now() : Date.now();
+    if (now - lastAnyAt < 45) return;
     sound("click");
   }, true);
 
@@ -1852,6 +2139,24 @@
     setMotion,
     setPack,
     setMusic,
+    setMusicVolume,
+    audio: {
+      get state() { return ctx ? ctx.state : "uninitialized"; },
+      get loaded() { return buffers.size; },
+      get total() { return ALL_FILES.length; },
+      get failed() { return stats.failed; },
+      get playing() { return activeVoices.size; },
+      get plays() { return stats.plays; },
+      get suppressed() { return stats.suppressed; },
+      get dropped() { return stats.dropped; },
+      get last() { return stats.last; },
+      get unlocked() { return unlocked; },
+      get musicPlaying() { return !!(BG.soundPacks && BG.soundPacks.musicOn); },
+      get musicStats() { return BG.soundPacks ? BG.soundPacks.stats : null; },
+      get loadedFiles() { return Array.from(buffers.keys()); },
+      resume() { unlock(); return ctx ? ctx.state : "uninitialized"; },
+      play(name) { sound(name, { force: true }); return stats.last; },
+    },
     openSettings,
     settings: {
       get sound() { return prefs.sound; },
@@ -1859,6 +2164,7 @@
       get motion() { return prefs.motion; },
       get pack() { return prefs.pack; },
       get music() { return prefs.music; },
+      get musicVolume() { return prefs.musicVolume; },
       get hideSecrets() { return BG.prefs.hideSecrets; },
     },
   });
@@ -1866,6 +2172,26 @@
   // تحديث الكائن المرئي عند أي تغيير.
   document.addEventListener("bgfxchange", () => {
     FX.prefs = prefs;
+  });
+
+  /* مزامنة الإعدادات بين تبويبات المتصفح دون إعادة تحميل */
+  window.addEventListener("storage", (event) => {
+    if (event.key !== "bg." + STORE_KEY || !event.newValue) return;
+    Object.assign(prefs, readPrefs());
+    applyVolume();
+    if (prefs.music && prefs.sound) {
+      if (!BG.soundPacks || !BG.soundPacks.musicOn) startMusicNow();
+    } else {
+      stopMusicNow();
+    }
+    document.dispatchEvent(new CustomEvent("bgfxchange", { detail: Object.assign({}, prefs) }));
+  });
+
+  /* إيقاف الموسيقى عند مغادرة التبويب واستئنافها عند العودة */
+  document.addEventListener("visibilitychange", () => {
+    if (!prefs.music || !prefs.sound) return;
+    if (document.hidden) stopMusicNow();
+    else startMusicNow();
   });
 
   BG.openFxSettings = openSettings;
