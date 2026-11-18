@@ -26,6 +26,22 @@
     120, -20, 20, 5, 5, 20, -20, 120,
   ];
 
+  const NEIGHBORS = (function () {
+    const list = new Array(64);
+    for (let i = 0; i < 64; i++) {
+      const r = Math.floor(i / N);
+      const c = i % N;
+      const cells = [];
+      for (const [dr, dc] of DIRS) {
+        const rr = r + dr;
+        const cc = c + dc;
+        if (rr >= 0 && rr < N && cc >= 0 && cc < N) cells.push(rr * N + cc);
+      }
+      list[i] = cells;
+    }
+    return list;
+  })();
+
   let rootRef = null;
   let apiRef = null;
   let state = null;
@@ -175,27 +191,71 @@
   /* ------------------------------ الذكاء ------------------------------ */
 
   function evaluate(board, seat) {
+    const opp = other(seat);
     let score = 0;
+    let empties = 0;
+    let myDiscs = 0;
+    let theirDiscs = 0;
+
     for (let i = 0; i < 64; i++) {
-      if (board[i] === seat) score += WEIGHTS[i];
-      else if (board[i] === other(seat)) score -= WEIGHTS[i];
+      const cell = board[i];
+      if (cell == null) { empties += 1; continue; }
+      if (cell === seat) { score += WEIGHTS[i]; myDiscs += 1; }
+      else { score -= WEIGHTS[i]; theirDiscs += 1; }
     }
+
     const myMoves = legalMoves(board, seat).length;
-    const theirMoves = legalMoves(board, other(seat)).length;
-    score += (myMoves - theirMoves) * 4;
+    const theirMoves = legalMoves(board, opp).length;
+    const discDiff = myDiscs - theirDiscs;
+
+    /* الحدود (القطع الملاصقة للخانات الفارغة) خطر في بداية اللعب. */
+    let myFrontier = 0;
+    let theirFrontier = 0;
+    for (let i = 0; i < 64; i++) {
+      const cell = board[i];
+      if (cell == null) continue;
+      const touchesEmpty = NEIGHBORS[i].some((at) => board[at] == null);
+      if (!touchesEmpty) continue;
+      if (cell === seat) myFrontier += 1;
+      else theirFrontier += 1;
+    }
+
+    if (empties > 18) {
+      score += (myMoves - theirMoves) * 12;
+      score += (theirFrontier - myFrontier) * 2;
+      score += discDiff * 0.5;
+    } else if (empties > 8) {
+      score += (myMoves - theirMoves) * 6;
+      score += (theirFrontier - myFrontier);
+      score += discDiff * 3;
+    } else {
+      score += (myMoves - theirMoves) * 2;
+      score += discDiff * 14;
+    }
     return score;
+  }
+
+  function finalScore(board, seat) {
+    const tally = count(board);
+    const mine = seat === 0 ? tally.black : tally.white;
+    const theirs = seat === 0 ? tally.white : tally.black;
+    return (mine - theirs) * 10000 + (mine > theirs ? 1000 : mine < theirs ? -1000 : 0);
   }
 
   function search(board, seat, depth, alpha, beta, turn) {
     if (depth === 0) return evaluate(board, seat);
     const moves = legalMoves(board, turn);
     if (!moves.length) {
-      if (!legalMoves(board, other(turn)).length) return evaluate(board, seat) * 100;
+      if (!legalMoves(board, other(turn)).length) return finalScore(board, seat);
       return search(board, seat, depth - 1, alpha, beta, other(turn));
     }
     const maximizing = turn === seat;
     let best = maximizing ? -Infinity : Infinity;
-    const ordered = moves.slice().sort((a, b) => WEIGHTS[b.index] - WEIGHTS[a.index]);
+    const ordered = moves.slice().sort((a, b) => {
+      const cornerA = CORNERS.has(a.index) ? 1 : 0;
+      const cornerB = CORNERS.has(b.index) ? 1 : 0;
+      return cornerB - cornerA || WEIGHTS[b.index] - WEIGHTS[a.index];
+    });
     for (const move of ordered) {
       const next = board.slice();
       next[move.index] = turn;
@@ -217,18 +277,28 @@
     const moves = legalMoves(state.board, seat);
     if (!moves.length) return null;
     const level = state.players[seat].level;
-    let depth = level === "easy" ? 1 : level === "normal" ? 2 : level === "hard" ? 3 : 4;
+    const empties = state.board.filter((cell) => cell == null).length;
+
+    if (level === "easy" && Math.random() < 0.45) return U.pick(moves);
+
+    let depth = level === "easy" ? 1 : level === "normal" ? 3 : level === "hard" ? 4 : 6;
     if (moves.length <= 4) depth += 1;
+    /* نهاية اللعب: ابحث حتى النتيجة النهائية إن أمكن. */
+    if (empties <= 10) depth = Math.max(depth, Math.min(10, empties + 2));
+
+    const noise = level === "easy" ? 25 : level === "normal" ? 6 : 0;
     let best = moves[0];
     let bestValue = -Infinity;
     for (const move of moves) {
       const next = state.board.slice();
       next[move.index] = seat;
       move.flips.forEach((at) => { next[at] = seat; });
-      const value = search(next, seat, depth - 1, -Infinity, Infinity, other(seat));
-      const noisy = level === "easy" || level === "normal" ? Math.random() * 4 : 0;
-      if (value + noisy > bestValue) { bestValue = value + noisy; best = move; }
+      const value = search(next, seat, depth - 1, -Infinity, Infinity, other(seat)) +
+        (noise ? Math.random() * noise : 0);
+      if (value > bestValue) { bestValue = value; best = move; }
     }
+
+    if (level === "normal" && moves.length > 1 && Math.random() < 0.08) return U.pick(moves);
     return best;
   }
 

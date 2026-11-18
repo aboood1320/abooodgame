@@ -510,23 +510,51 @@
     return Object.keys(need).reduce((sum, color) => sum + need[color], 0);
   }
 
+  function cardBuyScore(player, card) {
+    const pay = canPay(player, card);
+    let score = (Number(card.points) || 0) * 12 + (Number(card.tier) || 1) * 1.4;
+    const colorCount = Number(player.bonuses[card.color]) || 0;
+    score += 5.5 + colorCount * 1.4;
+    score -= totalCost(card) * 0.52;
+    if (pay) score -= (Number(pay.gold) || 0) * 1.8;
+
+    /* التقدّم نحو النبلاء جزء أساسي من نقاط النهاية. */
+    (state.nobles || []).forEach((noble) => {
+      let need = 0;
+      let have = 0;
+      Object.keys(noble.req || {}).forEach((color) => {
+        need += 1;
+        const count = (Number(player.bonuses[color]) || 0) + (color === card.color ? 1 : 0);
+        if (count >= noble.req[color]) have += 1;
+      });
+      if (need && have === need) score += 16;
+      else if (need && have === need - 1) score += 5;
+    });
+    return score;
+  }
+
   function aiChoose(player) {
     const options = allOptions(player);
+    const level = AI.level(player.level);
     const affordable = options.filter(({ card }) => !!canPay(player, card));
     if (affordable.length) {
-      affordable.sort((a, b) => {
-        const scoreA = a.card.points * 10 - totalCost(a.card) * 0.45 + a.card.tier * 0.6;
-        const scoreB = b.card.points * 10 - totalCost(b.card) * 0.45 + b.card.tier * 0.6;
-        return scoreB - scoreA;
-      });
-      return { type: "buy", card: affordable[0].card, source: affordable[0].source };
+      const pick = AI.choose(
+        affordable,
+        (entry) => cardBuyScore(player, entry.card),
+        level
+      ) || affordable[0];
+      return { type: "buy", card: pick.card, source: pick.source };
     }
 
     if (player.reserved.length < 3) {
       const reserves = options
-        .filter(({ source, card }) => source === "market" && card.points >= 2)
-        .sort((a, b) => b.card.points - a.card.points);
-      if (reserves.length && Math.random() < 0.35) return { type: "reserve", card: reserves[0].card };
+        .filter(({ source, card }) => source === "market" && (card.points >= 2 || card.tier >= 2))
+        .sort((a, b) => (b.card.points - a.card.points) || (b.card.tier - a.card.tier));
+      const reserveChance = AI.chance(level, 0.12, 0.28, 0.42, 0.55);
+      if (reserves.length && Math.random() < reserveChance) {
+        const pick = AI.choose(reserves, (entry) => entry.card.points * 3 + entry.card.tier, level) || reserves[0];
+        return { type: "reserve", card: pick.card };
+      }
     }
 
     const targets = options
@@ -537,7 +565,27 @@
 
     const targetNeed = targets.length ? targets[0].need : null;
     const room = Math.max(0, 10 - tokenTotal(player));
+    if (room <= 0 && player.reserved.length < 3) {
+      const reserve = options.find(({ source }) => source === "market");
+      if (reserve) return { type: "reserve", card: reserve.card };
+      return null;
+    }
+
     if (room > 0) {
+      /* السهل يختار الأحجار عشوائيًا أحيانًا بدلًا من بناء محفظة منظمة. */
+      if (level === "easy" && Math.random() < 0.38) {
+        const available = COLORS.filter((color) => state.bank[color] > 0);
+        if (available.length) {
+          const picks = [];
+          const count = Math.min(room, 1 + Math.floor(Math.random() * 3));
+          while (picks.length < count && picks.length < available.length) {
+            const color = available[Math.floor(Math.random() * available.length)];
+            if (!picks.includes(color)) picks.push(color);
+          }
+          return { type: "gems", colors: picks };
+        }
+      }
+
       if (targetNeed) {
         const colors = Object.keys(targetNeed)
           .filter((color) => state.bank[color] > 0)
@@ -546,11 +594,18 @@
           if (colors.length === 1 && targetNeed[colors[0]] >= 2 && state.bank[colors[0]] >= 4 && room >= 2) {
             return { type: "gems", colors: [colors[0], colors[0]] };
           }
-          return { type: "gems", colors: colors.slice(0, Math.min(3, room)) };
+          const count = Math.min(3, room, colors.length);
+          return { type: "gems", colors: colors.slice(0, count) };
         }
       }
 
-      const available = COLORS.filter((color) => state.bank[color] > 0).slice(0, Math.min(3, room));
+      const availableColors = COLORS.filter((color) => state.bank[color] > 0);
+      if (level === "expert" && availableColors.length) {
+        /* الخبير يفضل الألوان التي تخدم أغلى بطاقة قريبة. */
+        const wanted = (targets[1] && targets[1].need) || {};
+        availableColors.sort((a, b) => (wanted[b] || 0) - (wanted[a] || 0));
+      }
+      const available = availableColors.slice(0, Math.min(3, room));
       if (available.length) return { type: "gems", colors: available };
     }
 

@@ -357,21 +357,40 @@
     const forward = seat === 0 ? -1 : 1;
     const fromRow = Math.floor(move.from / N);
     const toRow = Math.floor(move.to / N);
+    const distance = Math.abs(toRow - fromRow) + Math.abs((move.to % N) - (move.from % N));
     let score = (toRow - fromRow) * forward * 2;
-    if (move.piece.rank === 2) score += 2;
+    if (move.piece.rank === 2) score += 4 + distance * 1.5;
     if (target) {
       if (target.revealed) {
         if (target.flag) score += 500;
-        else if (target.bomb) score += move.piece.rank === 3 ? 70 : -80;
-        else if (move.piece.rank === 1 && target.rank === 10) score += 120;
-        else score += move.piece.rank > target.rank ? 60 + target.rank : -50;
+        else if (target.bomb) score += move.piece.rank === 3 ? 85 : -(55 + move.piece.rank * 5);
+        else if (move.piece.rank === 1 && target.rank === 10) score += 140;
+        else if (move.piece.rank > target.rank) score += 55 + target.rank * 4;
+        else if (move.piece.rank === target.rank) score -= 20 + move.piece.rank * 3;
+        else score -= 45 + move.piece.rank * 5;
       } else {
-        if (move.piece.rank <= 2) score -= 12;
-        else score += 6 + move.piece.rank * 0.5;
+        /* مهاجمة قطعة مجهولة: الجنود الرخيصة تخاطر، والقيادات تتحاشى. */
+        if (move.piece.rank <= 3) score += 10 + (4 - move.piece.rank) * 3;
+        else if (move.piece.rank >= 8) score -= 14 + move.piece.rank * 1.5;
+        else score += 2;
       }
+    } else if (move.piece.rank >= 6) {
+      /* لا نعرّض القطع الثمينة لضربة معروفة في الخانة الجديدة. */
+      const r = Math.floor(move.to / N);
+      const c = move.to % N;
+      let danger = 0;
+      DIRS.forEach(([dr, dc]) => {
+        const rr = r + dr;
+        const cc = c + dc;
+        if (!inBoard(rr, cc)) return;
+        const enemy = state.board[rr * N + cc];
+        if (!enemy || enemy.seat === seat || !enemy.revealed) return;
+        if (enemy.bomb || enemy.rank > move.piece.rank) danger += 1;
+      });
+      score -= danger * (8 + move.piece.rank * 2);
     }
-    if (move.piece.rank === 10) score -= 10;
-    if (move.piece.rank === 1) score -= 8;
+    if (move.piece.rank === 10) score -= 12;
+    if (move.piece.rank === 1) score -= 10;
     return score;
   }
 

@@ -161,10 +161,41 @@
   /* ------------------------------ الذكاء ------------------------------ */
 
   function evaluate(pits, stores, seat) {
-    const diff = stores[seat] - stores[1 - seat];
-    const own = pits.slice(...(seat === 0 ? [0, 6] : [6, 12])).reduce((a, b) => a + b, 0);
-    const enemy = pits.slice(...(seat === 0 ? [6, 12] : [0, 6])).reduce((a, b) => a + b, 0);
-    return diff * 10 + (own - enemy) * 0.6;
+    const opp = 1 - seat;
+    const diff = stores[seat] - stores[opp];
+    let own = 0;
+    let enemy = 0;
+    let extra = 0;
+
+    const start = seat === 0 ? 0 : 6;
+    const enemyStart = seat === 0 ? 6 : 0;
+    for (let i = 0; i < 6; i++) {
+      const pit = start + i;
+      const foe = enemyStart + i;
+      own += pits[pit];
+      enemy += pits[foe];
+      if (pits[pit] > 0 && landsInStore(pits, seat, pit)) extra += 1;
+    }
+
+    const moves = legalPits(seat, pits).length;
+    const advance = pits[seat === 0 ? 5 : 6];
+    return diff * 10 +
+      (own - enemy) * 0.45 +
+      moves * 1.6 +
+      advance * 0.9 +
+      extra * 3.2;
+  }
+
+  function landsInStore(pits, seat, pit) {
+    let stones = pits[pit];
+    let pos = pit;
+    const enemyStore = STORE[1 - seat];
+    while (stones > 0) {
+      pos = nextPos(pos);
+      if (pos === enemyStore) continue;
+      stones -= 1;
+    }
+    return pos === STORE[seat];
   }
 
   function search(pits, stores, seat, depth, alpha, beta) {
@@ -199,7 +230,7 @@
   function chooseMove(seat, level) {
     const moves = legalPits(seat);
     if (level === "easy") {
-      if (Math.random() < 0.55) return U.pick(moves);
+      if (Math.random() < 0.4) return U.pick(moves);
       let best = moves[0];
       let bestScore = -Infinity;
       moves.forEach((pit) => {
@@ -209,17 +240,27 @@
       });
       return best;
     }
-    const depth = level === "hard" ? 6 : 4;
-    let best = moves[0];
-    let bestScore = -Infinity;
-    moves.forEach((pit) => {
-      const res = simMove(state.pits, state.stores, seat, pit);
-      const score = res.extra
-        ? search(res.pits, res.stores, seat, depth - 1, -Infinity, Infinity)
-        : -search(res.pits, res.stores, 1 - seat, depth - 1, -Infinity, Infinity);
-      if (score > bestScore) { bestScore = score; best = pit; }
+
+    const depth = level === "normal" ? 4 : level === "hard" ? 6 : 8;
+    const ordered = moves
+      .map((pit) => {
+        const res = simMove(state.pits, state.stores, seat, pit);
+        return { pit, res, order: res.captured * 100 + (res.extra ? 50 : 0) };
+      })
+      .sort((a, b) => b.order - a.order);
+
+    const scored = ordered.map((entry) => {
+      const score = entry.res.extra
+        ? search(entry.res.pits, entry.res.stores, seat, depth - 1, -Infinity, Infinity)
+        : -search(entry.res.pits, entry.res.stores, 1 - seat, depth - 1, -Infinity, Infinity);
+      return { pit: entry.pit, score };
     });
-    return best;
+    scored.sort((a, b) => b.score - a.score);
+
+    if (level === "normal" && scored.length > 1 && Math.random() < 0.1) {
+      return scored[1].pit;
+    }
+    return scored[0].pit;
   }
 
   /* ------------------------------ اللعب ------------------------------ */

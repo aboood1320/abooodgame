@@ -375,8 +375,13 @@
     if (!state || state.over || state.phase !== "place") return;
     const player = cur();
     if (!XG.cpuTurn(apiRef, state, player.index)) return;
+    const level = AI.level(player.level);
     const hasSkull = player.discs.includes("skull");
-    const card = hasSkull && Math.random() < 0.36 ? "skull" : player.discs.includes("rose") ? "rose" : "skull";
+    let card = "rose";
+    if (hasSkull) {
+      const bluff = AI.chance(level, 0.48, 0.3, 0.22, 0.16);
+      card = Math.random() < bluff ? "skull" : "rose";
+    }
     place(card);
   }
 
@@ -384,11 +389,40 @@
     if (!state || state.over || state.phase !== "bid" || !state.bidding) return;
     const player = cur();
     if (!XG.cpuTurn(apiRef, state, player.index)) return;
-    if (state.bidding.bid === 0) { bid(1); return; }
+    const level = AI.level(player.level);
     const total = state.bidding.total;
-    let cap = player.placed === "rose" ? Math.min(total, 2 + Math.floor(Math.max(0, total - 2) / 3)) : 1;
-    if (!player.discs.includes("skull")) cap += 1;
-    if (state.bidding.bid < cap && Math.random() < 0.72) bid(state.bidding.bid + 1);
+    const own = player.placed;
+
+    /* فتح المزايدة إلزامي. */
+    if (state.bidding.bid === 0) {
+      bid(1);
+      return;
+    }
+
+    /* من وضع جمجمة لا يستطيع كشفها؛ المستويات الذكية تنسحب فورًا. */
+    if (own === "skull" && level !== "easy") {
+      passBid();
+      return;
+    }
+
+    const opponents = state.players.filter((other) => other.alive && other.index !== player.index && other.placed);
+    /* من بقي في يده قرص جمجمة فقد وضع وردة بالتأكيد (كل لاعب يملك جمجمة واحدة). */
+    const knownRoses = opponents.filter((other) => other.discs.includes("skull")).length;
+    const unknown = opponents.length - knownRoses;
+    const safe = (own === "rose" ? 1 : 0) + knownRoses;
+
+    let cap;
+    if (level === "easy") {
+      cap = Math.max(1, Math.min(total, 1 + Math.floor(Math.random() * 3)));
+    } else if (level === "normal") {
+      cap = Math.max(1, Math.min(total, safe + (unknown > 0 ? 1 : 0)));
+    } else {
+      /* صعب/خبير: لا يخاطر إلا بعدد الورود المؤكدة، مع زيادة واحدة محسوبة. */
+      const bonus = level === "expert" ? (unknown >= 3 ? 1 : 0) : (unknown >= 4 ? 1 : 0);
+      cap = Math.max(1, Math.min(total, safe + bonus));
+    }
+
+    if (state.bidding.bid < cap) bid(state.bidding.bid + 1);
     else passBid();
   }
 
@@ -396,9 +430,29 @@
     if (!state || state.over || state.phase !== "flip" || !state.flip || !state.flip.ownDone) return;
     const flipper = state.players[state.flip.player];
     if (!XG.cpuTurn(apiRef, state, flipper.index)) return;
+    const level = AI.level(flipper.level);
     const targets = state.players.filter((player) => player.alive && player.index !== flipper.index && player.placed && !player.revealed);
     if (!targets.length) return;
-    flipCard(U.pick(targets).index);
+
+    if (level === "easy") {
+      flipCard(U.pick(targets).index);
+      return;
+    }
+
+    const ranked = targets.map((target) => {
+      let safety = 0.5;
+      if (target.discs.includes("skull")) safety = 1;
+      else if (!target.discs.includes("rose")) safety = 0.2;
+      else safety = 0.45;
+      return { target, safety };
+    }).sort((a, b) => b.safety - a.safety);
+
+    const pick = AI.choose(
+      ranked,
+      (entry) => entry.safety,
+      level
+    ) || ranked[0];
+    flipCard(pick.target.index);
   }
 
   function settle() {

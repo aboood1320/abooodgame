@@ -615,7 +615,7 @@
     const player = setupPlayer();
     if (!XG.cpuTurn(apiRef, state, player.index)) return;
     const options = state.corpOptions[player.index];
-    const best = options.slice().sort((a, b) => corpScore(b) - corpScore(a))[0];
+    const best = AI.choose(options, (corp) => corpScore(corp), player.level) || options[0];
     const index = options.indexOf(best);
     chooseCorp(index);
   }
@@ -632,6 +632,7 @@
     if (!state || state.over || state.phase !== "action") return;
     const player = cur();
     if (!XG.cpuTurn(apiRef, state, player.index)) return;
+    const level = AI.level(player.level);
     const options = [];
     player.hand.forEach((card, index) => {
       const score = cardScore(player, card);
@@ -642,10 +643,15 @@
       if (score > -100) options.push({ kind: "standard", key: project.key, score });
     });
     options.sort((a, b) => b.score - a.score);
-    if (options.length && options[0].score > 0.8) {
-      if (options[0].kind === "card") playCard(options[0].index);
-      else standard(options[0].key);
-      return;
+    if (!options.length) { passTurn(); return; }
+
+    const pick = AI.choose(options, (option) => option.score, level) || options[0];
+    const threshold = level === "easy" ? 0.2 : level === "normal" ? 0.55 : 0.8;
+    if (pick && pick.score > threshold) {
+      let ok = false;
+      if (pick.kind === "card") ok = playCard(pick.index);
+      else ok = standard(pick.key);
+      if (ok) return;
     }
     passTurn();
   }

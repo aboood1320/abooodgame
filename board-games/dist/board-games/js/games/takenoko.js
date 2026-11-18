@@ -231,7 +231,7 @@
       players,
       current: 0,
       round: 1,
-      turnCount: 1,
+      turnCount: 0,
       grid,
       pond: { q: 0, r: 0 },
       deck: createPlotDeck(),
@@ -395,6 +395,7 @@
 
   function beginTurn(index) {
     if (!state || state.over) return;
+    state.turnCount = (state.turnCount || 0) + 1;
     state.current = index;
     state.actionsLeft = 2;
     state.usedTypes = [];
@@ -427,6 +428,7 @@
 
   function endTurn() {
     if (!state || state.over || state.phase !== "actions") return false;
+    if (!canPick(cur())) return false;
     clearTimeout(timer);
     if (state.endTriggered) {
       if (state.finalQueue.length) {
@@ -741,6 +743,10 @@
 
   function cancelMode() {
     if (!state || state.over) return;
+    /* قطع الأرض المسحوبة للاختيار تعود للرزمة بدل أن تضيع. */
+    if (state.mode === "plot" && Array.isArray(state.pendingTiles) && state.pendingTiles.length) {
+      state.deck = U.shuffle(state.deck.concat(state.pendingTiles));
+    }
     state.mode = null;
     state.pendingTiles = null;
     state.selectedTile = null;
@@ -1217,64 +1223,359 @@
     return grown;
   }
 
+  /* كم يحتاج اللاعب لهذا اللون حسب أهداف يده وخيزرانه المجموع. */
+  function colorNeed(player, color) {
+    let need = 0;
+    player.hand.forEach((card) => {
+      if (card.cat === "plot" && card.color === color) need += 1.3 + (card.count || 3) * 0.3;
+      else if (card.cat === "gardener") {
+        if (card.kind === "height" && card.color === color) need += 1.6;
+        else if (card.kind !== "height") need += 0.6;
+      } else if (card.cat === "panda" && card.need && card.need[color]) {
+        const missing = Math.max(0, card.need[color] - (player.bamboo[color] || 0));
+        need += missing > 0 ? 1.1 + missing * 0.55 : 0.2;
+      }
+    });
+    return need;
+  }
+
+  /* قيمة النمو حول خلية بستاني، مرجّحة بأهداف اللاعب. */
+  function growthValue(player, q, r) {
+    const tile = tileAt(q, r);
+    if (!tile) return 0;
+    let value = 0;
+    const add = (target) => {
+      if (!target || !target.irrigated) return;
+      const factor = target.improvement === "fertilizer" ? 2 : 1;
+      const gain = Math.min(target.capacity - target.bamboo, factor);
+      if (gain <= 0) return;
+      value += gain * (1.5 + colorNeed(player, target.color));
+    };
+    add(tile);
+    neighbors(q, r).forEach((cell) => {
+      const other = tileAt(cell.q, cell.r);
+      if (other && other.color === tile.color) add(other);
+    });
+    return value;
+  }
+
+  /* قيمة أكل الباندا من أرض، مع أولوية إكمال هدف باندا. */
+  function pandaValue(player, tile) {
+    if (!tile || tile.improvement === "enclosure" || tile.bamboo <= 0) return 0;
+    let value = 0.8 + tile.bamboo * 0.25;
+    player.hand.forEach((card) => {
+      if (card.cat !== "panda" || !card.need || !card.need[tile.color]) return;
+      const missing = card.need[tile.color] - (player.bamboo[tile.color] || 0);
+      if (missing <= 0) { value += 0.15; return; }
+      value += 1 + missing * 2.1;
+      if (missing === 1) value += 14;
+    });
+    return value;
+  }
+
+  /* أطول مجموعة أرض مروية متصلة من لون واحد. */
+  function largestIrrigatedRun(color) {
+    const seen = new Set();
+    let best = 0;
+    boardCells().forEach((cell) => {
+      const id = key(cell.q, cell.r);
+      if (seen.has(id)) return;
+      const tile = tileAt(cell.q, cell.r);
+      if (!tile || tile.color !== color) return;
+      const stack = [cell];
+      const visited = new Set();
+      let size = 0;
+      let wet = true;
+      while (stack.length) {
+        const at = stack.pop();
+        const atId = key(at.q, at.r);
+        if (visited.has(atId)) continue;
+        visited.add(atId);
+        const current = tileAt(at.q, at.r);
+        if (!current || current.color !== color) continue;
+        seen.add(atId);
+        size += 1;
+        if (!current.irrigated) wet = false;
+        neighbors(at.q, at.r).forEach((next) => {
+          if (!visited.has(key(next.q, next.r))) stack.push(next);
+        });
+      }
+      if (wet) best = Math.max(best, size);
+    });
+    return best;
+  }
+
+  /* تقدير قرب اللاعب من إنجاز هدف من فئة معيّنة. */
+  function objectiveCategoryScore(player, cat) {
+    if (cat === "plot") {
+      let best = 0.35;
+      ["green", "yellow", "pink"].forEach((color) => {
+        const run = largestIrrigatedRun(color);
+        best = Math.max(best, run / 3 + colorNeed(player, color) * 0.15);
+      });
+      return best;
+    }
+    if (cat === "gardener") {
+      let best = 0.3;
+      boardCells().forEach((cell) => {
+        const tile = tileAt(cell.q, cell.r);
+        if (!tile) return;
+        const score = tile.bamboo / 3 + (tile.improvement === "fertilizer" ? 0.7 : 0) + (tile.irrigated ? 0.2 : 0);
+        if (score > best) best = score;
+      });
+      return best;
+    }
+    if (cat === "panda") {
+      const total = player.bamboo.green + player.bamboo.yellow + player.bamboo.pink;
+      return 0.25 + Math.min(2.2, total * 0.4);
+    }
+    return 0;
+  }
+
+  function plotTileScore(player, tile) {
+    let score = tile.capacity * 0.35 + colorNeed(player, tile.color) * 1.8;
+    const run = largestIrrigatedRun(tile.color);
+    player.hand.forEach((card) => {
+      if (card.cat === "plot" && card.color === tile.color) score += Math.max(0, card.count - run) * 0.5;
+    });
+    if (tile.improvement === "watershed") score += 1.6;
+    else if (tile.improvement === "fertilizer") score += 0.8;
+    return score;
+  }
+
+  function plotCellValue(player, cell, color) {
+    let value = colorNeed(player, color) * 1.4;
+    let same = 0;
+    let wetNeighbors = 0;
+    neighbors(cell.q, cell.r).forEach((near) => {
+      if (isPond(near.q, near.r)) { value += 4.2; wetNeighbors += 1; return; }
+      const other = tileAt(near.q, near.r);
+      if (!other) return;
+      value += 1;
+      if (other.irrigated) { value += 0.45; wetNeighbors += 1; }
+      if (other.color === color) { value += 2; same += 1; }
+    });
+    value += same * (1 + colorNeed(player, color) * 0.25);
+    if (!wetNeighbors) value -= 1.1;
+    return value;
+  }
+
+  function irrigationScore(player, cell) {
+    const tile = tileAt(cell.q, cell.r);
+    if (!tile) return 0;
+    let score = 0.8 + colorNeed(player, tile.color) * 1.7 + (tile.capacity - tile.bamboo) * 0.4;
+    neighbors(cell.q, cell.r).forEach((near) => {
+      const other = tileAt(near.q, near.r);
+      if (other && other.color === tile.color) score += 0.8 + colorNeed(player, other.color) * 0.4;
+    });
+    return score;
+  }
+
+  function actionScore(player, type) {
+    if (type === "plots") {
+      if (!state.deck.length || !validPlotCells().length) return 0;
+      let score = 1.1;
+      if (Object.keys(state.grid).length < 8) score += 1.3;
+      score += Math.max(colorNeed(player, "green"), colorNeed(player, "yellow"), colorNeed(player, "pink")) * 0.8;
+      player.hand.forEach((card) => { if (card.cat === "plot") score += 0.35; });
+      return score;
+    }
+    if (type === "irrigation") {
+      const cells = validIrrigationCells();
+      if (!cells.length) return 0;
+      let best = 0;
+      cells.forEach((cell) => { best = Math.max(best, irrigationScore(player, cell)); });
+      return best;
+    }
+    if (type === "gardener") {
+      const cells = validGardenerTargets();
+      if (!cells.length) return 0;
+      let best = 0;
+      cells.forEach((cell) => { best = Math.max(best, growthValue(player, cell.q, cell.r)); });
+      return best > 0 ? 1.1 + best * 0.45 : 0.25;
+    }
+    if (type === "panda") {
+      const cells = validPandaTargets();
+      if (!cells.length) return 0;
+      let best = 0;
+      cells.forEach((cell) => { best = Math.max(best, pandaValue(player, tileAt(cell.q, cell.r))); });
+      return best > 0 ? 1.1 + best * 0.5 : 0.15;
+    }
+    if (type === "objectives") {
+      if (player.hand.length >= 5) return 0;
+      if (!state.decks.plot.length && !state.decks.gardener.length && !state.decks.panda.length) return 0;
+      let score = player.hand.length < 3 ? 1.7 : 0.9;
+      score += Math.max(
+        objectiveCategoryScore(player, "plot"),
+        objectiveCategoryScore(player, "gardener"),
+        objectiveCategoryScore(player, "panda")
+      ) * 0.7;
+      return score;
+    }
+    return 0;
+  }
+
+  function bestActionValue(player) {
+    return ["plots", "irrigation", "gardener", "panda", "objectives"]
+      .map((type) => actionScore(player, type))
+      .reduce((best, value) => Math.max(best, value), 0);
+  }
+
+  function improvementTypeScore(player, type) {
+    if (type === "fertilizer") {
+      let score = 1;
+      if (player.hand.some((card) => card.cat === "gardener" && card.kind === "fert4")) score += 3.2;
+      player.hand.forEach((card) => { if (card.cat === "gardener") score += 0.4; });
+      let bestCap = 0;
+      boardCells().forEach((cell) => {
+        const tile = tileAt(cell.q, cell.r);
+        if (tile && !tile.improvement) bestCap = Math.max(bestCap, tile.capacity);
+      });
+      return score + bestCap * 0.15;
+    }
+    if (type === "watershed") {
+      let best = 0;
+      validImprovementCells("watershed").forEach((cell) => {
+        const tile = tileAt(cell.q, cell.r);
+        if (tile && !tile.irrigated) best = Math.max(best, colorNeed(player, tile.color) + tile.capacity * 0.2);
+      });
+      return 1.2 + best * 0.9;
+    }
+    if (type === "enclosure") {
+      let tallest = 0;
+      boardCells().forEach((cell) => {
+        const tile = tileAt(cell.q, cell.r);
+        if (tile && !tile.improvement) tallest = Math.max(tallest, tile.bamboo);
+      });
+      return 0.5 + tallest * 0.15;
+    }
+    return 0;
+  }
+
+  function improvementCellScore(player, type, cell) {
+    const tile = tileAt(cell.q, cell.r);
+    if (!tile) return 0;
+    const need = colorNeed(player, tile.color);
+    if (type === "watershed") {
+      let score = need * 1.6 + (tile.capacity - tile.bamboo) * 0.5 + (tile.irrigated ? 0 : 2);
+      neighbors(cell.q, cell.r).forEach((near) => {
+        const other = tileAt(near.q, near.r);
+        if (other && other.color === tile.color) score += 0.7 + colorNeed(player, other.color) * 0.4;
+      });
+      return score;
+    }
+    if (type === "fertilizer") {
+      let score = tile.capacity * 0.7 + need * 1.2 + (tile.irrigated ? 0.6 : 0);
+      neighbors(cell.q, cell.r).forEach((near) => {
+        const other = tileAt(near.q, near.r);
+        if (other && other.color === tile.color) score += 0.6;
+      });
+      return score;
+    }
+    let score = need * 0.8;
+    neighbors(cell.q, cell.r).forEach((near) => {
+      const other = tileAt(near.q, near.r);
+      if (other && other.color === tile.color) score += 0.4 + other.bamboo * 0.15;
+    });
+    return score;
+  }
+
+  function rainCellScore(player, cell) {
+    const tile = tileAt(cell.q, cell.r);
+    if (!tile || !tile.irrigated || tile.bamboo >= tile.capacity) return 0;
+    const factor = tile.improvement === "fertilizer" ? 2 : 1;
+    const gain = Math.min(tile.capacity - tile.bamboo, factor);
+    return gain * (1.5 + colorNeed(player, tile.color));
+  }
+
+  function weatherScore(player, face) {
+    if (face === "rain") {
+      let best = 0;
+      boardCells().forEach((cell) => { best = Math.max(best, rainCellScore(player, cell)); });
+      return best > 0 ? 1 + best * 0.55 : 0.1;
+    }
+    if (face === "storm") {
+      let best = 0;
+      boardCells().forEach((cell) => {
+        if (!occupied(cell.q, cell.r)) return;
+        best = Math.max(best, pandaValue(player, tileAt(cell.q, cell.r)));
+      });
+      return best > 0 ? 1 + best * 0.55 : 0.05;
+    }
+    if (face === "clouds") {
+      const types = Object.keys(IMPROVEMENTS).filter((type) => state.improvementDeck[type] > 0);
+      if (!types.length) return 0;
+      return 0.8 + types.map((type) => improvementTypeScore(player, type)).reduce((a, b) => Math.max(a, b), 0) * 0.5;
+    }
+    if (face === "sun") return 1.6 + bestActionValue(player) * 0.35;
+    if (face === "wind") {
+      const values = ["plots", "irrigation", "gardener", "panda", "objectives"]
+        .map((type) => actionScore(player, type))
+        .sort((a, b) => b - a);
+      return 0.9 + (values[0] || 0) * 0.3 + (values[1] || 0) * 0.22;
+    }
+    return 0;
+  }
+
   function scheduleAi(delay) {
     clearTimeout(timer);
     if (!state || state.over) return;
-    if (!cur() || !cur().isCpu) return;
+    if (!XG.cpuTurn(apiRef, state, state.current)) return;
     timer = setTimeout(aiStep, delay || AI.delay(cur().level, 0.8));
   }
 
   function settle() {
     if (!state || state.over) return;
-    if (!cur() || !cur().isCpu) return;
+    if (!XG.cpuTurn(apiRef, state, state.current)) return;
     if (!["actions", "rain", "storm", "improvement", "weatherChoice"].includes(state.phase)) return;
     scheduleAi(600);
   }
 
   function aiStep() {
     if (!state || state.over) return;
+    if (!XG.cpuTurn(apiRef, state, state.current)) return;
     const player = cur();
-    if (!player || !player.isCpu) return;
+    if (!player) return;
     if (state.phase === "rain") { aiRain(); return; }
     if (state.phase === "storm") { aiStorm(); return; }
     if (state.phase === "improvement") { aiImprovement(); return; }
     if (state.phase === "weatherChoice") {
-      chooseWeather(U.pick(["sun", "rain", "wind", "storm", "clouds"]));
+      const faces = ["sun", "rain", "wind", "storm", "clouds"];
+      const pick = AI.choose(faces, (face) => weatherScore(player, face), player.level) || "sun";
+      chooseWeather(pick);
       return;
     }
     if (state.phase === "actions") { aiActions(); return; }
   }
 
   function aiRain() {
-    const cells = boardCells().filter((cell) => {
-      const tile = tileAt(cell.q, cell.r);
-      return tile && tile.irrigated && tile.bamboo < tile.capacity;
-    }).sort((a, b) => {
-      const ta = tileAt(a.q, a.r);
-      const tb = tileAt(b.q, b.r);
-      return (tb.capacity - tb.bamboo) - (ta.capacity - ta.bamboo);
-    });
-    if (!cells.length || !rainGrow(cells[0].q, cells[0].r)) skipRain();
+    const player = cur();
+    const cells = boardCells().filter((cell) => rainCellScore(player, cell) > 0);
+    if (!cells.length) { skipRain(); return; }
+    const pick = AI.choose(cells, (cell) => rainCellScore(player, cell), player.level) || cells[0];
+    if (!rainGrow(pick.q, pick.r)) skipRain();
   }
 
   function aiStorm() {
+    const player = cur();
     const cells = boardCells().filter((cell) => {
+      if (!occupied(cell.q, cell.r)) return false;
       const tile = tileAt(cell.q, cell.r);
       return tile && tile.bamboo > 0 && tile.improvement !== "enclosure";
-    }).sort((a, b) => tileAt(b.q, b.r).bamboo - tileAt(a.q, a.r).bamboo);
-    if (!cells.length || !stormMove(cells[0].q, cells[0].r)) skipStorm();
+    });
+    if (!cells.length) { skipStorm(); return; }
+    const pick = AI.choose(cells, (cell) => pandaValue(player, tileAt(cell.q, cell.r)), player.level) || cells[0];
+    if (!stormMove(pick.q, pick.r)) skipStorm();
   }
 
   function aiImprovement() {
+    const player = cur();
     if (state.pendingImprovement) {
-      const cells = validImprovementCells(state.pendingImprovement);
+      const type = state.pendingImprovement;
+      const cells = validImprovementCells(type);
       if (cells.length) {
-        const best = cells.slice().sort((a, b) => {
-          const ta = tileAt(a.q, a.r);
-          const tb = tileAt(b.q, b.r);
-          return tb.capacity - ta.capacity;
-        })[0];
-        if (placeImprovement(best.q, best.r)) return;
+        const cell = AI.choose(cells, (candidate) => improvementCellScore(player, type, candidate), player.level) || cells[0];
+        if (placeImprovement(cell.q, cell.r)) return;
       }
       if (storeImprovement()) return;
       skipImprovement();
@@ -1282,16 +1583,12 @@
     }
     const available = Object.keys(IMPROVEMENTS).filter((type) => state.improvementDeck[type] > 0);
     if (!available.length) { skipImprovement(); return; }
-    const preferred = available.includes("fertilizer") ? "fertilizer" : available[0];
+    const preferred = AI.choose(available, (type) => improvementTypeScore(player, type), player.level) || available[0];
     if (!chooseImprovement(preferred)) { skipImprovement(); return; }
     const cells = validImprovementCells(preferred);
     if (cells.length) {
-      const best = cells.slice().sort((a, b) => {
-        const ta = tileAt(a.q, a.r);
-        const tb = tileAt(b.q, b.r);
-        return tb.capacity - ta.capacity;
-      })[0];
-      if (placeImprovement(best.q, best.r)) return;
+      const cell = AI.choose(cells, (candidate) => improvementCellScore(player, preferred, candidate), player.level) || cells[0];
+      if (placeImprovement(cell.q, cell.r)) return;
     }
     if (storeImprovement()) return;
     skipImprovement();
@@ -1299,37 +1596,23 @@
 
   function aiChoosePlotTile() {
     if (!state.pendingTiles) return 0;
-    let bestIndex = 0;
-    let bestScore = -1;
-    state.pendingTiles.forEach((tile, index) => {
-      let demand = 0;
-      cur().hand.forEach((card) => {
-        if (card.cat === "plot" && card.color === tile.color) demand += 2;
-        if (card.cat === "gardener" && card.color === tile.color) demand += 2;
-        if (card.cat === "panda" && card.need && card.need[tile.color]) demand += 2;
-      });
-      const score = demand + tile.capacity * 0.4 + Math.random();
-      if (score > bestScore) { bestScore = score; bestIndex = index; }
-    });
-    return bestIndex;
+    const player = cur();
+    const pick = AI.choose(state.pendingTiles, (tile) => plotTileScore(player, tile), player.level);
+    const index = pick ? state.pendingTiles.indexOf(pick) : 0;
+    return index < 0 ? 0 : index;
   }
 
   function aiChoosePlotCell() {
     const cells = validPlotCells();
     if (!cells.length) return null;
-    return cells.slice().sort((a, b) => {
-      const score = (cell) => {
-        let value = Math.random();
-        const near = neighbors(cell.q, cell.r);
-        if (near.some((n) => isPond(n.q, n.r))) value += 3;
-        value += near.filter((n) => !!tileAt(n.q, n.r)).length * 1.2;
-        return value;
-      };
-      return score(b) - score(a);
-    })[0];
+    const player = cur();
+    const tile = state.selectedTile != null && state.pendingTiles ? state.pendingTiles[state.selectedTile] : null;
+    const color = tile ? tile.color : "green";
+    return AI.choose(cells, (cell) => plotCellValue(player, cell, color), player.level) || cells[0];
   }
 
   function aiPerform(type) {
+    const player = cur();
     if (type === "plots") {
       if (!chooseAction("plots")) return false;
       const index = aiChoosePlotTile();
@@ -1342,34 +1625,33 @@
       if (!chooseAction("irrigation")) return false;
       const cells = validIrrigationCells();
       if (!cells.length) { cancelMode(); return false; }
-      const cell = cells[Math.floor(Math.random() * cells.length)];
+      const cell = AI.choose(cells, (candidate) => irrigationScore(player, candidate), player.level) || cells[0];
       return irrigate(cell.q, cell.r);
     }
     if (type === "gardener") {
       if (!chooseAction("gardener")) return false;
-      const targets = validGardenerTargets().slice().sort((a, b) => growthAt(b.q, b.r) - growthAt(a.q, a.r));
+      const targets = validGardenerTargets();
       if (!targets.length) { cancelMode(); return false; }
-      return moveGardener(targets[0].q, targets[0].r);
+      const pick = AI.choose(targets, (cell) => growthValue(player, cell.q, cell.r), player.level) || targets[0];
+      return moveGardener(pick.q, pick.r);
     }
     if (type === "panda") {
       if (!chooseAction("panda")) return false;
-      const targets = validPandaTargets().slice().sort((a, b) => {
-        const ta = tileAt(a.q, a.r);
-        const tb = tileAt(b.q, b.r);
-        const score = (tile) => {
-          if (!tile || tile.improvement === "enclosure" || tile.bamboo <= 0) return Math.random();
-          return 10 + tile.bamboo;
-        };
-        return score(tb) - score(ta);
-      });
+      const targets = validPandaTargets();
       if (!targets.length) { cancelMode(); return false; }
-      return movePanda(targets[0].q, targets[0].r);
+      const level = AI.level(player.level);
+      const scored = targets.map((cell) => ({ cell, score: pandaValue(player, tileAt(cell.q, cell.r)) }));
+      const positive = scored.filter((entry) => entry.score > 0);
+      const pool = level !== "easy" && positive.length ? positive : scored;
+      const pick = AI.choose(pool, (entry) => entry.score, player.level) || pool[0];
+      return movePanda(pick.cell.q, pick.cell.r);
     }
     if (type === "objectives") {
       if (!chooseAction("objectives")) return false;
       const available = ["plot", "gardener", "panda"].filter((cat) => state.decks[cat].length);
       if (!available.length) { cancelMode(); return false; }
-      return drawObjective(U.pick(available));
+      const cat = AI.choose(available, (value) => objectiveCategoryScore(player, value), player.level) || available[0];
+      return drawObjective(cat);
     }
     return false;
   }
@@ -1382,31 +1664,16 @@
     if (!state || state.over || state.phase !== "actions") return;
     if (state.actionsLeft <= 0) { endTurn(); return; }
     const used = state.allowRepeat ? [] : state.usedTypes;
-    const options = [];
-    const add = (type, weight) => {
-      if (used.includes(type)) return;
-      options.push({ type, weight });
-    };
-    if (state.deck.length && validPlotCells().length) add("plots", Object.keys(state.grid).length < 6 ? 1.6 : 1);
-    if (validIrrigationCells().length) add("irrigation", 1.2);
-    if (validGardenerTargets().length) add("gardener", 1.5);
-    if (validPandaTargets().some((cell) => {
-      const tile = tileAt(cell.q, cell.r);
-      return tile && tile.bamboo > 0 && tile.improvement !== "enclosure";
-    })) add("panda", 1.4);
-    if (player.hand.length < 5 && (state.decks.plot.length || state.decks.gardener.length || state.decks.panda.length)) add("objectives", 1.3);
+    const options = ["plots", "irrigation", "gardener", "panda", "objectives"]
+      .filter((type) => !used.includes(type))
+      .map((type) => ({ type, score: actionScore(player, type) }))
+      .filter((option) => option.score > 0);
     if (!options.length) { endTurn(); return; }
-    const total = options.reduce((sum, item) => sum + item.weight, 0);
-    let roll = Math.random() * total;
-    let chosen = options[options.length - 1].type;
-    for (const option of options) {
-      roll -= option.weight;
-      if (roll <= 0) { chosen = option.type; break; }
-    }
-    if (!aiPerform(chosen)) {
-      const alternate = options.filter((item) => item.type !== chosen);
+    const choice = AI.choose(options, (option) => option.score, player.level) || options[0];
+    if (!aiPerform(choice.type)) {
       let done = false;
-      for (const option of alternate) {
+      for (const option of options) {
+        if (option.type === choice.type) continue;
         if (aiPerform(option.type)) { done = true; break; }
       }
       if (!done) endTurn();

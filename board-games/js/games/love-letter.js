@@ -425,6 +425,7 @@
       return;
     }
     render();
+    scheduleRoundStart();
   }
 
   function announceMatch(winner) {
@@ -466,6 +467,18 @@
     if (!canAdvanceRound()) return;
     state.round += 1;
     startRound(state.nextStarter);
+  }
+
+  /* في مباراة كلها كمبيوتر لا يوجد زر «الجولة التالية»؛ نبدأ الجولة تلقائيًا. */
+  function scheduleRoundStart() {
+    if (!state || state.over || state.phase !== "roundEnd" || !aiRunner) return;
+    if (!canAdvanceRound()) return;
+    if (!state.players.every((player) => AI.isCpu(player))) return;
+    const starter = state.players[state.nextStarter] || state.players[0];
+    aiRunner.later(() => {
+      if (!state || state.over || state.phase !== "roundEnd") return;
+      nextRound();
+    }, AI.delay(starter ? starter.level : "normal", 1.3));
   }
 
   /* ------------------------------ البطاقات ------------------------------ */
@@ -678,7 +691,7 @@
       render();
       return true;
     }
-    if (card.type === "priest" && state.peek && !player.isCpu) {
+    if (card.type === "priest" && state.peek && !AI.isCpu(player)) {
       const peeked = state.players[state.peek.target];
       state.awaitAck = player.index;
       state.notice =
@@ -708,58 +721,89 @@
     return counts;
   }
 
-  function aiGuess(player) {
+  function aiGuess(player, target) {
     const counts = remainingCounts(player);
-    const options = TYPES.filter((type) => type !== "guard");
-    return AI.weighted(options, (type) => {
-      const count = Math.max(0.1, counts[type]);
-      return count * (CARDS[type].value >= 6 ? 1.7 : 1);
-    }) || "princess";
+    const level = AI.level(player.level);
+    if (
+      target &&
+      state.peek &&
+      state.peek.viewer === player.index &&
+      state.peek.target === target.index &&
+      state.peek.type !== "guard" &&
+      counts[state.peek.type] > 0 &&
+      Math.random() < AI.chance(level, 0.55, 0.85, 0.95, 0.98)
+    ) {
+      return state.peek.type;
+    }
+    const options = TYPES.filter((type) => type !== "guard" && counts[type] > 0);
+    if (!options.length) return "princess";
+    return AI.choose(
+      options,
+      (type) => counts[type] + (CARDS[type].value >= 6 ? 0.35 : 0),
+      level
+    ) || "princess";
   }
 
-  function aiPickTarget(player, card) {
+  function aiPickTarget(player, card, level) {
     const targets = validTargets(player, card);
     if (!targets.length) return null;
+    const rank = AI.level(level || player.level);
+
     if (card.type === "prince") {
       const others = targets.filter((item) => item.index !== player.index);
       const other = player.hand.find((item) => item.type !== card.type);
       const otherValue = cardValue(other);
-      if (others.length && (otherValue > 2 || Math.random() > 0.45)) {
-        const pick = AI.weighted(others, (item) => 1 + (item.tokens || 0) * 0.45);
-        return pick ? pick.index : others[0].index;
+      if (other && other.type === "princess") {
+        const safe = AI.choose(others, (item) => 1 + (item.tokens || 0) * 0.5, rank);
+        return safe ? safe.index : player.index;
       }
-      return player.index;
+      if (otherValue <= 2 && targets.some((item) => item.index === player.index)) {
+        if (rank === "expert" || Math.random() > 0.25) return player.index;
+      }
+      const pool = others.length ? others : targets;
+      const pick = AI.choose(pool, (item) => 1 + (item.tokens || 0) * 0.55, rank);
+      return pick ? pick.index : pool[0].index;
     }
-    const pick = AI.weighted(targets, (item) => 1 + (item.tokens || 0) * 0.6);
+
+    const pick = AI.choose(
+      targets,
+      (item) => 1 + (item.tokens || 0) * 0.75 + (item.hand && item.hand.length ? 0 : 0.1),
+      rank
+    );
     return pick ? pick.index : targets[0].index;
   }
 
   function chooseAiMove(player) {
     const legal = legalCards(player);
     if (!legal.length) return null;
-    if (legal.length === 1) {
-      const only = legal[0];
-      const target = TARGETED[only.type] ? aiPickTarget(player, only) : null;
-      const guess = only.type === "guard" ? aiGuess(player) : null;
-      return { card: only, target, guess };
-    }
+    const level = AI.level(player.level);
+    const finishMove = (card) => {
+      const target = TARGETED[card.type] ? aiPickTarget(player, card, level) : null;
+      const guess = card.type === "guard" ? aiGuess(player, target) : null;
+      return { card, target, guess };
+    };
 
-    const card = AI.weighted(legal, (item) => {
+    if (legal.length === 1) return finishMove(legal[0]);
+
+    const card = AI.choose(legal, (item) => {
       const other = player.hand.find((entry) => entry.id !== item.id);
       const otherValue = cardValue(other);
       switch (item.type) {
         case "guard":
-          return validTargets(player, item).length ? 3.2 : 1.4;
+          return validTargets(player, item).length ? 3.4 : 1.4;
         case "priest":
-          return 2.3;
+          return 2.4;
         case "baron":
-          return otherValue >= 4 ? 4.4 : 1.1;
+          return otherValue >= 4 ? 4.6 : 1.0;
         case "handmaid":
-          return otherValue >= 5 ? 3.8 : 1.7;
+          return otherValue >= 5 ? 4.0 : 1.8;
         case "prince":
-          return otherValue <= 3 && other.type !== "princess" ? 3.6 : 2.1;
+          if (other && other.type === "princess") {
+            return validTargets(player, item).some((entry) => entry.index !== player.index) ? 4.8 : 0.1;
+          }
+          return otherValue <= 3 ? 3.8 : 2.2;
         case "king":
-          return otherValue <= 3 ? 3.4 : 1.2;
+          return otherValue <= 3 ? 3.6 : 1.1;
         case "countess":
           return 0.1;
         case "princess":
@@ -767,17 +811,15 @@
         default:
           return 1;
       }
-    }) || legal[0];
+    }, level) || legal[0];
 
-    const target = TARGETED[card.type] ? aiPickTarget(player, card) : null;
-    const guess = card.type === "guard" ? aiGuess(player) : null;
-    return { card, target, guess };
+    return finishMove(card);
   }
 
   function maybeAI() {
     if (!state || state.over || state.phase !== "play") return;
     const player = cur();
-    if (!player || !player.isCpu || !AI.autoAllowed(apiRef, player)) return;
+    if (!player || !AI.isCpu(player) || !AI.autoAllowed(apiRef, player)) return;
     const seat = player.index;
     const expected = state.turnSeq;
     aiRunner.later(() => {

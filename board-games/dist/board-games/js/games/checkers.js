@@ -211,6 +211,8 @@
       if (piece.king) value += 65;
       value += (piece.seat === 0 ? 7 - row : row) * 5;
       if (col >= 2 && col <= 5) value += 4;
+      if (!piece.king && (piece.seat === 0 ? row === 7 : row === 0)) value += 7;
+      if (col === 0 || col === 7) value -= 2;
       if (piece.seat === seat) score += value;
       else score -= value;
     }
@@ -218,19 +220,32 @@
   }
 
   function ordered(moves) {
-    return moves.slice().sort((a, b) => b.captured.length - a.captured.length);
+    return moves.slice().sort((a, b) => b.captured.length - a.captured.length || (b.king ? 1 : 0) - (a.king ? 1 : 0));
   }
 
-  function negamax(board, seat, depth, alpha, beta, mustCapture) {
+  function negamax(board, seat, depth, alpha, beta, mustCapture, qdepth) {
     const moves = allMoves(board, seat, mustCapture);
     if (!moves.length) return -90000 - depth * 100;
-    if (depth <= 0) return evaluate(board, seat);
+    if (depth <= 0) {
+      const captures = (qdepth || 0) < 6 ? moves.filter((move) => move.captured.length) : [];
+      if (!captures.length) return evaluate(board, seat);
+      let quietBest = -Infinity;
+      for (const move of ordered(captures)) {
+        const copy = cloneBoard(board);
+        applyMove(copy, move);
+        const score = -negamax(copy, 1 - seat, 0, -beta, -alpha, mustCapture, (qdepth || 0) + 1);
+        if (score > quietBest) quietBest = score;
+        if (quietBest > alpha) alpha = quietBest;
+        if (alpha >= beta) break;
+      }
+      return quietBest;
+    }
     let best = -Infinity;
     const list = ordered(moves);
     for (let i = 0; i < list.length; i++) {
       const copy = cloneBoard(board);
       applyMove(copy, list[i]);
-      const score = -negamax(copy, 1 - seat, depth - 1, -beta, -alpha, mustCapture);
+      const score = -negamax(copy, 1 - seat, depth - 1, -beta, -alpha, mustCapture, 0);
       if (score > best) best = score;
       if (best > alpha) alpha = best;
       if (alpha >= beta) break;
@@ -243,15 +258,17 @@
     if (level === "easy") {
       const captures = moves.filter((move) => move.captured.length);
       if (captures.length && Math.random() < 0.7) return U.pick(captures);
-      return U.pick(moves);
+      if (Math.random() < 0.55) return U.pick(moves);
     }
-    const depth = level === "hard" ? 4 : 2;
+    if (level === "normal" && Math.random() < 0.1) return U.pick(moves);
+
+    const depth = level === "easy" ? 1 : level === "normal" ? 2 : level === "hard" ? 4 : 6;
     let best = null;
     let bestScore = -Infinity;
     ordered(moves).forEach((move) => {
       const copy = cloneBoard(state.board);
       applyMove(copy, move);
-      const score = -negamax(copy, 1 - seat, depth - 1, -Infinity, Infinity, state.mustCapture);
+      const score = -negamax(copy, 1 - seat, depth - 1, -Infinity, Infinity, state.mustCapture, 0);
       if (score > bestScore) { bestScore = score; best = move; }
     });
     return best || moves[0];

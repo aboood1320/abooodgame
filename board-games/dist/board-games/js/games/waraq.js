@@ -909,19 +909,36 @@
     byRank.forEach((list) => {
       if (list.length >= 3 && (!best || list.length > best.length)) best = list.slice(0, 4);
     });
+    if (!best) {
+      const joker = hand.find((card) => card.joker);
+      if (joker) {
+        byRank.forEach((list) => {
+          if (list.length >= 2 && (!best || list.length + 1 > best.length)) best = list.slice(0, 3).concat([joker]);
+        });
+      }
+    }
     return best;
   }
 
   function aiMeldAll(player) {
+    const level = AI.level(player.level);
+    const meldLimit = level === "easy" ? 1 : level === "normal" ? 3 : 24;
+    const layoffLimit = level === "easy" ? 1 : level === "normal" ? 3 : 24;
+    let melds = 0;
+    let layoffs = 0;
     let guard = 24;
     while (guard-- > 0 && state && !state.over && state.current === player.index) {
-      const set = findSetMeld(player.hand);
-      const run = findRunMeld(player.hand);
-      const pick = set && run ? (set.length >= run.length ? set : run) : set || run;
-      if (pick && pick.length >= 3) {
-        doMeld(player, pick.map((card) => card.id));
-        continue;
+      if (melds < meldLimit) {
+        const set = findSetMeld(player.hand);
+        const run = findRunMeld(player.hand);
+        const pick = set && run ? (set.length >= run.length ? set : run) : set || run;
+        if (pick && pick.length >= 3) {
+          doMeld(player, pick.map((card) => card.id));
+          melds += 1;
+          continue;
+        }
       }
+      if (layoffs >= layoffLimit) break;
       // إضافة ورقة إلى مجموعة منزلة
       let laid = false;
       for (const meld of state.melds) {
@@ -929,6 +946,7 @@
           if (canLayoff(meld, card)) {
             doLayoff(player, card.id, meld.id);
             laid = true;
+            layoffs += 1;
             break;
           }
         }

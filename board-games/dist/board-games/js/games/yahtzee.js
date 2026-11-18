@@ -198,10 +198,28 @@
     });
   }
 
-  function bestTarget(dice, card) {
-    return CATS.filter((cat) => card[cat.key] == null)
-      .map((cat) => ({ cat, value: scoreFor(cat.key, dice) }))
-      .sort((a, b) => b.value - a.value)[0];
+  function bestTarget(dice, card, level) {
+    const upper = upperTotal(card);
+    const scored = CATS.filter((cat) => card[cat.key] == null)
+      .map((cat) => {
+        const value = scoreFor(cat.key, dice);
+        let adjusted = value;
+        if (cat.upper && value > 0 && upper < 63) {
+          const need = 63 - upper;
+          adjusted += Math.min(7, value * 0.25 + (need <= value ? 4 : 0));
+        }
+        if (value === 0) {
+          /* الخانات الصعبة هي المكان الأنسب لتصفير خانة فاشلة. */
+          if (cat.key === "yahtzee") adjusted += 1.4;
+          else if (cat.key === "large") adjusted += 0.8;
+          else if (cat.key === "chance") adjusted -= 1.6;
+        } else if (cat.key === "chance") {
+          adjusted -= 2.2;
+        }
+        return { cat, value, adjusted };
+      });
+    if (!scored.length) return null;
+    return AI.choose(scored, (entry) => entry.adjusted, level) || scored[0];
   }
 
   function holdsFor(key, dice) {
@@ -241,6 +259,21 @@
     return held;
   }
 
+  function chooseHolds(dice, key, level) {
+    const holds = holdsFor(key, dice);
+    if (AI.level(level) === "easy") {
+      if (Math.random() < 0.35) return holds.map(() => Math.random() < 0.5);
+      const any = holds.some(Boolean);
+      return any ? holds : holds.map((_, index) => index < 2);
+    }
+    const any = holds.some(Boolean);
+    if (!any) return holds.map((_, index) => index < 2);
+    if (AI.level(level) === "normal" && Math.random() < 0.12) {
+      return holds.map((held) => held && Math.random() < 0.8);
+    }
+    return holds;
+  }
+
   function aiStep() {
     if (!state || state.over) return;
     if (!XG.cpuTurn(apiRef, state, state.current)) return;
@@ -251,15 +284,13 @@
       return;
     }
     if (state.rolls < 3) {
-      const target = bestTarget(state.dice, player.card);
-      const holds = holdsFor(target ? target.cat.key : "chance", state.dice);
-      const any = holds.some(Boolean);
-      state.held = any ? holds : holds.map((_, index) => index < 2);
+      const target = bestTarget(state.dice, player.card, player.level);
+      state.held = chooseHolds(state.dice, target ? target.cat.key : "chance", player.level);
       render();
       aiRunner.later(() => { if (state && !state.over) { roll(true); aiRunner.later(aiStep, AI.delay(player.level, 0.7)); } }, AI.delay(player.level, 0.5));
       return;
     }
-    const target = bestTarget(state.dice, player.card);
+    const target = bestTarget(state.dice, player.card, player.level);
     if (!target) return;
     aiRunner.later(() => { if (state && !state.over) score(target.cat.key, true); }, AI.delay(player.level, 0.6));
   }

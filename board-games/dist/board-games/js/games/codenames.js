@@ -256,8 +256,13 @@
         return { cat, own: s.own, value: s.own - 0.9 * s.enemy - 0.35 * s.neutral - 5 * s.assassin + Math.random() * 0.2 };
       })
       .sort((a, b) => b.value - a.value);
-    const fresh = scored.find((item) => !used.has(item.cat) && item.value > 0);
-    if (fresh) return { text: fresh.cat, number: Math.min(4, fresh.own), cat: fresh.cat };
+    const level = AI.level(aiLevel(team));
+    const fresh = scored.filter((item) => !used.has(item.cat) && item.value > 0);
+    if (fresh.length) {
+      const pick = AI.choose(fresh, (item) => item.value, level) || fresh[0];
+      const cap = level === "easy" ? 1 : level === "normal" ? 2 : level === "hard" ? 3 : 4;
+      return { text: pick.cat, number: Math.min(cap, pick.own), cat: pick.cat };
+    }
     // كلمة واحدة من فئة آمنة نسبيًا ليست على اللوحة
     const safe = scored.filter((item) => stats[item.cat].assassin === 0);
     for (const item of (safe.length ? safe : scored)) {

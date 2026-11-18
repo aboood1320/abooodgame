@@ -467,45 +467,62 @@
   function cardValue(player, card) {
     const pay = canAfford(player, card.cost);
     if (!pay) return -500;
-    let value = (card.vp || 0) + (card.coins || 0) * 0.32 + (card.shields || 0) * 1.25;
-    if (card.science) value += 2.6;
-    if (card.production) value += 1.5;
-    if (card.type === "guild") value += 3.4;
+    let value = (card.vp || 0) + (card.coins || 0) * 0.34 + (card.shields || 0) * 1.2;
+    if (card.science) {
+      const same = player.sciences[card.science] || 0;
+      const kinds = Object.keys(player.sciences).filter((key) => player.sciences[key] > 0).length;
+      value += 2.4 + same * 1.1 + (kinds < 3 ? 0.5 : 0);
+    }
+    if (card.production) value += 1.4;
+    if (card.type === "guild") value += 3.2;
+    if (card.shields) {
+      const rivals = neighborsOf(player);
+      const highest = Math.max(0, ...rivals.map((other) => other.shields || 0));
+      if (player.shields + card.shields > highest) value += 1.2;
+      else if (player.shields + card.shields === highest) value += 0.6;
+    }
     value -= pay.coins * 0.2;
     return value;
   }
 
-  function wonderValue(player) {
+  function wonderValue(player, fuel) {
     const stage = player.wonder.stages[player.stages];
     if (!stage) return -500;
     const pay = canAfford(player, stage.cost);
     if (!pay) return -500;
-    const value = (stage.vp || 0) + (stage.shields || 0) * 1.35 + (stage.coins || 0) * 0.32 + (stage.science ? 2.8 : 0) + (stage.prod ? 1.6 : 0) + 3;
-    return value - pay.coins * 0.2;
+    const value = (stage.vp || 0) + (stage.shields || 0) * 1.3 + (stage.coins || 0) * 0.34 + (stage.science ? 2.6 : 0) + (stage.prod ? 1.5 : 0) + 2.6;
+    const opportunity = fuel ? Math.max(0, cardValue(player, fuel)) * 0.55 : 0;
+    return value - pay.coins * 0.2 - opportunity;
   }
 
   function aiPick() {
     if (!state || state.over) return;
     const player = cur();
     if (!XG.cpuTurn(apiRef, state, player.index)) return;
-    const wonderScore = wonderValue(player);
-    let best = { kind: "discard", index: 0, score: 1.05 };
+    const options = [];
+
     player.hand.forEach((card, index) => {
       const score = cardValue(player, card);
-      if (score > best.score) best = { kind: "build", index, score };
+      if (score > -400) options.push({ kind: "build", index, score });
+      options.push({ kind: "discard", index, score: 1.05 });
     });
-    if (wonderScore > best.score) {
+
+    if (player.wonder.stages[player.stages]) {
       let fuel = 0;
       let fuelScore = Infinity;
       player.hand.forEach((card, index) => {
         const score = cardValue(player, card);
         if (score < fuelScore) { fuelScore = score; fuel = index; }
       });
-      best = { kind: "wonder", index: fuel, score: wonderScore };
+      const score = wonderValue(player, player.hand[fuel]);
+      if (score > -400) options.push({ kind: "wonder", index: fuel, score });
     }
-    if (best.kind === "build") buildCard(best.index);
-    else if (best.kind === "wonder") buildWonder(best.index);
-    else discardCard(best.index);
+
+    const pick = AI.choose(options, (entry) => entry.score, player.level) || options[0];
+    if (!pick) return;
+    if (pick.kind === "build") buildCard(pick.index);
+    else if (pick.kind === "wonder") buildWonder(pick.index);
+    else discardCard(pick.index);
   }
 
   function settle() {

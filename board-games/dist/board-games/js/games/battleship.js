@@ -466,13 +466,16 @@
     });
     let best = 0;
     let list = [];
-    pool.forEach((at) => {
+    /* في وضع البحث نفضّل شبكة الشطرنج لتغطية أكبر مساحة بأقل طلقات. */
+    const hunt = pool.filter((at) => (Math.floor(at / N) + (at % N)) % 2 === 0);
+    const candidates = !hits.length && hunt.length ? hunt : pool;
+    candidates.forEach((at) => {
       const w = weight[at];
       if (w > best) { best = w; list = [at]; } else if (w === best && w > 0) list.push(at);
     });
     if (best <= 0) {
       const near = neighborCandidates();
-      return U.pick(near.length ? near : pool);
+      return U.pick(near.length ? near : candidates);
     }
     return U.pick(list);
   }

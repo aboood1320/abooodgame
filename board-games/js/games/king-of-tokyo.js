@@ -304,8 +304,7 @@
         clearTimeout(timer);
         timer = setTimeout(() => {
           if (!state || state.over) return;
-          const shouldYield = player.health <= Math.max(3, Math.round(player.maxHealth * 0.35)) || Math.random() < 0.35;
-          decideYield(shouldYield);
+          decideYield(aiShouldYield(player));
         }, AI.delay(player.level, 0.7));
       }
       return;
@@ -361,7 +360,7 @@
         clearTimeout(timer);
         timer = setTimeout(() => {
           if (!state || state.over) return;
-          chooseEnter(player.health > Math.round(player.maxHealth * 0.55));
+          chooseEnter(aiShouldEnter(player));
         }, AI.delay(player.level, 0.8));
       }
       return;
@@ -530,17 +529,42 @@
 
   /* ------------------------------ الذكاء ------------------------------ */
 
-  function autoKeep() {
-    const counts = diceCount();
-    let best = "claw";
-    let bestCount = 0;
-    ["1", "2", "3", "claw", "heart", "energy"].forEach((key) => {
-      const face = key === "1" ? 1 : key === "2" ? 2 : key === "3" ? 3 : key;
+  function faceScore(counts, player, level) {
+    const hpRatio = player.health / player.maxHealth;
+    const numbers = [1, 2, 3].map((face) => {
       const count = counts[face];
-      const weight = key === "claw" ? 0.35 : key === "heart" ? 0.15 : 0;
-      if (count + weight > bestCount) { best = face; bestCount = count + weight; }
+      let value = count >= 3 ? count * face * 1.15 : count >= 2 ? count * face * 0.6 : count * 0.15;
+      return { key: String(face), count, value };
     });
-    state.kept = state.dice.map((value) => value === best);
+    const clawBonus = powerCount(player, "claw") + (player.inTokyo ? powerCount(player, "stomp") : 0);
+    const heartBonus = powerCount(player, "heal");
+    const energyBonus = powerCount(player, "energy");
+    const options = numbers.concat([
+      { key: "claw", count: counts.claw, value: counts.claw * (4.2 + clawBonus * 0.9) },
+      {
+        key: "heart",
+        count: counts.heart,
+        value: player.inTokyo ? counts.heart * 0.4 : counts.heart * (hpRatio < 0.55 ? 4.4 : 2.1 + heartBonus * 0.5),
+      },
+      { key: "energy", count: counts.energy, value: counts.energy * (2.5 + energyBonus * 0.6) },
+    ]);
+    options.sort((a, b) => b.value - a.value);
+    if (level === "easy") {
+      options.sort((a, b) => b.count - a.count || b.value - a.value);
+    }
+    return options[0];
+  }
+
+  function autoKeep() {
+    const player = cur();
+    const counts = diceCount();
+    const level = AI.level(player.level);
+    const target = faceScore(counts, player, level);
+    if (!target || target.count === 0) {
+      state.kept = state.dice.map((_, index) => index < 2);
+      return;
+    }
+    state.kept = state.dice.map((value) => String(value) === String(target.key));
   }
 
   function aiRollStep() {
@@ -563,23 +587,85 @@
     resolveDice();
   }
 
+  function powerValue(player, id) {
+    const others = state.players.filter((other) => other.alive && other.index !== player.index).length;
+    const hpRatio = player.health / player.maxHealth;
+    switch (id) {
+      case "claw": return 4.6 + powerCount(player, "claw") * 1.6;
+      case "heal": return player.inTokyo ? 1.2 : 4.2;
+      case "armor": return 4.4;
+      case "energy": return 3.2;
+      case "die": return 5.8;
+      case "vpTurn": return 6.2;
+      case "healTurn": return 4.6;
+      case "energyTurn": return 4.2;
+      case "stomp": return player.inTokyo ? 5.0 : 2.6;
+      case "spike": return player.inTokyo ? 4.2 : 2.0;
+      case "burst": return 3.4 + others * 1.4;
+      case "medkit": return hpRatio < 0.6 ? 5.4 : 1.2;
+      case "battery": return player.energy < 3 ? 4.8 : 1.4;
+      case "fame": return 5.2;
+      case "giant": return hpRatio < 0.6 ? 5.2 : 3.6;
+      default: return 2.5;
+    }
+  }
+
   function aiBuy() {
     if (!state || state.over || state.phase !== "buy") return;
     const player = cur();
     if (!XG.cpuTurn(apiRef, state, player.index)) return;
+    const level = AI.level(player.level);
+    const maxBuys = level === "easy" ? 1 : level === "expert" ? 3 : 2;
     let bought = 0;
-    while (bought < 2) {
+
+    while (bought < maxBuys) {
       const options = state.market
-        .map((id, index) => ({ id, index, card: POWERS[id] }))
+        .map((id, index) => ({ id, index, card: POWERS[id], value: powerValue(player, id) }))
         .filter((entry) => entry.card && entry.card.cost <= player.energy)
-        .sort((a, b) => b.card.cost - a.card.cost);
+        .sort((a, b) => {
+          if (level === "easy") return b.card.cost - a.card.cost || b.value - a.value;
+          return b.value - a.value || a.card.cost - b.card.cost;
+        });
       if (!options.length) break;
-      buyCard(options[0].index);
+      const pick = options[0];
+      const threshold = level === "easy" ? 0 : level === "normal" ? 1.5 : 2.5;
+      if (pick.value < threshold) break;
+      buyCard(pick.index);
       bought += 1;
       if (state.over || state.phase !== "buy") return;
     }
+
+    /* مسح السوق عندما تكون الطاقة كافية والبطاقات ضعيفة. */
+    if (player.energy >= 2 && state.market.length) {
+      const bestValue = Math.max(...state.market.map((id) => (POWERS[id] ? powerValue(player, id) : 0)));
+      if (bestValue < 3 && Math.random() < AI.chance(level, 0.1, 0.3, 0.5, 0.65)) {
+        sweepMarket();
+        if (state.over || state.phase !== "buy") return;
+      }
+    }
+
     clearTimeout(timer);
     timer = setTimeout(() => { if (state && !state.over && state.phase === "buy") endTurn(); }, AI.delay(player.level, 0.8));
+  }
+
+  function aiShouldYield(player) {
+    const level = AI.level(player.level);
+    const hpRatio = player.health / player.maxHealth;
+    let chance = hpRatio < 0.3 ? 0.9 : hpRatio < 0.5 ? 0.55 : 0.18;
+    if (player.vp >= 16) chance -= 0.22;
+    if (state.players.some((other) => other.alive && other.index !== player.index && other.vp >= player.vp + 3)) chance += 0.12;
+    if (level === "easy") chance = 0.35;
+    if (level === "normal") chance = Math.min(0.9, chance + 0.08);
+    return Math.random() < chance;
+  }
+
+  function aiShouldEnter(player) {
+    const level = AI.level(player.level);
+    const hpRatio = player.health / player.maxHealth;
+    let threshold = level === "easy" ? 0.68 : level === "normal" ? 0.55 : level === "hard" ? 0.44 : 0.34;
+    if (player.vp >= 16) threshold = 0.85;
+    if (player.health <= 3) threshold = 0.15;
+    return hpRatio >= threshold;
   }
 
   function settle() {

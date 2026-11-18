@@ -179,17 +179,26 @@
     const player = cur();
     const nextCards = player.cards.concat(state.card);
     const gain = handScore(nextCards) - handScore(player.cards);
-    const potValue = state.pot;
-    return gain - potValue * 1.15;
+    /* كل رقاقة على البطاقة تُخصم من النتيجة، لكن الرقائق التي بيدنا لا تُخصم الآن. */
+    return state.pot - gain;
   }
 
   function aiTurn() {
     if (!state || state.over) return;
     const player = cur();
     if (!XG.cpuTurn(apiRef, state, player.index)) return;
-    const cost = takeValue();
+    const value = takeValue();
+    const level = AI.level(player.level);
     const missing = state.deck.length === 0;
-    if (missing || cost <= 0 || (player.chips < 4 && cost < 4)) take();
+
+    /*
+     * القيمة الموجبة تعني أن أخذ البطاقة أفضل من تمريرها. المستويات الأعلى
+     * تتحمّل مخاطرة أقل وتُقدّر الرقائق في السوق بدقة أكبر.
+     */
+    const threshold = AI.chance(level, -1.6, -0.15, 0.55, 0.9);
+    const forced = player.chips < 1 || missing;
+    if (forced || value >= threshold) take();
+    else if (level === "easy" && Math.random() < 0.12) take();
     else pass();
   }
 

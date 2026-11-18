@@ -277,20 +277,52 @@
     return order[key] || 0;
   }
 
+  function owned(player, key) {
+    let count = 0;
+    ["draw", "hand", "discard", "played"].forEach((pile) => {
+      (player[pile] || []).forEach((card) => { if (card === key) count += 1; });
+    });
+    return count;
+  }
+
   function aiBuy() {
     const player = cur();
+    const level = AI.level(player.level);
     let guard = 0;
-    while (player.buys > 0 && guard++ < 8) {
+    while (player.buys > 0 && guard++ < 10) {
       const available = coins(player);
-      let choice = null;
-      if (available >= 8 && state.supply.province > 0) choice = "province";
-      else if (available >= 6 && state.supply.gold > 0) choice = "gold";
-      else if (available >= 5 && state.supply.duchy > 0 && state.turn > 12) choice = "duchy";
-      else if (available >= 4 && state.supply.smithy > 0 && player.discard.filter((k) => k === "smithy").length < 2) choice = "smithy";
-      else if (available >= 5 && state.supply.market > 0) choice = "market";
-      else if (available >= 3 && state.supply.silver > 0) choice = "silver";
-      else if (available >= 3 && state.supply.village > 0) choice = "village";
-      if (!choice || !buy(choice)) break;
+      if (available < 2) break;
+      const options = Object.keys(state.supply)
+        .filter((key) => state.supply[key] > 0 && CARDS[key].cost <= available)
+        .filter((key) => key !== "curse" && key !== "copper")
+        .map((key) => {
+          const card = CARDS[key];
+          const copies = owned(player, key);
+          let score = 0;
+          if (key === "province") score = 100;
+          else if (key === "gold") score = 72 - copies * 4;
+          else if (key === "duchy") score = state.supply.province <= 3 ? 62 : 34;
+          else if (key === "silver") score = 39 - copies * 2.5;
+          else if (key === "laboratory") score = 46 - copies * 3;
+          else if (key === "festival") score = 42 - copies * 3;
+          else if (key === "market") score = 40 - copies * 3;
+          else if (key === "smithy") score = 36 - copies * 3;
+          else if (key === "village") score = 31 - copies * 2.5;
+          else if (key === "councilroom") score = 30 - copies * 3;
+          else if (key === "militia") score = 33 - copies * 3;
+          else if (key === "moneylender") score = 27 - copies * 4;
+          else if (key === "workshop") score = 24 - copies * 4;
+          else if (key === "moat") score = 14 - copies * 3;
+          else if (key === "estate") score = 5;
+          /* في بداية اللعب نحتاج نقودًا أكثر من نقاط النصر. */
+          if (state.turn < 8 && card.type === "victory" && key !== "province") score -= 12;
+          if (state.turn > 16 && card.type === "victory") score += 8;
+          if (key === "province" && state.supply.province <= 2) score += 20;
+          return { key, score, cost: card.cost };
+        });
+      if (!options.length) break;
+      const pick = AI.choose(options, (option) => option.score, level) || options[0];
+      if (!pick || !buy(pick.key)) break;
       if (state.over) return;
     }
     endTurn();
@@ -300,15 +332,21 @@
     if (!state || state.over) return;
     if (!XG.cpuTurn(apiRef, state, state.current)) return;
     const player = cur();
+    const level = AI.level(player.level);
     if (state.phase === "action") {
-      const actions = playableActions(player).sort((a, b) => actionPriority(b) - actionPriority(a));
+      const actions = playableActions(player)
+        .map((key) => ({ key, score: actionPriority(key) }))
+        .sort((a, b) => b.score - a.score);
       if (player.actions > 0 && actions.length) {
-        playCard(actions[0]);
+        if (level === "easy" && Math.random() < 0.2) {
+          toBuy();
+          return;
+        }
+        const pick = AI.choose(actions, (entry) => entry.score, level) || actions[0];
+        playCard(pick.key);
         return;
       }
       toBuy();
-      clearTimeout(timer);
-      timer = setTimeout(aiStep, AI.delay(player.level, 0.5));
       return;
     }
     if (state.phase === "buy") {

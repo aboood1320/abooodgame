@@ -873,8 +873,8 @@
     const valid = [];
     if (candidates.length) {
       candidates.sort((a, b) => b.approx - a.approx);
-      const target = level === "hard" ? 18 : level === "normal" ? 12 : 8;
-      const limit = level === "hard" ? 170 : level === "normal" ? 110 : 70;
+      const target = level === "expert" ? 26 : level === "hard" ? 18 : level === "normal" ? 12 : 8;
+      const limit = level === "expert" ? 260 : level === "hard" ? 170 : level === "normal" ? 110 : 70;
       let checked = 0;
       for (const candidate of candidates) {
         if (valid.length >= target) break;

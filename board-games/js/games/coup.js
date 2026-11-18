@@ -318,10 +318,11 @@
         return;
       case "exchange": {
         const extra = [state.deck.pop(), state.deck.pop()].filter(Boolean);
-        state.exchange = { player: actor.index, cards: actor.roles.concat(extra), selected: [], extra };
+        state.exchange = { player: actor.index, cards: actor.roles.concat(extra), selected: [], extra, keep: actor.roles.length };
         state.phase = "exchange";
-        state.notice = "اختر بطاقتين للاحتفاظ بهما من " + ar(state.exchange.cards.length) + " بطاقات.";
+        state.notice = "احتفظ بـ" + ar(actor.roles.length) + " بطاقة من " + ar(state.exchange.cards.length) + " بطاقات.";
         render();
+        settle();
         return;
       }
       default:
@@ -333,10 +334,12 @@
 
   function confirmExchange() {
     if (!state || state.phase !== "exchange" || !state.exchange) return;
-    if (state.exchange.selected.length !== 2) return;
-    const player = state.players[state.exchange.player];
-    const cards = state.exchange.cards;
-    const kept = state.exchange.selected.slice().sort((a, b) => a - b);
+    const exchange = state.exchange;
+    const keep = Math.max(1, Math.min(exchange.keep || 2, exchange.cards.length));
+    if (exchange.selected.length !== keep) return;
+    const player = state.players[exchange.player];
+    const cards = exchange.cards;
+    const kept = exchange.selected.slice().sort((a, b) => a - b);
     const returned = cards.filter((_, index) => !kept.includes(index));
     player.roles = kept.map((index) => cards[index]);
     state.deck = U.shuffle(state.deck.concat(returned));
@@ -377,9 +380,10 @@
 
   function swapRoles(index) {
     if (!state || state.phase !== "exchange" || !state.exchange) return;
+    const keep = Math.max(1, state.exchange.keep || 2);
     const at = state.exchange.selected.indexOf(index);
     if (at >= 0) state.exchange.selected.splice(at, 1);
-    else if (state.exchange.selected.length < 2) state.exchange.selected.push(index);
+    else if (state.exchange.selected.length < keep) state.exchange.selected.push(index);
     render();
   }
 
@@ -409,65 +413,176 @@
 
   /* ------------------------------ الذكاء ------------------------------ */
 
+  function revealedCopies(role) {
+    return state.players.reduce(
+      (sum, player) => sum + player.revealed.filter((key) => key === role).length,
+      0
+    );
+  }
+
+  /** كم نسخة من الدور يمكن أن يملكها لاعب آخر من منظور المراقب (معلومات عامة فقط). */
+  function claimPossible(observer, role) {
+    const total = DECK_COUNTS[role] || 0;
+    const own = observer ? observer.roles.filter((key) => key === role).length : 0;
+    return Math.max(0, total - revealedCopies(role) - own);
+  }
+
+  function bluffChance(level) {
+    return AI.chance(level, 0.04, 0.08, 0.13, 0.18);
+  }
+
+  function targetValue(target) {
+    if (!target || !target.alive) return -999;
+    return 10 + target.coins * 1.4 + target.roles.length * 11;
+  }
+
+  function roleKeepValue(role) {
+    const player = state.players[state.lose ? state.lose.player : state.current];
+    const coins = player ? player.coins : 0;
+    if (role === "duke") return 8 + Math.min(4, coins * 0.2);
+    if (role === "assassin") return coins >= 3 ? 10 : 4;
+    if (role === "captain") return 7;
+    if (role === "contessa") return 5;
+    return 4;
+  }
+
   function aiReact(player) {
     if (!state || state.phase !== "react" || !state.pending) return;
     const pending = state.pending;
     const action = ACTIONS[pending.type];
     const reaction = reactionFor(player);
     const actor = state.players[pending.actor];
+    const level = AI.level(player.level);
+
     if (reaction.canChallenge && action.role) {
-      const suspicion = 0.18 + (actor.coins >= 6 ? 0.15 : 0) + (pending.type === "assassinate" ? 0.15 : 0);
-      if (Math.random() < suspicion && !hasRole(actor, action.role)) {
+      const possible = claimPossible(player, action.role);
+      let suspicion = AI.chance(level, 0.04, 0.1, 0.17, 0.25);
+      if (possible === 0) suspicion = 0.92;
+      else if (possible === 1) suspicion += 0.08;
+      if (actor && actor.coins >= 7) suspicion += 0.05;
+      if (pending.type === "assassinate") suspicion += 0.04;
+      if (Math.random() < suspicion) {
         doChallenge(player);
         return;
       }
     }
+
     if (reaction.canBlock) {
       const blockRole = pending.type === "aid" ? "duke" : action.block;
-      if (hasRole(player, blockRole) && Math.random() < 0.8) {
-        doBlock(player);
-        return;
+      if (blockRole) {
+        const honest = hasRole(player, blockRole);
+        const chance = honest
+          ? AI.chance(level, 0.72, 0.85, 0.92, 0.96)
+          : bluffChance(level);
+        if (Math.random() < chance) { doBlock(player); return; }
       }
-      if (Math.random() < 0.12) { doBlock(player); return; }
     }
     skipReactor();
   }
 
   function aiChallengeBlock() {
     if (!state || !state.blockClaim) return;
-    const blocker = state.players[state.blockClaim.player];
-    if (Math.random() < 0.28 && !hasRole(blocker, state.blockClaim.role)) challengeBlock();
+    const observer = cur();
+    const block = state.blockClaim;
+    const possible = claimPossible(observer, block.role);
+    const level = AI.level(observer.level);
+    let suspicion = AI.chance(level, 0.05, 0.12, 0.2, 0.28);
+    if (possible === 0) suspicion = 0.9;
+    else if (possible === 1) suspicion += 0.08;
+    if (Math.random() < suspicion) challengeBlock();
     else acceptBlock();
   }
 
   function aiLose(player) {
     if (!state || state.phase !== "lose") return;
-    chooseLose(U.pick(player.roles));
+    const keep = AI.choose(player.roles, (role) => roleKeepValue(role), player.level);
+    chooseLose(keep || player.roles[0]);
+  }
+
+  function aiExchange() {
+    if (!state || state.over || state.phase !== "exchange" || !state.exchange) return;
+    const exchange = state.exchange;
+    const player = state.players[exchange.player];
+    if (!player || !XG.cpuTurn(apiRef, state, player.index)) return;
+    const level = AI.level(player.level);
+    const keep = Math.max(1, Math.min(exchange.keep || 2, exchange.cards.length));
+    const combos = [];
+    const build = (start, chosen) => {
+      if (chosen.length === keep) {
+        const roles = chosen.map((index) => exchange.cards[index]);
+        let score = chosen.reduce((sum, index) => sum + roleKeepValue(exchange.cards[index]), 0);
+        const copies = {};
+        roles.forEach((role) => { copies[role] = (copies[role] || 0) + 1; });
+        Object.keys(copies).forEach((role) => { if (copies[role] > 1) score -= (copies[role] - 1) * 3.5; });
+        combos.push({ indices: chosen.slice(), score });
+        return;
+      }
+      for (let index = start; index < exchange.cards.length; index++) {
+        chosen.push(index);
+        build(index + 1, chosen);
+        chosen.pop();
+      }
+    };
+    build(0, []);
+    if (!combos.length) return;
+    const pick = AI.choose(combos, (combo) => combo.score, level) || combos[0];
+    exchange.selected = pick.indices.slice();
+    confirmExchange();
   }
 
   function aiAction() {
     if (!state || state.over || state.phase !== "action") return;
     const player = cur();
     if (!XG.cpuTurn(apiRef, state, player.index)) return;
-    const alive = alivePlayers();
-    const targets = alive.filter((other) => other.index !== player.index);
-    if (player.coins >= 10 || (player.coins >= 7 && Math.random() < 0.6)) {
-      const target = U.pick(targets);
-      beginAction("coup", target.index);
+
+    const level = AI.level(player.level);
+    const targets = alivePlayers().filter((other) => other.index !== player.index);
+    const best = targets.slice().sort((a, b) => targetValue(b) - targetValue(a))[0];
+    const richest = targets.slice().sort((a, b) => b.coins - a.coins)[0];
+
+    /* عند ١٠ عملات يجب الانقلاب. */
+    if (player.coins >= 10 && best) {
+      beginAction("coup", best.index);
       return;
     }
-    if (player.coins >= 3 && hasRole(player, "assassin") && Math.random() < 0.55) {
-      beginAction("assassinate", U.pick(targets).index);
-      return;
+
+    const bluff = bluffChance(level);
+    const options = [];
+    options.push({ type: "income", score: 14 + (player.coins <= 2 ? 12 : 0) });
+    options.push({ type: "aid", score: player.coins <= 4 ? 30 : 20 });
+
+    if (player.coins >= 7 && best) {
+      options.push({ type: "coup", target: best.index, score: 92 + targetValue(best) });
     }
-    if (hasRole(player, "captain") && targets.some((t) => t.coins > 0) && Math.random() < 0.45) {
-      beginAction("steal", U.pick(targets).index);
-      return;
+    if (hasRole(player, "duke")) {
+      options.push({ type: "tax", score: 56 });
+    } else if (Math.random() < bluff) {
+      options.push({ type: "tax", score: 31 });
     }
-    if (hasRole(player, "duke") && Math.random() < 0.6) { beginAction("tax"); return; }
-    if (hasRole(player, "ambassador") && Math.random() < 0.35) { beginAction("exchange"); return; }
-    if (Math.random() < 0.25) { beginAction("aid"); return; }
-    beginAction("income");
+    if (richest && richest.coins > 0) {
+      if (hasRole(player, "captain")) {
+        options.push({ type: "steal", target: richest.index, score: 45 + richest.coins * 2.2 });
+      } else if (Math.random() < bluff) {
+        options.push({ type: "steal", target: richest.index, score: 27 + richest.coins });
+      }
+    }
+    if (player.coins >= 3 && best) {
+      if (hasRole(player, "assassin")) {
+        options.push({ type: "assassinate", target: best.index, score: 50 + targetValue(best) - 6 });
+      } else if (Math.random() < bluff) {
+        options.push({ type: "assassinate", target: best.index, score: 25 });
+      }
+    }
+    if (hasRole(player, "ambassador")) {
+      options.push({ type: "exchange", score: player.roles.length < 2 ? 45 : 36 });
+    } else if (Math.random() < bluff * 0.7) {
+      options.push({ type: "exchange", score: 17 });
+    }
+
+    const pick = AI.choose(options, (option) => option.score, level);
+    const action = pick || options[options.length - 1];
+    const ok = beginAction(action.type, action.target);
+    if (!ok && action.type !== "income") beginAction("income");
   }
 
   function settle() {
@@ -475,6 +590,14 @@
     if (state.phase === "action" && XG.cpuTurn(apiRef, state, cur().index)) {
       clearTimeout(timer);
       timer = setTimeout(aiAction, AI.delay(cur().level, 0.9));
+      return;
+    }
+    if (state.phase === "exchange" && state.exchange) {
+      const player = state.players[state.exchange.player];
+      if (player && XG.cpuTurn(apiRef, state, player.index)) {
+        clearTimeout(timer);
+        timer = setTimeout(aiExchange, AI.delay(player.level, 0.9));
+      }
     }
   }
 
@@ -555,9 +678,10 @@
       const exchange = state.exchange;
       const player = state.players[exchange.player];
       const can = XG.canAct(apiRef, state, player.index, state.over);
-      return '<div class="xg-panel cp-exchange"><h3>تبادل السفير</h3><p class="xg-note">اختر بطاقتين للاحتفاظ: ' + ar(exchange.selected.length) + " / ٢</p>" +
+      const keep = Math.max(1, Math.min(exchange.keep || 2, exchange.cards.length));
+      return '<div class="xg-panel cp-exchange"><h3>تبادل السفير</h3><p class="xg-note">اختر ' + ar(keep) + " للاحتفاظ: " + ar(exchange.selected.length) + " / " + ar(keep) + "</p>" +
         '<div class="xg-row">' + exchange.cards.map((role, index) => '<button type="button" class="xg-btn ' + (exchange.selected.includes(index) ? "primary" : "") + '" data-cp-exchange="' + index + '" ' + (!can ? "disabled" : "") + ">" + esc(roleData(role).name) + "</button>").join("") + "</div>" +
-        '<button type="button" class="xg-btn primary" data-cp-exchange-confirm ' + (!can || exchange.selected.length !== 2 ? "disabled" : "") + ">تأكيد التبادل</button></div>";
+        '<button type="button" class="xg-btn primary" data-cp-exchange-confirm ' + (!can || exchange.selected.length !== keep ? "disabled" : "") + ">تأكيد التبادل</button></div>";
     }
     return "";
   }

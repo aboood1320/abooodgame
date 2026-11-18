@@ -322,12 +322,58 @@
 
   /* ------------------------------ الذكاء ------------------------------ */
 
-  function candidateSets(hand) {
+  /* الجوكر يجعل المجموعات أوسع، لكن قيمته عالية؛ نخفض وزن خطط الجوكر قليلًا. */
+  const JOKER_KEEP = 18;
+
+  function jokerCandidates(hand) {
+    const jokers = hand.filter((tile) => tile.joker);
+    if (!jokers.length) return [];
+    const joker = jokers[0];
+    const plain = hand.filter((tile) => !tile.joker);
+    const out = [];
+
+    /* مجموعة أرقام: لونان أو ثلاثة + جوكر. */
+    for (let num = 1; num <= 13; num++) {
+      const group = [];
+      const colors = new Set();
+      plain.forEach((tile) => {
+        if (tile.num !== num || colors.has(tile.color)) return;
+        colors.add(tile.color);
+        group.push(tile);
+      });
+      if (group.length >= 2) out.push(group.slice(0, 3).concat([joker]));
+    }
+
+    /* سلاسل: جوكر يسدّ فجوة، يمتد بطرف، أو يكمل سلسلة ثلاثية. */
+    for (let color = 0; color < 4; color++) {
+      const tiles = plain.filter((tile) => tile.color === color).sort((a, b) => a.num - b.num);
+      for (let i = 0; i < tiles.length; i++) {
+        if (i + 1 < tiles.length) {
+          const gap = tiles[i + 1].num - tiles[i].num;
+          if (gap === 1) out.push([tiles[i], tiles[i + 1], joker]);
+          if (gap === 2) out.push([tiles[i], joker, tiles[i + 1]]);
+        }
+        let run = [tiles[i]];
+        for (let j = i + 1; j < tiles.length; j++) {
+          if (tiles[j].num !== run[run.length - 1].num + 1) {
+            if (tiles[j].num !== run[run.length - 1].num) break;
+            continue;
+          }
+          run.push(tiles[j]);
+          if (run.length === 3) out.push(run.concat([joker]));
+          if (run.length >= 3) break;
+        }
+      }
+    }
+    return out;
+  }
+
+  function candidateSets(hand, allowJokers) {
     const sets = [];
     const seen = new Set();
     const add = (tiles) => {
       if (!validSet(tiles)) return;
-      const key = tiles.map((t) => t.id).sort().join(",");
+      const key = tiles.map((tile) => tile.id).sort().join(",");
       if (seen.has(key)) return;
       seen.add(key);
       sets.push(tiles);
@@ -335,13 +381,13 @@
     for (let num = 1; num <= 13; num++) {
       const group = [];
       const colors = new Set();
-      hand.filter((t) => !t.joker && t.num === num).forEach((tile) => {
+      hand.filter((tile) => !tile.joker && tile.num === num).forEach((tile) => {
         if (!colors.has(tile.color)) { colors.add(tile.color); group.push(tile); }
       });
       if (group.length >= 3) add(group.slice(0, 4));
     }
     for (let color = 0; color < 4; color++) {
-      const tiles = hand.filter((t) => !t.joker && t.color === color).sort((a, b) => a.num - b.num);
+      const tiles = hand.filter((tile) => !tile.joker && tile.color === color).sort((a, b) => a.num - b.num);
       for (let start = 0; start < tiles.length; start++) {
         let run = [tiles[start]];
         for (let i = start + 1; i < tiles.length; i++) {
@@ -352,78 +398,131 @@
         }
       }
     }
+    if (allowJokers) jokerCandidates(hand).forEach(add);
     return sets;
   }
 
-  function bestMeld(hand) {
-    const candidates = candidateSets(hand);
-    let best = null;
-    let bestScore = 0;
-    const search = (index, used, chosen, score) => {
-      if (score >= MIN_MELD && score > bestScore) {
-        bestScore = score;
-        best = chosen.slice();
+  /*
+   * يبحث عن أفضل توليفة مجموعات منفصلة.
+   * minimum: أقل مجموع مطلوب (30 للإنزال الأول، 0 بعد الإنزال).
+   * المكافأة تفضّل القطع العادية وتحتفظ بالجوكر للاستخدامات الأفضل.
+   */
+  function bestMeld(hand, minimum, allowJokers) {
+    const floor = minimum == null ? MIN_MELD : minimum;
+    const candidates = candidateSets(hand, !!allowJokers);
+    if (!candidates.length) return [];
+    const entries = candidates.map((set) => ({
+      set,
+      value: U.sum(set.map(tileValue)),
+      jokers: set.filter((tile) => tile.joker).length,
+    })).sort((a, b) => b.value - a.value);
+    const suffix = new Array(entries.length + 1);
+    suffix[entries.length] = 0;
+    for (let index = entries.length - 1; index >= 0; index--) {
+      suffix[index] = suffix[index + 1] + entries[index].value;
+    }
+    let best = [];
+    let bestNet = -Infinity;
+    let nodes = 0;
+    const search = (index, used, chosen, score, jokers) => {
+      if (nodes++ > 12000) return;
+      if (chosen.length && score >= floor) {
+        const net = score - jokers * JOKER_KEEP;
+        if (net > bestNet) {
+          bestNet = net;
+          best = chosen.slice();
+        }
       }
-      if (index >= candidates.length) return;
-      const remaining = candidates.slice(index).reduce((sum, set) => sum + U.sum(set.map(tileValue)), 0);
-      if (score + remaining <= bestScore && bestScore >= MIN_MELD) return;
-      const set = candidates[index];
-      if (set.every((tile) => !used.has(tile.id))) {
+      if (index >= entries.length) return;
+      if (score + suffix[index] < floor) return;
+      const entry = entries[index];
+      if (entry.set.every((tile) => !used.has(tile.id))) {
         const next = new Set(used);
-        set.forEach((tile) => next.add(tile.id));
-        chosen.push(set);
-        search(index + 1, next, chosen, score + U.sum(set.map(tileValue)));
+        entry.set.forEach((tile) => next.add(tile.id));
+        chosen.push(entry.set);
+        search(index + 1, next, chosen, score + entry.value, jokers + entry.jokers);
         chosen.pop();
       }
-      search(index + 1, used, chosen, score);
+      search(index + 1, used, chosen, score, jokers);
     };
-    search(0, new Set(), [], 0);
-    return best || [];
+    search(0, new Set(), [], 0, 0);
+    return best;
+  }
+
+  /* أفضل قطعة يمكن إضافتها لمجموعة على الطاولة. */
+  function bestLayoff(player) {
+    let best = null;
+    state.table.forEach((set) => {
+      player.hand.forEach((tile) => {
+        if (!validSet(set.tiles.concat(tile))) return;
+        const value = tileValue(tile) - (tile.joker ? JOKER_KEEP : 0);
+        if (!best || value > best.value) best = { set, tile, value };
+      });
+    });
+    return best;
+  }
+
+  function levelLimits(level) {
+    if (level === "easy") return { sets: 1, layoffs: 1 };
+    if (level === "normal") return { sets: 2, layoffs: 3 };
+    return { sets: Infinity, layoffs: Infinity };
   }
 
   function aiStep() {
     if (!state || state.over) return;
     if (!XG.cpuTurn(apiRef, state, state.current)) return;
     const player = cur();
+    const level = AI.level(player.level);
+    const limits = levelLimits(level);
+
     if (!player.hasMelded) {
-      const meld = bestMeld(player.hand);
-      if (!meld.length) { drawTile(); return; }
+      const meld = bestMeld(player.hand, MIN_MELD, level !== "easy");
+      if (!meld.length) {
+        const drawn = drawTile();
+        if (!drawn && state && !state.over) endTurn();
+        return;
+      }
       meld.forEach((set) => placeTiles(set.map((tile) => tile.id)));
+      if (!state || state.over) return;
       clearTimeout(timer);
       timer = setTimeout(() => {
         if (!state || state.over) return;
         if (state.turnPlaced && cur().hasMelded) endTurn();
-        else drawTile();
+        else {
+          const drawn = drawTile();
+          if (!drawn && state && !state.over) endTurn();
+        }
       }, AI.delay(player.level, 0.7));
       return;
     }
-    const sets = candidateSets(player.hand);
-    let placed = 0;
-    for (const set of sets) {
-      if (placed >= 2) break;
-      if (set.every((tile) => player.hand.some((held) => held.id === tile.id))) {
-        placeTiles(set.map((tile) => tile.id));
-        placed += 1;
-      }
-    }
+
+    /* بعد الإنزال: أنزل كل التوليفات المفيدة (المستويات الأعلى تستغل يدها كاملة). */
+    const plan = bestMeld(player.hand, 0, true);
+    plan.slice(0, limits.sets).forEach((set) => {
+      if (!state || state.over) return;
+      placeTiles(set.map((tile) => tile.id));
+    });
     if (!state || state.over) return;
-    if (!placed) {
-      outer:
-      for (const set of state.table) {
-        for (const tile of player.hand.slice()) {
-          if (validSet(set.tiles.concat(tile))) {
-            addToSet(set.id, tile.id);
-            placed += 1;
-            break outer;
-          }
-        }
-      }
+
+    /* ثم أضف أكبر عدد ممكن من القطع إلى مجموعات الطاولة. */
+    let added = 0;
+    let guard = 0;
+    while (added < limits.layoffs && guard++ < 24) {
+      const pick = bestLayoff(player);
+      if (!pick) break;
+      if (!addToSet(pick.set.id, pick.tile.id)) break;
+      added += 1;
+      if (!state || state.over) return;
     }
+
     clearTimeout(timer);
     timer = setTimeout(() => {
       if (!state || state.over) return;
       if (state.turnPlaced) endTurn();
-      else drawTile();
+      else {
+        const drawn = drawTile();
+        if (!drawn && state && !state.over) endTurn();
+      }
     }, AI.delay(player.level, 0.8));
   }
 

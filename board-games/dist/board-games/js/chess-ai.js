@@ -98,7 +98,11 @@
     let heavy = 0;
 
     const pawns = { w: [0, 0, 0, 0, 0, 0, 0, 0], b: [0, 0, 0, 0, 0, 0, 0, 0] };
-    let bishops = { w: 0, b: 0 };
+    const pawnFiles = { w: [], b: [] };
+    const lowRow = { w: [8, 8, 8, 8, 8, 8, 8, 8], b: [8, 8, 8, 8, 8, 8, 8, 8] };
+    const highRow = { w: [-1, -1, -1, -1, -1, -1, -1, -1], b: [-1, -1, -1, -1, -1, -1, -1, -1] };
+    const kingSq = { w: -1, b: -1 };
+    const bishops = { w: 0, b: 0 };
 
     for (let i = 0; i < 128; i++) {
       if (i & 0x88) { i += 7; continue; }
@@ -113,10 +117,18 @@
       const idx = white ? row * 8 + file : (7 - row) * 8 + file;
       const sign = white ? 1 : -1;
 
+      if (t === "K") {
+        kingSq[side] = i;
+        continue;
+      }
+
       score += sign * VALUE[t];
 
       if (t === "P") {
         pawns[side][file]++;
+        pawnFiles[side].push(i);
+        if (row < lowRow[side][file]) lowRow[side][file] = row;
+        if (row > highRow[side][file]) highRow[side][file] = row;
         score += sign * PST.P[idx];
       } else if (t === "N") {
         score += sign * PST.N[idx];
@@ -131,18 +143,26 @@
       } else if (t === "Q") {
         score += sign * PST.Q[idx];
         heavy += 9;
-      } else if (t === "K") {
-        score += sign * (heavy >= 14 ? PST.K[idx] : PST.K_END[idx]);
       }
     }
 
-    const endgame = heavy < 10;
+    const endgame = heavy < 12;
+
+    /* الملك بعد حساب العتاد الثقيل حتى يُختار جدول النهاية الصحيح */
+    for (const side of ["w", "b"]) {
+      const at = kingSq[side];
+      if (at < 0) continue;
+      const row = at >> 4;
+      const file = at & 7;
+      const idx = side === "w" ? row * 8 + file : (7 - row) * 8 + file;
+      score += (side === "w" ? 1 : -1) * (endgame ? PST.K_END[idx] : PST.K[idx]);
+    }
 
     /* البيادق: مزدوجة، معزولة، مارّة */
     for (const side of ["w", "b"]) {
       const sign = side === "w" ? 1 : -1;
       const own = pawns[side];
-      const foe = pawns[side === "w" ? "b" : "w"];
+      const enemy = side === "w" ? "b" : "w";
 
       for (let f = 0; f < 8; f++) {
         if (own[f] > 1) score -= sign * 14 * (own[f] - 1);
@@ -151,24 +171,17 @@
         if (own[f] && !hasLeft && !hasRight) score -= sign * 14;
       }
 
-      for (let i = 0; i < 128; i++) {
-        if (i & 0x88) { i += 7; continue; }
-        const p = b[i];
-        if (p !== (side === "w" ? "P" : "p")) continue;
-        const row = i >> 4;
-        const f = i & 7;
+      for (const at of pawnFiles[side]) {
+        const row = at >> 4;
+        const f = at & 7;
         let passed = true;
         for (let df = -1; df <= 1 && passed; df++) {
           const nf = f + df;
           if (nf < 0 || nf > 7) continue;
-          if (foe[nf] === 0) continue;
-          for (let j = 0; j < 128; j++) {
-            if (j & 0x88) { j += 7; continue; }
-            const q = b[j];
-            if (q !== (side === "w" ? "p" : "P")) continue;
-            if ((j & 7) !== nf) continue;
-            const qr = j >> 4;
-            if (side === "w" ? qr < row : qr > row) { passed = false; break; }
+          if (side === "w") {
+            if (lowRow[enemy][nf] < row) passed = false;
+          } else if (highRow[enemy][nf] > row) {
+            passed = false;
           }
         }
         if (passed) {
@@ -183,7 +196,7 @@
     if (bishops.w >= 2) score += 28;
     if (bishops.b >= 2) score -= 28;
 
-    /* قلعة على عمود مفتوح / نصف مفتوح */
+    /* قلاع على أعمدة مفتوحة / نصف مفتوحة، وقلعة في الصف السابع */
     for (let i = 0; i < 128; i++) {
       if (i & 0x88) { i += 7; continue; }
       const p = b[i];
@@ -191,15 +204,18 @@
       const t = p.toUpperCase();
       if (t !== "R") continue;
       const white = p === "R";
+      const sign = white ? 1 : -1;
       const f = i & 7;
+      const row = i >> 4;
       const own = white ? pawns.w[f] : pawns.b[f];
       const foe = white ? pawns.b[f] : pawns.w[f];
-      if (own === 0) score += (white ? 1 : -1) * (foe === 0 ? 18 : 8);
+      if (own === 0) score += sign * (foe === 0 ? 18 : 8);
+      if ((white && row === 1) || (!white && row === 6)) score += sign * 16;
     }
 
     /* أمان الملك: درع البيادق */
     for (const side of ["w", "b"]) {
-      const kingIdx = state.kings[side];
+      const kingIdx = kingSq[side];
       if (kingIdx < 0) continue;
       const row = kingIdx >> 4;
       const file = kingIdx & 7;
@@ -226,27 +242,51 @@
   }
 
   /* ---------- ترتيب الحركات ---------- */
-  function moveScore(state, m) {
+  function moveKey(m) {
+    return m.from * 128 + m.to;
+  }
+
+  function moveScore(state, m, ctx, ply) {
     const b = state.board;
     let s = 0;
 
     if (m.captured && m.capturedSq >= 0) {
       const victim = VALUE[m.captured.toUpperCase()] || 0;
       const attacker = VALUE[(b[m.from] || "P").toUpperCase()] || 0;
-      s += 10000 + victim * 10 - attacker;
+      s += 100000 + victim * 10 - attacker;
     }
-    if (m.promo) s += 8000 + (VALUE[m.promo] || 0);
-    if (s === 0) {
-      const p = b[m.from];
-      if (p === "P" || p === "p") s += 20;
+    if (m.promo) s += 50000 + (VALUE[m.promo] || 0);
+
+    if (!m.captured && !m.promo) {
+      const key = moveKey(m);
+      if (ctx && ctx.killers[ply]) {
+        if (ctx.killers[ply][0] === key) s += 9000;
+        else if (ctx.killers[ply][1] === key) s += 8000;
+      }
+      if (ctx && ctx.history) s += Math.min(6000, ctx.history[key] || 0);
+      if (s === 0) {
+        const p = b[m.from];
+        if (p === "P" || p === "p") s += 20;
+      }
     }
     return s;
   }
 
-  function orderMoves(state, moves) {
-    const scored = moves.map((m) => ({ m, s: moveScore(state, m) }));
+  function orderMoves(state, moves, ctx, ply) {
+    const scored = moves.map((m) => ({ m, s: moveScore(state, m, ctx, ply) }));
     scored.sort((a, b) => b.s - a.s);
     return scored.map((x) => x.m);
+  }
+
+  function hasNonPawnMaterial(state, side) {
+    const wanted = side === "w" ? "NBRQ" : "nbrq";
+    const b = state.board;
+    for (let i = 0; i < 128; i++) {
+      if (i & 0x88) { i += 7; continue; }
+      const p = b[i];
+      if (p && wanted.indexOf(p) >= 0) return true;
+    }
+    return false;
   }
 
   /* ---------- البحث ---------- */
@@ -263,7 +303,27 @@
     if (state.halfmove >= 100) return 0;
 
     const side = state.turn;
-    const moves = orderMoves(state, C.generatePseudo(state));
+    const inChk = C.inCheck(state, side);
+
+    /* تقليم الحركة الفارغة: يمنح عمقًا فعليًا أكبر في المواقف الهادئة. */
+    if (!inChk && !ctx.noNull && depth >= 3 && hasNonPawnMaterial(state, side)) {
+      const savedTurn = state.turn;
+      const savedEp = state.ep;
+      const savedHalf = state.halfmove;
+      state.turn = side === "w" ? "b" : "w";
+      state.ep = null;
+      state.halfmove = savedHalf + 1;
+      ctx.noNull = true;
+      const score = -negamax(state, depth - 3, -beta, -beta + 1, ply + 1, ctx);
+      ctx.noNull = false;
+      state.turn = savedTurn;
+      state.ep = savedEp;
+      state.halfmove = savedHalf;
+      if (ctx.aborted) return 0;
+      if (score >= beta) return beta;
+    }
+
+    const moves = orderMoves(state, C.generatePseudo(state), ctx, ply);
     let best = -INF;
     let legal = 0;
 
@@ -275,13 +335,49 @@
         continue;
       }
       legal++;
-      const score = -negamax(state, depth - 1, -beta, -alpha, ply + 1, ctx);
+
+      /* تمديد عند كشف الملك، بحدّ أعلى حتى لا يتضخم البحث. */
+      let extension = 0;
+      if (inChk && ctx.extensions < 10) {
+        extension = 1;
+        ctx.extensions++;
+      }
+
+      const quiet = !m.captured && !m.promo;
+      let score;
+
+      if (i === 0) {
+        score = -negamax(state, depth - 1 + extension, -beta, -alpha, ply + 1, ctx);
+      } else {
+        let reduction = 0;
+        if (quiet && !inChk && depth >= 3 && i >= 4) {
+          reduction = 1;
+          if (i >= 10 && depth >= 5) reduction = 2;
+        }
+        score = -negamax(state, depth - 1 + extension - reduction, -alpha - 1, -alpha, ply + 1, ctx);
+        if (!ctx.aborted && score > alpha) {
+          score = -negamax(state, depth - 1 + extension, -beta, -alpha, ply + 1, ctx);
+        }
+      }
+
+      if (extension) ctx.extensions--;
       C.unmakeMove(state, undo);
       if (ctx.aborted) return 0;
 
       if (score > best) best = score;
       if (score > alpha) alpha = score;
-      if (alpha >= beta) break;
+      if (alpha >= beta) {
+        if (quiet) {
+          const key = moveKey(m);
+          const killers = ctx.killers[ply] || (ctx.killers[ply] = [-1, -1]);
+          if (killers[0] !== key) {
+            killers[1] = killers[0];
+            killers[0] = key;
+          }
+          ctx.history[key] = (ctx.history[key] || 0) + depth * depth;
+        }
+        break;
+      }
     }
 
     if (!legal) return C.inCheck(state, side) ? -MATE + ply : 0;
@@ -304,12 +400,14 @@
       const stand = evaluate(state) * (side === "w" ? 1 : -1);
       if (stand >= beta) return beta;
       if (stand > alpha) alpha = stand;
-      if (qdepth >= 5) return alpha;
+      if (qdepth >= 6) return alpha;
+      /* تقليم دلتا: حتى أفضل أسر لا يرفع التقييم بما يكفي. */
+      if (stand + VALUE.Q + 60 < alpha) return alpha;
     } else if (qdepth >= 8) {
       return evaluate(state) * (side === "w" ? 1 : -1);
     }
 
-    const moves = orderMoves(state, C.generatePseudo(state));
+    const moves = orderMoves(state, C.generatePseudo(state), ctx, ply);
     let legal = 0;
 
     for (let i = 0; i < moves.length; i++) {
@@ -335,13 +433,12 @@
   }
 
   /* ---------- المستويات ---------- */
-  // مطابق تقريباً لمستويات chess.com
   const LEVELS = {
-    beginner: { label: "مبتدئ (100)", depth: 1, timeLimit: 150, randomness: 95, blunder: 0.5, skill: 0 },
-    easy: { label: "سهل (250)", depth: 2, timeLimit: 250, randomness: 85, blunder: 0.4, skill: 2 },
-    medium: { label: "متوسط (1000)", depth: 4, timeLimit: 800, randomness: 12, blunder: 0.02, skill: 10 },
-    hard: { label: "صعب (2000)", depth: 7, timeLimit: 4000, randomness: 0, blunder: 0, skill: 16 },
-    expert: { label: "خبير (3600)", depth: 12, timeLimit: 60000, randomness: 0, blunder: 0, skill: 20 },
+    beginner: { label: "مبتدئ (100)", depth: 1, timeLimit: 200, randomness: 92, blunder: 0.45, skill: 0 },
+    easy: { label: "سهل (250)", depth: 2, timeLimit: 450, randomness: 65, blunder: 0.28, skill: 2 },
+    medium: { label: "متوسط (1000)", depth: 4, timeLimit: 1000, randomness: 10, blunder: 0.015, skill: 10 },
+    hard: { label: "صعب (2000)", depth: 7, timeLimit: 3500, randomness: 0, blunder: 0, skill: 16 },
+    expert: { label: "خبير (3600)", depth: 10, timeLimit: 20000, randomness: 0, blunder: 0, skill: 20 },
   };
 
   function search(state, options) {
@@ -351,6 +448,10 @@
       nodes: 0,
       deadline: started + Math.max(40, opts.timeLimit || 1000),
       aborted: false,
+      killers: [],
+      history: new Int32Array(128 * 128),
+      extensions: 0,
+      noNull: false,
     };
 
     const rootMoves = C.legalMoves(state);
@@ -371,7 +472,7 @@
     }
 
     const maxDepth = Math.max(1, Math.min(14, opts.depth || 3));
-    let ordered = orderMoves(state, rootMoves);
+    let ordered = orderMoves(state, rootMoves, ctx, 0);
     let rootScores = ordered.map((m) => ({ m, score: 0 }));
     let completed = 0;
 
@@ -409,25 +510,30 @@
       if (Date.now() > ctx.deadline) break;
     }
 
-    /* اختيار نهائي مع عشوائية حسب المستوى */
-    if (completed > 0 && opts.randomness > 0) {
+    /* اختيار نهائي مع عشوائية محسوبة حسب المستوى */
+    if (completed > 0 && opts.randomness > 0 && rootScores.length > 1) {
       const best = rootScores[0].score;
-      const threshold = opts.randomness * 5;
-      const pool = rootScores.filter((x) => best - x.score <= threshold);
-      if (pool.length > 0) {
-        result.move = pool[Math.floor(Math.random() * pool.length)].m;
+      if (Math.abs(best) < MATE - 1000 && Math.random() * 100 < opts.randomness) {
+        const threshold = Math.max(40, opts.randomness * 3);
+        const alternatives = rootScores.filter((x) => x.score >= best - threshold).slice(1);
+        if (alternatives.length) {
+          const pick = alternatives[Math.floor(Math.random() * alternatives.length)];
+          result.move = pick.m;
+          result.score = pick.score;
+          result.mateIn = null;
+        }
       }
     }
 
-    /* احتمال الخطأ للمبتدئين */
-    if (opts.blunder > 0 && completed > 0 && Math.random() < opts.blunder) {
-      const safe = rootScores.filter((x) => x.score >= rootScores[0].score - 150);
-      const pool = safe.length > 1 ? safe.slice(0, Math.min(2, safe.length)) : rootScores.slice(0, Math.min(2, rootScores.length));
-      if (pool.length > 0) {
-        const pick = pool[Math.floor(Math.random() * pool.length)];
-        result.move = pick.m;
-        result.score = pick.score;
-      }
+    /* احتمال الخطأ للمستويات الضعيفة */
+    if (opts.blunder > 0 && completed > 0 && rootScores.length > 1 && Math.random() < opts.blunder) {
+      const pool = rootScores.length > 2
+        ? rootScores.slice(1, Math.min(6, rootScores.length))
+        : rootScores;
+      const pick = pool[Math.floor(Math.random() * pool.length)];
+      result.move = pick.m;
+      result.score = pick.score;
+      result.mateIn = null;
     }
 
     result.nodes = ctx.nodes;

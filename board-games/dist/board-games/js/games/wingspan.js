@@ -367,34 +367,62 @@
 
   /* ------------------------------ الذكاء ------------------------------ */
 
-  function birdValue(bird, rowLength) {
+  function birdValue(bird, rowLength, player) {
     let value = bird.points + bird.capacity * 0.55 + (5 - rowLength) * 0.4;
     if (bird.power === "draw") value += 1.2;
     if (bird.power === "food") value += 1.1;
     if (bird.power === "egg") value += 0.9;
     value -= bird.food.length * 0.6;
+    if (player) {
+      const goal = GOALS[state.goalIndex] || GOALS[0];
+      if (goal.name.includes("بيض")) value += bird.capacity * 0.25;
+      if (goal.name.includes("الغابة") && bird.habitat === "forest") value += 0.7;
+      if (goal.name.includes("المرج") && bird.habitat === "grassland") value += 0.7;
+      if (goal.name.includes("نقاط")) value += bird.points * 0.12;
+    }
     return value;
+  }
+
+  function missingFood(player, bird) {
+    const needs = foodNeeds(bird);
+    return Object.keys(needs).reduce((sum, food) => sum + Math.max(0, needs[food] - (player.food[food] || 0)), 0);
   }
 
   function aiTurn() {
     if (!state || state.over) return;
     const player = cur();
     if (!XG.cpuTurn(apiRef, state, player.index)) return;
+    const level = AI.level(player.level);
     const playable = player.hand
       .map((bird, index) => ({ bird, index, check: canPlayBird(player, bird) }))
       .filter((entry) => entry.check.ok)
-      .sort((a, b) => birdValue(b.bird, player.birds[b.bird.habitat].length) - birdValue(a.bird, player.birds[a.bird.habitat].length));
-    if (playable.length && (player.hand.length <= 7 || birdValue(playable[0].bird, player.birds[playable[0].bird.habitat].length) > 4)) {
-      playBird(playable[0].index);
+      .sort((a, b) => birdValue(b.bird, player.birds[b.bird.habitat].length, player) - birdValue(a.bird, player.birds[a.bird.habitat].length, player));
+
+    const foodTotal = FOODS.reduce((sum, food) => sum + player.food[food], 0);
+    const free = freeEggSlots(player);
+    const options = [];
+    if (playable.length) {
+      const best = playable[0];
+      options.push({
+        type: "play",
+        index: best.index,
+        score: birdValue(best.bird, player.birds[best.bird.habitat].length, player) + 1,
+      });
+    }
+    const bestNeed = playable.length ? missingFood(player, playable[0].bird) : Math.min(3, player.hand.length);
+    options.push({ type: "food", score: 1.3 + bestNeed * 0.7 + (foodTotal < 5 ? 1.5 : 0) });
+    options.push({ type: "eggs", score: free > 0 ? 1.1 + Math.min(2.2, free * 0.28) : -1 });
+    options.push({ type: "draw", score: player.hand.length < 5 ? 2.6 : player.hand.length < 7 ? 1.4 : 0.7 });
+
+    const pick = AI.choose(options, (option) => option.score, level) || options[0];
+    if (!pick) return;
+    if (pick.type === "play" && playable.length) {
+      playBird(pick.index);
       return;
     }
-    const foodTotal = FOODS.reduce((sum, food) => sum + player.food[food], 0);
-    const canEgg = freeEggSlots(player) > 0;
-    if (foodTotal < 5) { actionFood(); return; }
-    if (canEgg && totalEggs(player) < 6) { actionEggs(); return; }
-    if (player.hand.length < 4) { actionDraw(); return; }
-    if (canEgg) { actionEggs(); return; }
-    actionDraw();
+    if (pick.type === "eggs" && free > 0) { actionEggs(); return; }
+    if (pick.type === "draw" && player.hand.length < 9) { actionDraw(); return; }
+    actionFood();
   }
 
   function settle() {

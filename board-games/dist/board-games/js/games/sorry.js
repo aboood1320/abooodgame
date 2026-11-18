@@ -279,11 +279,15 @@
     if (!XG.cpuTurn(apiRef, state, state.current)) return;
     if (state.card === "sorry") {
       if (!state.sorryTargets.length) { skip(); return; }
-      const target = state.sorryTargets.slice().sort((a, b) => {
-        const pa = state.players[a.player].tokens[a.token].pos;
-        const pb = state.players[b.player].tokens[b.token].pos;
-        return pb - pa;
-      })[0];
+      const target = AI.choose(
+        state.sorryTargets,
+        (entry) => {
+          const token = state.players[entry.player].tokens[entry.token];
+          const progress = token.pos < 0 ? -10 : token.pos >= TRACK ? 40 : token.pos;
+          return progress;
+        },
+        cur().level
+      ) || state.sorryTargets[0];
       applySorry(target.player, target.token);
       return;
     }
@@ -303,8 +307,9 @@
         });
       }
       return { move, score };
-    }).sort((a, b) => b.score - a.score);
-    applyMove(scored[0].move.token);
+    });
+    const pick = AI.choose(scored, (entry) => entry.score, cur().level) || scored.sort((a, b) => b.score - a.score)[0];
+    applyMove(pick.move.token);
   }
 
   function settle() {

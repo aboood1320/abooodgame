@@ -302,14 +302,17 @@
     if (state.auction.active.length <= 1) return;
     const highest = state.auction.cards[state.auction.high];
     const cardValue = highest ? highest.value : 10;
+    const level = AI.level(player.level);
     const limit = maxBid(player);
-    const cap = Math.min(limit, Math.max(2, Math.round(cardValue * 0.62)));
-    if (state.auction.bid >= cap || Math.random() < 0.16) {
-      passBid();
-      return;
-    }
-    const next = state.auction.bid + (Math.random() < 0.5 ? 1 : 2);
-    bid(Math.min(cap, next));
+
+    /* العقار الأعلى يستحق أكثر، لكن لا نصرف آخر أموالنا على المزاد. */
+    const share = AI.chance(level, 0.3, 0.42, 0.52, 0.6);
+    const reserve = AI.chance(level, 0, 1, 2, 3);
+    const cap = Math.max(1, Math.min(limit - reserve, Math.round(cardValue * share)));
+    if (state.auction.bid >= cap) { passBid(); return; }
+    const step = AI.chance(level, 0.5, 0.55, 0.65, 0.75);
+    const next = state.auction.bid + (Math.random() < step ? 1 : 2);
+    bid(Math.min(cap, next, limit));
   }
 
   function aiSell() {
@@ -318,7 +321,9 @@
     if (!XG.cpuTurn(apiRef, state, player.index)) return;
     if (!player.properties.length) return;
     const sorted = player.properties.slice().sort((a, b) => b - a);
-    const value = sorted.length > 1 && Math.random() < 0.25 ? sorted[1] : sorted[0];
+    const level = AI.level(player.level);
+    let value = sorted[0];
+    if (level === "easy" && sorted.length > 1 && Math.random() < 0.4) value = sorted[1];
     chooseProperty(value);
   }
 

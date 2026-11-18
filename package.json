@@ -1,7 +1,8 @@
 {
   "scripts": {
     "start": "node board-games/server.js",
-    "build": "node board-games/tools/build.js"
+    "build": "node board-games/tools/build.js",
+    "test:ai": "node board-games/tools/ai-selftest.js"
   },
   "dependencies": {
     "@netlify/blobs": "^8.1.0",

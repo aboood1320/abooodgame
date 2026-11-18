@@ -8,6 +8,7 @@
   if (!BG) return;
   const U = BG.util || {};
   const FX = BG.fx || {};
+  const AI = BG.ai;
   const C = window.Chess;
   const CAI = window.ChessAI;
 
@@ -31,10 +32,22 @@
 
 
   const LEVEL_CFG = {
-    easy: { elo: 1320, limit: true, movetime: 260, multipv: 5, style: "easy" },
-    normal: { elo: 1320, limit: true, movetime: 620, multipv: 4, style: "normal" },
-    hard: { elo: 2000, limit: true, movetime: 1250, multipv: 1, style: "best" },
-    expert: { elo: 3600, limit: false, movetime: 2800, multipv: 1, style: "best" },
+    easy: {
+      elo: 1320, limit: true, movetime: 300, multipv: 6, skill: 0, style: "easy",
+      localDepth: 2, localTime: 400, randomness: 82, blunder: 0.3,
+    },
+    normal: {
+      elo: 1700, limit: true, movetime: 750, multipv: 4, skill: 7, style: "normal",
+      localDepth: 4, localTime: 900, randomness: 14, blunder: 0.02,
+    },
+    hard: {
+      elo: 2400, limit: true, movetime: 1400, multipv: 1, skill: 14, style: "hard",
+      localDepth: 6, localTime: 1800, randomness: 0, blunder: 0,
+    },
+    expert: {
+      elo: 3190, limit: false, movetime: 3000, multipv: 1, skill: 20, style: "best",
+      localDepth: 9, localTime: 2600, randomness: 0, blunder: 0,
+    },
   };
 
   const TIME_LABEL = {
@@ -1366,7 +1379,7 @@
       movetime: 480,
       multipv: 2,
       limit: false,
-      elo: 3600,
+      elo: 3190,
       style: "best",
     }, token)
       .then(function (result) {
@@ -1700,6 +1713,7 @@
         pendingSearch = pending;
         try {
           engine.postMessage("setoption name UCI_LimitStrength value " + (cfg.limit ? "true" : "false"));
+          engine.postMessage("setoption name Skill Level value " + Math.max(0, Math.min(20, cfg.skill == null ? 20 : cfg.skill)));
           if (cfg.limit) engine.postMessage("setoption name UCI_Elo value " + Math.max(1320, Math.min(3190, cfg.elo || 1320)));
           engine.postMessage("setoption name MultiPV value " + Math.max(1, cfg.multipv || 1));
           engine.postMessage("isready");
@@ -1814,7 +1828,7 @@
     }
 
     if (cfg.style === "easy") {
-      if (Math.random() < 0.2) return U.pick(legal);
+      if (Math.random() < 0.18) return U.pick(legal);
       const pool = options.slice(1, 5);
       if (!pool.length) return options[0];
       return pool[Math.floor(Math.random() * pool.length)];
@@ -1825,6 +1839,11 @@
       if (roll < 0.68) return options[0];
       if (roll < 0.9 && options[1]) return options[1];
       if (options[2]) return options[2];
+      return options[0];
+    }
+
+    if (cfg.style === "hard") {
+      if (options[1] && Math.random() < 0.035) return options[1];
       return options[0];
     }
 
@@ -1844,7 +1863,7 @@
     aiTimer = setTimeout(function () {
       aiTimer = null;
       runAI();
-    }, 220 + Math.random() * 260);
+    }, AI.delay(levelOf(state.turn), 0.55));
   }
 
   function runAI() {
@@ -1887,10 +1906,10 @@
     try {
       if (CAI && CAI.bestMove) {
         move = CAI.bestMove(C.clone(state), {
-          depth: cfg && cfg.style === "easy" ? 2 : cfg && cfg.style === "normal" ? 4 : 7,
-          timeLimit: 1200,
-          randomness: cfg && cfg.style === "easy" ? 80 : cfg && cfg.style === "normal" ? 15 : 0,
-          blunder: cfg && cfg.style === "easy" ? 0.35 : cfg && cfg.style === "normal" ? 0.03 : 0,
+          depth: cfg && cfg.localDepth ? cfg.localDepth : 4,
+          timeLimit: cfg && cfg.localTime ? cfg.localTime : 900,
+          randomness: cfg && cfg.randomness != null ? cfg.randomness : 0,
+          blunder: cfg && cfg.blunder != null ? cfg.blunder : 0,
         });
       }
     } catch (err) {
@@ -2257,7 +2276,7 @@
       winning:
         "يفوز من ينفذ كش مات على ملك الخصم. وتُحسم المباراة أيضًا بالاستسلام أو نفاد الوقت أو التعادل بالجمود أو بقاعدة الخمسين حركة أو تكرار الوضع ثلاث مرات أو القطع غير الكافية للإماتة.",
       notes: [
-        "مستويات الحاسوب: 🌱 سهل (250)، ⚖️ متوسط (1000)، 🔥 صعب (2000)، ⚡ خبير (3600) إيلو، بمحرك Stockfish حقيقي.",
+        "مستويات الحاسوب: 🌱 سهل (1320)، ⚖️ متوسط (1700)، 🔥 صعب (2400)، ⚡ خبير (3190) إيلو، بمحرك Stockfish حقيقي.",
         "اسحب القطعة بالماوس أو اللمس، أو انقر عليها ثم انقر على المربع الهدف.",
         "زر «تراجع» يعيد حركتك وحركة الحاسوب الأخيرة معًا، وهو غير متاح في المباريات الأونلاين.",
         "يمكنك عكس اتجاه الرقعة، ونسخ سجل الحركات، واستخدام ملء الشاشة من شريط اللعبة.",

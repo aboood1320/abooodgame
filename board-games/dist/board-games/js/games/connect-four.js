@@ -151,38 +151,67 @@
   function evaluate(board, seat) {
     const opp = other(seat);
     let score = 0;
-    const center = [3, 10, 17, 24, 31, 38];
-    center.forEach((at) => {
-      if (board[at] === seat) score += 6;
-      else if (board[at] === opp) score -= 6;
-    });
+
+    /* التحكم بالعمود الأوسط */
+    for (let r = 0; r < ROWS; r++) {
+      const at = r * COLS + 3;
+      if (board[at] === seat) score += 8;
+      else if (board[at] === opp) score -= 8;
+    }
+
     for (const line of WIN_LINES) {
       let mine = 0;
       let theirs = 0;
-      let empty = 0;
+      let empty = -1;
       for (const at of line) {
         if (board[at] === seat) mine += 1;
         else if (board[at] === opp) theirs += 1;
-        else empty += 1;
+        else empty = at;
       }
       if (mine && theirs) continue;
-      if (mine === 3 && empty === 1) score += 120;
-      else if (mine === 2 && empty === 2) score += 14;
-      else if (theirs === 3 && empty === 1) score -= 150;
-      else if (theirs === 2 && empty === 2) score -= 18;
+      const playable = empty >= 0 && isPlayable(board, empty);
+      if (mine) {
+        if (mine === 3 && empty >= 0) score += playable ? 900 : 130;
+        else if (mine === 2 && empty >= 0) score += playable ? 55 : 12;
+        else score += 2;
+      } else if (theirs) {
+        if (theirs === 3 && empty >= 0) score -= playable ? 1100 : 150;
+        else if (theirs === 2 && empty >= 0) score -= playable ? 70 : 14;
+        else score -= 2;
+      }
     }
     return score;
   }
 
+  function isPlayable(board, at) {
+    const row = Math.floor(at / COLS);
+    return row === ROWS - 1 || board[at + COLS] != null;
+  }
+
+  function wouldWin(board, col, seat) {
+    const row = dropRow(board, col);
+    if (row < 0) return false;
+    const at = row * COLS + col;
+    board[at] = seat;
+    const win = winningLine(board, seat).length > 0;
+    board[at] = null;
+    return win;
+  }
+
   function search(board, seat, depth, alpha, beta, turn) {
-    const winning = winningLine(board, turn);
-    if (winning.length) return turn === seat ? 100000 + depth * 100 : -100000 - depth * 100;
+    /* آخر من حرّك هو الخصم، لا اللاعب الذي عليه الدور. */
+    const justMoved = other(turn);
+    if (winningLine(board, justMoved).length) {
+      return justMoved === seat ? 100000 + depth * 100 : -100000 - depth * 100;
+    }
     if (depth === 0) return evaluate(board, seat);
     const cols = legalCols(board);
     if (!cols.length) return 0;
+
     const maximizing = turn === seat;
     let best = maximizing ? -Infinity : Infinity;
     const ordered = cols.slice().sort((a, b) => Math.abs(3 - a) - Math.abs(3 - b));
+
     for (const col of ordered) {
       const row = dropRow(board, col);
       const next = board.slice();
@@ -201,20 +230,44 @@
   }
 
   function bestMove(seat, level) {
-    const cols = legalCols(state.board);
+    const board = state.board;
+    const cols = legalCols(board);
     if (!cols.length) return null;
-    const depth = level === "easy" ? 2 : level === "normal" ? 4 : level === "hard" ? 5 : 6;
-    let best = cols[0];
-    let bestValue = -Infinity;
-    for (const col of cols.slice().sort((a, b) => Math.abs(3 - a) - Math.abs(3 - b))) {
-      const row = dropRow(state.board, col);
-      const next = state.board.slice();
-      next[row * COLS + col] = seat;
-      let value = search(next, seat, depth - 1, -Infinity, Infinity, other(seat));
-      if (level === "easy" || level === "normal") value += Math.random() * 30;
-      if (value > bestValue) { bestValue = value; best = col; }
+    const opp = other(seat);
+
+    /* خذ الفوز الفوري دائمًا. */
+    for (const col of cols) {
+      if (wouldWin(board, col, seat)) return col;
     }
-    return best;
+
+    /* اسدّ تهديد الخصم الفوري (السهل قد يفوّته أحيانًا). */
+    const blocks = cols.filter((col) => wouldWin(board, col, opp));
+    if (blocks.length && (level !== "easy" || Math.random() < 0.65)) {
+      return blocks.slice().sort((a, b) => Math.abs(3 - a) - Math.abs(3 - b))[0];
+    }
+
+    if (level === "easy" && Math.random() < 0.55) return U.pick(cols);
+
+    const depth = level === "easy" ? 1 : level === "normal" ? 4 : level === "hard" ? 5 : 6;
+    const noise = level === "easy" ? 45 : level === "normal" ? 10 : 0;
+    const scored = cols.map((col) => {
+      const row = dropRow(board, col);
+      const next = board.slice();
+      next[row * COLS + col] = seat;
+      return {
+        col,
+        value: search(next, seat, depth - 1, -Infinity, Infinity, opp) + (noise ? Math.random() * noise : 0),
+      };
+    });
+    scored.sort((a, b) => b.value - a.value || Math.abs(3 - a.col) - Math.abs(3 - b.col));
+
+    if (level === "normal" && scored.length > 1 && Math.random() < 0.1) {
+      return scored[Math.min(2, scored.length - 1)].col;
+    }
+    if (level === "hard" && scored.length > 1 && Math.random() < 0.02) {
+      return scored[1].col;
+    }
+    return scored[0].col;
   }
 
   function aiStep() {
