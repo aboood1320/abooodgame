@@ -1944,6 +1944,7 @@
 
 .crew-stage {
   position: relative;
+  min-height: 430px;
   overflow: hidden;
   padding: 12px;
   border: 1px solid rgba(111, 194, 255, 0.2);
@@ -2698,6 +2699,7 @@
   .crew-card strong { font-size: 0.92rem; }
   .crew-hand .crew-card { flex-basis: 44px; width: 44px; height: 62px; }
   .crew-table { grid-template-columns: minmax(0, 1fr); }
+  .crew-stage { min-height: 380px; }
   .crew-curtain { min-height: 380px; padding: 14px; }
   .crew-curtain-inner strong { font-size: 0.84rem; }
   .crew-actions .coop-btn { min-height: 44px; flex: 1 1 120px; }

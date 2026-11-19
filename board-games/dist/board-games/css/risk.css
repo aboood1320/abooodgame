@@ -967,6 +967,12 @@ body.fullscreen-game .risk-map-viewport { max-height: calc(100dvh - var(--fs-hud
     scrollbar-width: thin;
     scrollbar-color: rgba(118, 224, 188, 0.32) transparent;
   }
+  /* البطاقات تحتفظ بارتفاعها داخل العمود القابل للتمرير بدل أن تنكمش. */
+  body.fullscreen-game .risk-side > [data-side-top] > *,
+  body.fullscreen-game .risk-side > [data-side-rest] > *,
+  body.fullscreen-game .risk-side > .risk-secret-slot > * {
+    flex: 0 0 auto;
+  }
 }
 
 @media (max-width: 1040px) {

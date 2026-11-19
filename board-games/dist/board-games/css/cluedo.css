@@ -577,6 +577,11 @@
   gap: 12px;
   min-width: 0;
 }
+/* البطاقات تحتفظ بارتفاع محتواها؛ التمرير يكون في العمود نفسه لا داخل البطاقة. */
+.cluedo-side > * {
+  flex: 0 0 auto;
+  min-width: 0;
+}
 
 .cluedo-panel {
   min-width: 0;
@@ -2031,6 +2036,10 @@
 @media (max-width: 720px) {
   .cluedo-side {
     display: flex;
+    align-items: stretch;
+  }
+  .cluedo-side > * {
+    width: 100%;
   }
   .cluedo-board-wrap {
     border-radius: 20px;

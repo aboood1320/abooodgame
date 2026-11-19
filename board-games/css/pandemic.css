@@ -53,6 +53,12 @@
   scrollbar-color: rgba(95, 208, 196, 0.28) transparent;
 }
 
+/* اللوحات تحتفظ بارتفاع محتواها؛ التمرير في العمود نفسه لا داخل اللوحة. */
+.pan-side > * {
+  flex: 0 0 auto;
+  min-width: 0;
+}
+
 .pan-side::-webkit-scrollbar {
   width: 7px;
 }

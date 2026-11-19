@@ -1592,6 +1592,10 @@
     scrollbar-width: thin;
     scrollbar-color: rgba(232, 196, 125, 0.3) transparent;
   }
+  /* البطاقات لا تنكمش داخل العمود المحدود الارتفاع؛ يتمرر العمود كاملًا. */
+  body.fullscreen-game .ttr-side > * {
+    flex: 0 0 auto;
+  }
 
   body.fullscreen-game .ttr-svg {
     min-width: 760px;
