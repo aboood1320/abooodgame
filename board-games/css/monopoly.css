@@ -1133,7 +1133,7 @@
 
 /* وضع ملء الشاشة: الرقعة تتسع للارتفاع المتاح مع بقاء الجانب قابلاً للتمرير. */
 body.fullscreen-game .mono-layout { gap: 10px; }
-body.fullscreen-game .mono-board-wrap { max-width: min(100%, calc(100dvh - 70px)); }
+body.fullscreen-game .mono-board-wrap { max-width: min(100%, calc(100dvh - var(--fs-hud-h, 46px) - 24px)); }
 
 @media (max-width: 700px) {
   body.fullscreen-game .mono-board-wrap { max-width: 100%; }

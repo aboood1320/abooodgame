@@ -962,9 +962,6 @@
     else if (event.key === "Home") next = 0;
     else if (event.key === "End") next = 63;
     else if (event.key === "Escape") {
-      if (document.body.classList.contains("fullscreen-game") && !document.fullscreenElement) {
-        document.body.classList.remove("fullscreen-game");
-      }
       return;
     } else {
       return;

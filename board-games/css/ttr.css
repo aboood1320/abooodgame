@@ -1582,11 +1582,11 @@
 
 @media (min-width: 1121px) {
   body.fullscreen-game .ttr-board-scroll {
-    max-height: calc(100dvh - 188px);
+    max-height: calc(100dvh - var(--fs-hud-h, 46px) - 142px);
   }
 
   body.fullscreen-game .ttr-side {
-    max-height: calc(100dvh - 18px);
+    max-height: calc(100dvh - var(--fs-hud-h, 46px) - 18px);
     overflow-y: auto;
     padding-inline-end: 2px;
     scrollbar-width: thin;

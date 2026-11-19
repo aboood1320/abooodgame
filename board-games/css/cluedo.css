@@ -1950,13 +1950,13 @@
 
 @media (min-width: 1121px) {
   body.fullscreen-game .cluedo-board {
-    max-width: min(900px, calc((100dvh - 214px) * 1.22));
+    max-width: min(900px, calc((100dvh - var(--fs-hud-h, 46px) - 168px) * 1.22));
   }
   body.fullscreen-game .cluedo-board-scroll {
-    max-height: calc(100dvh - 178px);
+    max-height: calc(100dvh - var(--fs-hud-h, 46px) - 132px);
   }
   body.fullscreen-game .cluedo-side {
-    max-height: calc(100dvh - 18px);
+    max-height: calc(100dvh - var(--fs-hud-h, 46px) - 18px);
     overflow-y: auto;
     padding-inline-end: 2px;
   }

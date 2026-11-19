@@ -956,7 +956,7 @@
 
 body.fullscreen-game .risk-layout { grid-template-columns: minmax(0, 1fr) 350px; }
 body.fullscreen-game .risk-board-wrap { min-height: 0; }
-body.fullscreen-game .risk-map-viewport { max-height: calc(100vh - 170px); }
+body.fullscreen-game .risk-map-viewport { max-height: calc(100dvh - var(--fs-hud-h, 46px) - 124px); }
 
 @media (max-width: 1040px) {
   body.fullscreen-game .risk-layout { grid-template-columns: minmax(0, 1fr); }

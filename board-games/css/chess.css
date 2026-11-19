@@ -1203,6 +1203,10 @@
 body.fullscreen-game #gameView[data-game="chess"] {
   margin-inline: 0;
 }
+/* شريط ملء الشاشة ثابت فوق الصفحة، لذا نحجز ارتفاعه أعلى الرقعة. */
+body.fullscreen-game:has(.chess-layout) .game-stage {
+  margin-top: var(--fs-hud-h, 46px);
+}
 body.fullscreen-game #gameView[data-game="chess"] .game-toolbar {
   display: none;
 }
@@ -1210,7 +1214,7 @@ body.fullscreen-game .chess-main {
   border-radius: 20px;
 }
 body.fullscreen-game .chess-center {
-  max-width: min(640px, calc(100dvh - 190px));
+  max-width: min(640px, calc(100dvh - var(--fs-hud-h, 46px) - 144px));
 }
 @media (max-width: 980px) {
   body.fullscreen-game .chess-center {

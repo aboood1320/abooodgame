@@ -19,6 +19,11 @@
   let saveTimer = null;
   let lastFatal = 0;
   let stopPieceObserver = null;
+  let fsScrollY = 0;
+  let fsReturnFocus = null;
+  let fsLayoutFrame = 0;
+  let fsHudObserver = null;
+  let fsWakeLock = null;
 
   const EMBLEMS = {
     monopoly: "g-monopoly",
@@ -162,6 +167,10 @@
     els.btnSearch = document.getElementById("btnSearch");
     els.btnFullscreen = document.getElementById("btnGameFullscreen");
     els.btnExitFullscreen = document.getElementById("btnExitFullscreen");
+    els.fsHud = document.getElementById("fsHud");
+    els.fsHudCrest = document.getElementById("fsHudCrest");
+    els.fsHudTitle = document.getElementById("fsHudTitle");
+    els.fsHudStatus = document.getElementById("fsHudStatus");
     els.heroBrowse = document.getElementById("heroBrowse");
     els.heroRandom = document.getElementById("heroRandom");
 
@@ -209,7 +218,8 @@
 
     els.btnRules.addEventListener("click", () => { if (currentGame) BG.openRules(currentGame, currentOptions); });
     if (els.btnFullscreen) els.btnFullscreen.addEventListener("click", toggleGameFullscreen);
-    if (els.btnExitFullscreen) els.btnExitFullscreen.addEventListener("click", exitGameFullscreen);
+    if (els.btnExitFullscreen) els.btnExitFullscreen.addEventListener("click", () => exitGameFullscreen());
+    bindFullscreenEvents();
     els.btnNew.addEventListener("click", () => {
       if (!currentGame) return;
       if (isOnlineGame()) {
@@ -746,54 +756,238 @@
     return true;
   }
 
+  /* ------------------------------ ملء الشاشة ------------------------------ */
+
+  function nativeFullscreenElement() {
+    return document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement || null;
+  }
+
+  function nativeExitFullscreen() {
+    const fn = document.exitFullscreen || document.webkitExitFullscreen || document.msExitFullscreen;
+    if (!fn) return null;
+    try { return fn.call(document); } catch (err) { return null; }
+  }
+
+  function requestNativeFullscreen() {
+    const target = document.documentElement;
+    if (!target) return;
+    try {
+      if (typeof target.requestFullscreen === "function") {
+        let result;
+        try { result = target.requestFullscreen({ navigationUI: "hide" }); }
+        catch (err) { result = target.requestFullscreen(); }
+        if (result && typeof result.then === "function") result.catch(() => {});
+        return;
+      }
+      if (typeof target.webkitRequestFullscreen === "function") { target.webkitRequestFullscreen(); return; }
+      if (typeof target.msRequestFullscreen === "function") target.msRequestFullscreen();
+    } catch (err) {
+      /* يبقى وضع ملء الشاشة الداخلي كبديل آمن على المتصفحات التي ترفض الطلب. */
+    }
+  }
+
+  function updateFullscreenHud() {
+    if (els.fsHudTitle) els.fsHudTitle.textContent = els.gameTitle ? els.gameTitle.textContent.trim() : "";
+    if (els.fsHudStatus) {
+      const node = els.gameStatus;
+      const text = node ? node.textContent.trim() : "";
+      els.fsHudStatus.textContent = text;
+      els.fsHudStatus.className = "fs-hud-status" +
+        (node && node.classList.contains("live") ? " live" : "") +
+        (node && node.classList.contains("over") ? " over" : "");
+      els.fsHudStatus.hidden = !text;
+    }
+    if (els.fsHudCrest) {
+      els.fsHudCrest.innerHTML = currentGame ? emblem(currentGame) : "";
+      els.fsHudCrest.hidden = !currentGame;
+    }
+  }
+
   function syncFullscreenUi() {
     const active = document.body.classList.contains("fullscreen-game");
+    const native = !!nativeFullscreenElement();
+    document.body.classList.toggle("fullscreen-native", active && native);
+    document.body.classList.toggle("fullscreen-fallback", active && !native);
     if (els.btnFullscreen) {
       els.btnFullscreen.setAttribute("aria-pressed", active ? "true" : "false");
+      els.btnFullscreen.setAttribute("aria-label", active ? "إنهاء ملء الشاشة (F)" : "ملء الشاشة (F)");
+      els.btnFullscreen.title = active ? "إنهاء ملء الشاشة (F)" : "ملء الشاشة (F)";
       const span = els.btnFullscreen.querySelector("span");
       if (span) span.textContent = active ? "إنهاء ملء الشاشة" : "ملء الشاشة";
+      const use = els.btnFullscreen.querySelector("use");
+      if (use) use.setAttribute("href", active ? "#i-compress" : "#i-expand");
     }
-    if (els.btnExitFullscreen) els.btnExitFullscreen.hidden = !active;
-    applyGameScale();
+    if (els.fsHud) els.fsHud.hidden = !active;
+    updateFullscreenHud();
+    scheduleFullscreenLayout();
   }
 
-  function toggleFullscreenClass() {
-    document.body.classList.toggle("fullscreen-game");
+  function scheduleFullscreenLayout() {
+    if (fsLayoutFrame) cancelAnimationFrame(fsLayoutFrame);
+    fsLayoutFrame = requestAnimationFrame(() => {
+      fsLayoutFrame = 0;
+      applyGameScale();
+      try { window.dispatchEvent(new Event("resize")); } catch (err) { /* ignore */ }
+    });
+  }
+
+  function releaseFullscreenWakeLock() {
+    if (!fsWakeLock) return;
+    try { fsWakeLock.release(); } catch (err) { /* ignore */ }
+    fsWakeLock = null;
+  }
+
+  function requestFullscreenWakeLock() {
+    if (fsWakeLock || !navigator.wakeLock || typeof navigator.wakeLock.request !== "function") return;
+    if (!document.body.classList.contains("fullscreen-game")) return;
+    if (document.visibilityState && document.visibilityState !== "visible") return;
+    try {
+      navigator.wakeLock.request("screen").then((lock) => {
+        if (!document.body.classList.contains("fullscreen-game")) {
+          try { lock.release(); } catch (err) { /* ignore */ }
+          return;
+        }
+        fsWakeLock = lock;
+        lock.addEventListener("release", () => { fsWakeLock = null; });
+      }).catch(() => {});
+    } catch (err) { /* ignore */ }
+  }
+
+  function finishFullscreenExit(options) {
+    const opts = options || {};
+    const wasActive = document.body.classList.contains("fullscreen-game");
+    document.body.classList.remove("fullscreen-game", "fullscreen-native", "fullscreen-fallback");
     syncFullscreenUi();
+    releaseFullscreenWakeLock();
+    const top = fsScrollY;
+    const focusTarget = fsReturnFocus;
+    fsScrollY = 0;
+    fsReturnFocus = null;
+    if (!wasActive) return;
+    requestAnimationFrame(() => {
+      if (top) {
+        const root = document.documentElement;
+        const previous = root.style.scrollBehavior;
+        root.style.scrollBehavior = "auto";
+        window.scrollTo(0, top);
+        if (previous) root.style.scrollBehavior = previous;
+        else root.style.removeProperty("scroll-behavior");
+      }
+      if (opts.restoreFocus === false) return;
+      const target = focusTarget && document.contains(focusTarget) && focusTarget !== document.body
+        ? focusTarget
+        : els.btnFullscreen;
+      if (target && !target.hidden && typeof target.focus === "function") {
+        try { target.focus({ preventScroll: true }); } catch (err) { target.focus(); }
+      }
+    });
   }
 
-  function exitGameFullscreen() {
-    if (document.fullscreenElement && document.exitFullscreen) {
-      document.exitFullscreen().catch(() => {});
+  function enterGameFullscreen() {
+    if (!currentGame || !els.gameView || els.gameView.hidden) return false;
+    if (document.body.classList.contains("fullscreen-game")) return true;
+    fsScrollY = window.scrollY || window.pageYOffset || 0;
+    fsReturnFocus = document.activeElement;
+    document.body.classList.add("fullscreen-game", "fullscreen-fallback");
+    syncFullscreenUi();
+    requestNativeFullscreen();
+    requestFullscreenWakeLock();
+    if (els.btnExitFullscreen) {
+      setTimeout(() => {
+        if (els.fsHud && !els.fsHud.hidden) {
+          try { els.btnExitFullscreen.focus({ preventScroll: true }); } catch (err) { /* ignore */ }
+        }
+      }, 0);
+    }
+    return true;
+  }
+
+  function exitGameFullscreen(options) {
+    const opts = options || {};
+    const native = nativeFullscreenElement();
+    if (native) {
+      const out = nativeExitFullscreen();
+      if (out && typeof out.then === "function") {
+        out.catch(() => {}).then(() => {
+          if (!nativeFullscreenElement()) finishFullscreenExit(opts);
+        });
+      } else {
+        setTimeout(() => {
+          if (!nativeFullscreenElement()) finishFullscreenExit(opts);
+        }, 80);
+      }
       return;
     }
-    document.body.classList.remove("fullscreen-game");
-    syncFullscreenUi();
+    finishFullscreenExit(opts);
   }
 
   function toggleGameFullscreen() {
-    try {
-      if (document.fullscreenElement) {
-        document.exitFullscreen().catch(() => {});
-        return;
-      }
-      const target = document.documentElement;
-      if (target.requestFullscreen) {
-        target.requestFullscreen().catch(() => {
-          toggleFullscreenClass();
-        });
+    if (!currentGame || !els.gameView || els.gameView.hidden) return;
+    if (document.body.classList.contains("fullscreen-game")) exitGameFullscreen();
+    else enterGameFullscreen();
+  }
+
+  function onFullscreenChange() {
+    if (nativeFullscreenElement()) {
+      /* نتجاهل ملء الشاشة الأصلي خارج اللعبة كي لا تختفي واجهة المكتبة. */
+      if (currentGame && els.gameView && !els.gameView.hidden) {
+        document.body.classList.add("fullscreen-game");
+        syncFullscreenUi();
       } else {
-        toggleFullscreenClass();
+        syncFullscreenUi();
       }
-    } catch (err) {
-      toggleFullscreenClass();
+      return;
+    }
+    if (document.body.classList.contains("fullscreen-game")) finishFullscreenExit();
+    else syncFullscreenUi();
+  }
+
+  function onFullscreenKeydown(event) {
+    if (!currentGame || !els.gameView || els.gameView.hidden) return;
+    if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey || event.repeat) return;
+    const target = event.target;
+    const tag = target && target.tagName ? target.tagName.toLowerCase() : "";
+    if (tag === "input" || tag === "textarea" || tag === "select" || (target && target.isContentEditable)) return;
+    if (target && target.closest && target.closest("dialog[open]")) return;
+    if (document.querySelector("dialog[open]")) return;
+    const active = document.body.classList.contains("fullscreen-game");
+    if (event.key === "Escape" && event.shiftKey) {
+      if (!active) return;
+      event.preventDefault();
+      exitGameFullscreen();
+      return;
+    }
+    if (event.code === "KeyF" && !event.shiftKey) {
+      event.preventDefault();
+      if (active) exitGameFullscreen();
+      else enterGameFullscreen();
     }
   }
 
-  document.addEventListener("fullscreenchange", () => {
-    document.body.classList.toggle("fullscreen-game", !!document.fullscreenElement);
-    syncFullscreenUi();
-  });
+  function bindFullscreenEvents() {
+    document.addEventListener("fullscreenchange", onFullscreenChange);
+    document.addEventListener("webkitfullscreenchange", onFullscreenChange);
+    document.addEventListener("MSFullscreenChange", onFullscreenChange);
+    document.addEventListener("fullscreenerror", syncFullscreenUi);
+    document.addEventListener("webkitfullscreenerror", syncFullscreenUi);
+    document.addEventListener("keydown", onFullscreenKeydown);
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") requestFullscreenWakeLock();
+    });
+    if (window.MutationObserver) {
+      fsHudObserver = new MutationObserver(updateFullscreenHud);
+      if (els.gameTitle) fsHudObserver.observe(els.gameTitle, { childList: true, characterData: true, subtree: true });
+      if (els.gameStatus) {
+        fsHudObserver.observe(els.gameStatus, {
+          childList: true,
+          characterData: true,
+          subtree: true,
+          attributes: true,
+          attributeFilter: ["class"],
+        });
+      }
+    }
+  }
 
   /* ------------------------------ التنقل ------------------------------ */
 
@@ -806,15 +1000,12 @@
       }
       els.libraryView.hidden = false;
       els.gameView.hidden = true;
+      if (document.body.classList.contains("fullscreen-game")) finishFullscreenExit({ restoreFocus: false });
       currentGame = null;
       if (els.btnNew) els.btnNew.hidden = true;
       if (els.btnRules) els.btnRules.hidden = true;
-      if (els.btnFullscreen) {
-        els.btnFullscreen.hidden = true;
-        els.btnFullscreen.setAttribute("aria-pressed", "false");
-        const span = els.btnFullscreen.querySelector("span");
-        if (span) span.textContent = "ملء الشاشة";
-      }
+      if (els.btnFullscreen) els.btnFullscreen.hidden = true;
+      syncFullscreenUi();
       delete els.gameView.dataset.game;
       els.gameView.style.removeProperty("--accent");
       document.title = "ألعاب الطاولة — نُبلاء";
@@ -846,12 +1037,8 @@
     els.gameView.style.setProperty("--accent", game.accent || "#f2b45e");
     if (els.gameCrest) els.gameCrest.innerHTML = emblem(game);
     els.btnRules.hidden = false;
-    if (els.btnFullscreen) {
-      els.btnFullscreen.hidden = false;
-      els.btnFullscreen.setAttribute("aria-pressed", document.fullscreenElement ? "true" : "false");
-      const span = els.btnFullscreen.querySelector("span");
-      if (span) span.textContent = document.fullscreenElement ? "إنهاء ملء الشاشة" : "ملء الشاشة";
-    }
+    if (els.btnFullscreen) els.btnFullscreen.hidden = false;
+    syncFullscreenUi();
     els.btnNew.hidden = true;
     document.title = game.name + " — ألعاب الطاولة";
     if (BG.fx) BG.fx.screenEnter(els.gameView);
@@ -883,19 +1070,15 @@
     currentNet = null;
     lastSetup = null;
     currentOptions = null;
-    document.body.classList.remove("fullscreen-game");
+    exitGameFullscreen({ restoreFocus: false });
+    if (document.body.classList.contains("fullscreen-game")) finishFullscreenExit({ restoreFocus: false });
     document.body.classList.remove("game-mode");
-    if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {});
     els.gameView.hidden = true;
     els.libraryView.hidden = false;
     els.btnNew.hidden = true;
     els.btnRules.hidden = true;
-    if (els.btnFullscreen) {
-      els.btnFullscreen.hidden = true;
-      els.btnFullscreen.setAttribute("aria-pressed", "false");
-      const span = els.btnFullscreen.querySelector("span");
-      if (span) span.textContent = "ملء الشاشة";
-    }
+    if (els.btnFullscreen) els.btnFullscreen.hidden = true;
+    syncFullscreenUi();
     delete els.gameView.dataset.game;
     els.gameView.style.removeProperty("--accent");
     document.title = "ألعاب الطاولة — نُبلاء";
@@ -1375,6 +1558,7 @@
     els.btnNew.hidden = false;
     els.gameStatus.textContent = "جارٍ اللعب";
     els.gameStatus.className = "game-status live";
+    updateFullscreenHud();
     els.gameLogCard.hidden = false;
 
     gameMount = BG.el("div", { class: "game-mount", hidden: !!opts.skipCreate });

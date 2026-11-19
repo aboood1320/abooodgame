@@ -250,52 +250,138 @@ body.is-offline::after {
 }
 @keyframes bg-spin { to { transform: rotate(360deg); } }
 
+/* ملء الشاشة: شريط رفيع يحفظ اسم اللعبة وحالتها وزر الخروج،
+   بينما تأخذ اللعبة بقية الارتفاع دون أي قصّ أو تمرير مزدوج. */
 body.fullscreen-game {
+  --fs-hud-h: calc(46px + env(safe-area-inset-top, 0px));
   overflow: hidden;
+  overscroll-behavior: none;
+  height: 100vh;
+  height: 100dvh;
 }
 body.fullscreen-game .bg-topbar,
 body.fullscreen-game .bg-foot,
-body.fullscreen-game .game-toolbar {
+body.fullscreen-game .game-toolbar,
+body.fullscreen-game #gameLogCard {
   display: none;
 }
-body.fullscreen-game .game-stage {
+body.fullscreen-game .bg-app {
   padding: 0;
-  min-height: 100dvh;
+  max-width: 100%;
+}
+body.fullscreen-game main {
+  width: 100%;
+}
+body.fullscreen-game .game-stage {
+  margin: 0;
+  margin-block-start: var(--fs-hud-h);
+  padding: 0;
+  height: calc(100vh - var(--fs-hud-h));
+  height: calc(100dvh - var(--fs-hud-h));
+  min-height: 0;
+  box-sizing: border-box;
 }
 body.fullscreen-game .game-mount {
-  height: 100dvh;
+  height: 100%;
+  min-height: 0;
   overflow: auto;
+  overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  box-sizing: border-box;
 }
 body.fullscreen-game .game-mount > * {
   margin-inline: auto;
 }
 
-/* زر إنهاء ملء الشاشة: ضروري على iPhone/Safari حيث لا يعمل طلب ملء الشاشة
+/* شريط ملء الشاشة: ضروري على iPhone/Safari حيث لا يعمل طلب ملء الشاشة
    ولا توجد لوحة مفاتيح لإنهائه بمفتاح Escape. */
-.fs-exit {
+.fs-hud {
   position: fixed;
-  top: max(10px, env(safe-area-inset-top));
-  inset-inline-end: max(10px, env(safe-area-inset-right));
+  inset-block-start: 0;
+  inset-inline: 0;
   z-index: 2147483000;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  box-sizing: border-box;
+  height: var(--fs-hud-h, calc(46px + env(safe-area-inset-top, 0px)));
+  padding: env(safe-area-inset-top, 0px) max(10px, env(safe-area-inset-right, 0px)) 0 max(10px, env(safe-area-inset-left, 0px));
+  background: linear-gradient(180deg, rgba(7, 19, 21, 0.94), rgba(7, 19, 21, 0.78));
+  border-bottom: 1px solid rgba(118, 224, 188, 0.2);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.28);
+  color: #e9fff7;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+.fs-hud[hidden] {
+  display: none;
+}
+.fs-hud-crest {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  border-radius: 9px;
+  color: var(--accent, #76e0bc);
+  background: rgba(118, 224, 188, 0.1);
+  border: 1px solid rgba(118, 224, 188, 0.22);
+}
+.fs-hud-crest[hidden] {
+  display: none;
+}
+.fs-hud-crest .ic {
+  width: 17px;
+  height: 17px;
+}
+.fs-hud-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.15;
+}
+.fs-hud-title {
+  overflow: hidden;
+  font-size: 0.82rem;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.fs-hud-status {
+  overflow: hidden;
+  margin-top: 1px;
+  color: var(--muted, #9bb1ad);
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.fs-hud-status[hidden] {
+  display: none;
+}
+.fs-hud-status.live {
+  color: #8df0c9;
+}
+.fs-hud-status.over {
+  color: #ffd28f;
+}
+.fs-exit {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  padding: 9px 15px;
+  gap: 6px;
+  flex: 0 0 auto;
+  margin-inline-start: auto;
+  min-height: 32px;
+  padding: 5px 12px;
   border: 1px solid rgba(118, 224, 188, 0.5);
   border-radius: 999px;
-  background: rgba(7, 19, 21, 0.88);
+  background: rgba(7, 19, 21, 0.72);
   color: #e9fff7;
   font: inherit;
-  font-size: 0.8rem;
+  font-size: 0.76rem;
   font-weight: 800;
   cursor: pointer;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  box-shadow: 0 8px 26px rgba(0, 0, 0, 0.45);
-}
-.fs-exit[hidden] {
-  display: none;
 }
 .fs-exit .ic {
   width: 16px;
@@ -303,8 +389,25 @@ body.fullscreen-game .game-mount > * {
 }
 .fs-exit:hover,
 .fs-exit:focus-visible {
-  border-color: rgba(118, 224, 188, 0.9);
+  border-color: rgba(118, 224, 188, 0.95);
+  background: rgba(118, 224, 188, 0.14);
   outline: none;
+}
+.fs-exit:focus-visible {
+  box-shadow: 0 0 0 3px rgba(118, 224, 188, 0.24);
+}
+
+@media (max-width: 420px) {
+  .fs-hud {
+    gap: 8px;
+    padding-inline: max(8px, env(safe-area-inset-right, 0px)) max(8px, env(safe-area-inset-left, 0px));
+  }
+  .fs-hud-title {
+    font-size: 0.76rem;
+  }
+  .fs-exit {
+    padding-inline: 10px;
+  }
 }
 
 @media (max-width: 720px) {
@@ -368,35 +471,12 @@ input, select, textarea, button {
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
-body.fullscreen-game .bg-topbar,
-body.fullscreen-game .bg-foot {
-  display: none;
-}
-
-body.fullscreen-game .bg-app {
-  padding: 0;
-  max-width: 100%;
-}
-
-body.fullscreen-game main {
-  width: 100%;
-}
-
-body.fullscreen-game .game-toolbar {
-  padding: 6px clamp(8px, 2vw, 12px);
-  border-radius: 0;
-  border-left: 0;
-  border-right: 0;
-}
-
-body.fullscreen-game .game-stage {
-  padding: clamp(4px, 1vw, 10px);
-}
-
 body.fullscreen-game .game-mount.is-mobile-scaled {
-  width: 100vw;
-  margin-left: calc(50% - 50vw);
-  margin-right: calc(50% - 50vw);
+  width: 100%;
+  max-width: 100%;
+  margin-inline: 0;
+  padding-left: max(4px, env(safe-area-inset-left, 0px));
+  padding-right: max(4px, env(safe-area-inset-right, 0px));
 }
 
 .game-mount.is-mobile-scaled > * { 
