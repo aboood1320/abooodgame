@@ -958,6 +958,17 @@ body.fullscreen-game .risk-layout { grid-template-columns: minmax(0, 1fr) 350px;
 body.fullscreen-game .risk-board-wrap { min-height: 0; }
 body.fullscreen-game .risk-map-viewport { max-height: calc(100dvh - var(--fs-hud-h, 46px) - 124px); }
 
+@media (min-width: 1041px) {
+  /* لوحة الخريطة تبقى كاملة، وقائمة اللاعبين والأساطير تُمرَّر داخل عمودها. */
+  body.fullscreen-game .risk-side {
+    max-height: calc(100dvh - var(--fs-hud-h, 46px) - 8px);
+    overflow-y: auto;
+    padding-inline-end: 2px;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(118, 224, 188, 0.32) transparent;
+  }
+}
+
 @media (max-width: 1040px) {
   body.fullscreen-game .risk-layout { grid-template-columns: minmax(0, 1fr); }
 }

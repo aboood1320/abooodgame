@@ -262,17 +262,21 @@ body.fullscreen-game {
 body.fullscreen-game .bg-topbar,
 body.fullscreen-game .bg-foot,
 body.fullscreen-game .game-toolbar,
-body.fullscreen-game #gameLogCard {
+body.fullscreen-game #gameLogCard,
+body.fullscreen-game .bg-to-top,
+body.fullscreen-game .skip-link {
   display: none;
 }
-body.fullscreen-game .bg-app {
+/* نرفع الأولوية على قواعد game-mode اللاحقة حتى لا تعود حواف الصفحة أو
+   حشوة الشريط السفلية وتصنع شريط تمريراً وهمياً في ملء الشاشة. */
+body.fullscreen-game.game-mode .bg-app {
   padding: 0;
   max-width: 100%;
 }
 body.fullscreen-game main {
   width: 100%;
 }
-body.fullscreen-game .game-stage {
+body.fullscreen-game.game-mode .game-stage {
   margin: 0;
   margin-block-start: var(--fs-hud-h);
   padding: 0;
@@ -289,6 +293,21 @@ body.fullscreen-game .game-mount {
   -webkit-overflow-scrolling: touch;
   padding-bottom: env(safe-area-inset-bottom, 0px);
   box-sizing: border-box;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(118, 224, 188, 0.32) transparent;
+}
+body.fullscreen-game .game-mount::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+body.fullscreen-game .game-mount::-webkit-scrollbar-track {
+  background: transparent;
+}
+body.fullscreen-game .game-mount::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: rgba(118, 224, 188, 0.32);
+  background-clip: padding-box;
 }
 body.fullscreen-game .game-mount > * {
   margin-inline: auto;

@@ -1214,7 +1214,8 @@ body.fullscreen-game .chess-main {
   border-radius: 20px;
 }
 body.fullscreen-game .chess-center {
-  max-width: min(640px, calc(100dvh - var(--fs-hud-h, 46px) - 144px));
+  /* 164px تغطي شريطي اللاعبين والحشوة والفواصل، فيظهر كامل العمود دون تمرير. */
+  max-width: min(640px, calc(100dvh - var(--fs-hud-h, 46px) - 164px));
 }
 @media (max-width: 980px) {
   body.fullscreen-game .chess-center {
