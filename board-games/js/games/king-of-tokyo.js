@@ -9,6 +9,7 @@
   const U = BG.util;
   const AI = BG.ai;
   const XG = BG.xg;
+  const FX = BG.fx;
   const ar = XG.ar;
   const esc = XG.esc;
 
@@ -164,6 +165,7 @@
       state.dice = state.dice.map((value, index) => (state.kept[index] ? value : U.pick(FACES)));
     }
     state.rolls += 1;
+    if (FX) FX.sound("dice");
     state.notice = "الرمية " + ar(state.rolls) + " من ٣. اضغط النرد للإبقاء عليه، ثم أعد الرمي أو ثبّت النتائج.";
     render();
     settle();

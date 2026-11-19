@@ -26,6 +26,18 @@
     join: 140, leave: 140, error: 150, win: 200, lose: 200, yourturn: 400,
   };
 
+  /* أصوات اللعب التي يجب أن يسمعها كل من في الغرفة، لا صاحب الحركة فقط.
+     أصوات الواجهة (نقر/تحديد/تبديل/أخطاء) تبقى محلية كي لا تتحوّل إلى ضجيج. */
+  const SHARED_SOUNDS = new Set([
+    "dice", "diceland", "card", "draw", "deal", "flip", "shuffle", "ticket",
+    "move", "place", "meeple", "tile", "build", "capture", "promote", "step",
+    "coin", "score", "point", "trade", "token", "resource", "cure", "outbreak",
+    "robber", "train", "unlock", "reveal", "turn", "pass", "recall",
+    "ladder", "snake", "win", "lose",
+  ]);
+  const NET_THROTTLE_MS = 45;
+  const netLastFired = new Map();
+
   /* إرسال إلى صدى الخلفية: يمنح أحداث النتائج عمقًا دون إغراق المؤثرات القصيرة */
   const SAMPLE_SPACE = {
     win: 0.16, lose: 0.12, crown: 0.14, cure: 0.12,
@@ -581,13 +593,39 @@
     });
   }
 
+  function nowMs() {
+    return typeof performance !== "undefined" && performance.now ? performance.now() : Date.now();
+  }
+
+  function isSharedSound(name) {
+    return SHARED_SOUNDS.has(name);
+  }
+
+  /** يبثّ صوت اللعب إلى بقية أجهزة الغرفة. يبقى محليًا خارج اللعب الجماعي. */
+  function shareSound(name) {
+    if (!SHARED_SOUNDS.has(name)) return;
+    const online = BG.online;
+    if (!online || !online.active || typeof online.sendSound !== "function") return;
+    const now = nowMs();
+    if (now - (netLastFired.get(name) || 0) < NET_THROTTLE_MS) return;
+    netLastFired.set(name, now);
+    try { online.sendSound(name); } catch (err) { /* الشبكة أفضل جهد */ }
+  }
+
+  /** صوت وصل من لاعب آخر: يحترم إعدادات الصوت المحلية ولا يُعاد بثّه. */
+  function remoteSound(name) {
+    if (!SHARED_SOUNDS.has(name)) return;
+    sound(name, { remote: true });
+  }
+
   function sound(name, opts) {
     const o = opts || {};
+    if (!o.remote && !o.force) shareSound(name);
     if (!o.force && !prefs.sound) return;
     const packActive = prefs.pack && prefs.pack !== "classic" && BG.soundPacks && BG.soundPacks.has(prefs.pack);
     if (!SAMPLES[name] && !SYNTH[name] && !packActive) return;
 
-    const now = typeof performance !== "undefined" && performance.now ? performance.now() : Date.now();
+    const now = nowMs();
     const gap = THROTTLE_MS[name] || 0;
     if (!o.force && gap) {
       const last = lastFired.get(name) || 0;
@@ -2107,6 +2145,8 @@
   const FX = (BG.fx = {
     prefs,
     sound,
+    isSharedSound,
+    remoteSound,
     unlock,
     preload: preloadAll,
     after,

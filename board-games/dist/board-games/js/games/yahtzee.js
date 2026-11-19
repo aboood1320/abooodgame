@@ -9,6 +9,7 @@
   const U = BG.util;
   const AI = BG.ai;
   const XG = BG.xg;
+  const FX = BG.fx;
   const ar = XG.ar;
   const esc = XG.esc;
 
@@ -141,6 +142,7 @@
       if (state.rolls === 0 || !state.held[i]) state.dice[i] = U.roll(6);
     }
     state.rolls += 1;
+    if (FX) FX.sound("dice");
     state.notice = state.rolls < 3 ? "اختر النرد الذي تريد تثبيته ثم ارمِ الباقي." : "اختر خانة من بطاقتك لتسجيل النتيجة.";
     if (state.rolls === 1) apiRef.log("<strong>" + esc(cur().name) + "</strong> بدأ دوره في ياهتزي.", "accent");
     render();

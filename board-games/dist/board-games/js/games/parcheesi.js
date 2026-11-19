@@ -9,6 +9,7 @@
   const U = BG.util;
   const AI = BG.ai;
   const XG = BG.xg;
+  const FX = BG.fx;
   const ar = XG.ar;
   const esc = XG.esc;
 
@@ -79,6 +80,7 @@
     state.used = [false, false];
     state.phase = "move";
     state.doubleExtra = d1 === d2;
+    if (FX) FX.sound("dice");
     state.notice = cur().name + " رمى " + ar(d1) + " و" + ar(d2) + (d1 === d2 ? " (زوجان — دور إضافي)" : "") + ". اختر حركة.";
     apiRef.log("<strong>" + esc(cur().name) + "</strong> رمى النردين: <strong>" + ar(d1) + "</strong> و<strong>" + ar(d2) + "</strong>." + (d1 === d2 ? " زوجان!" : ""), "accent");
     render();

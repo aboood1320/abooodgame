@@ -1914,6 +1914,27 @@
 
   /* ============================== الرسائل ============================== */
 
+  /** بثّ صوت لعب (نرد، حركة، بطاقة…) كي يسمعه كل من في الغرفة. */
+  function sendSound(name) {
+    if (!state.inGame || !BG.net) return false;
+    if (!BG.fx || typeof BG.fx.isSharedSound !== "function" || !BG.fx.isSharedSound(name)) return false;
+    /* المضيف يشغّل حركات الكمبيوتر أيضًا، والضيف لا يبثّ إلا حين يكون دوره
+       (أو في الألعاب التعاونية التي يتحرّك فيها الجميع). */
+    if (!state.isHost) {
+      if (state.localSeat < 0) return false;
+      if (!state.coopMode && state.lastSeat !== state.localSeat) return false;
+    }
+    if (state.isHost) return BG.net.broadcast({ t: "fx", n: name }) > 0;
+    return BG.net.send({ t: "fx", n: name });
+  }
+
+  function playRemoteSound(name) {
+    if (!BG.fx || typeof BG.fx.remoteSound !== "function") return false;
+    if (typeof BG.fx.isSharedSound === "function" && !BG.fx.isSharedSound(name)) return false;
+    BG.fx.remoteSound(name);
+    return true;
+  }
+
   function onNetMessage(event) {
     const from = event && event.from;
     const data = event && event.data;
@@ -1963,6 +1984,13 @@
       const who = String(BG.net.peerName(from) || data.n || "لاعب").slice(0, 18);
       BG.net.broadcast({ t: "react", e: data.e, n: who }, from);
       showReaction(data.e, who);
+      return;
+    }
+    if (data.t === "fx") {
+      if (!state.inGame || state.overShown) return;
+      const name = typeof data.n === "string" ? data.n : "";
+      if (!playRemoteSound(name)) return;
+      BG.net.broadcast({ t: "fx", n: name }, from);
       return;
     }
     if (data.t === "state") {
@@ -2075,6 +2103,11 @@
     }
     if (data.t === "react") {
       if (REACTIONS.indexOf(data.e) >= 0) showReaction(data.e, String(data.n || "").slice(0, 18));
+      return;
+    }
+    if (data.t === "fx") {
+      if (!state.inGame || state.overShown) return;
+      if (typeof data.n === "string") playRemoteSound(data.n);
       return;
     }
     if (data.t === "turn") {
@@ -2991,6 +3024,7 @@
     requestRematch,
     shutdown,
     abortGame,
+    sendSound,
     get active() { return state.inGame; },
     get room() { return state.inRoom; },
     get localSeat() { return state.localSeat; },
