@@ -61,7 +61,7 @@
 <link rel="stylesheet" href="css/net.css?v=31" />
 <link rel="stylesheet" href="css/polish.css?v=35" />
 <link rel="stylesheet" href="css/upgrade.css?v=1" />
-<link rel="stylesheet" href="css/library.css?v=11" />
+<link rel="stylesheet" href="css/library.css?v=12" />
 <link rel="stylesheet" href="css/net2.css?v=5" />
 <link rel="stylesheet" href="css/monopoly.css?v=9" />
 <link rel="stylesheet" href="css/ludo.css?v=2" media="print" onload="this.media='all'" />
@@ -88,7 +88,7 @@
 <link rel="stylesheet" href="css/takenoko.css?v=1" media="print" onload="this.media='all'" />
 <link rel="stylesheet" href="css/coop.css?v=3" media="print" onload="this.media='all'" />
 <link rel="stylesheet" href="css/perf.css?v=1" />
-<link rel="stylesheet" href="css/site-refresh.css?v=1" />
+<link rel="stylesheet" href="css/site-refresh.css?v=2" />
 <noscript>
 <link rel="stylesheet" href="css/ttr.css?v=36" /><link rel="stylesheet" href="css/carcassonne.css?v=32" /><link rel="stylesheet" href="css/risk.css?v=37" /><link rel="stylesheet" href="css/scrabble.css?v=33" /><link rel="stylesheet" href="css/cluedo.css?v=40" /><link rel="stylesheet" href="css/uno.css?v=32" /><link rel="stylesheet" href="css/love-letter.css?v=1" /><link rel="stylesheet" href="css/splendor.css?v=2" /><link rel="stylesheet" href="css/kootbositta.css?v=2" /><link rel="stylesheet" href="css/chess.css?v=12" /><link rel="stylesheet" href="css/pandemic.css?v=34" /><link rel="stylesheet" href="css/tavla.css?v=30" /><link rel="stylesheet" href="css/cards.css?v=32" /><link rel="stylesheet" href="css/classic.css?v=36" /><link rel="stylesheet" href="css/ludo.css?v=2" /><link rel="stylesheet" href="css/expansion.css?v=1" /><link rel="stylesheet" href="css/yahtzee.css?v=1" /><link rel="stylesheet" href="css/rummikub.css?v=1" /><link rel="stylesheet" href="css/othello.css?v=1" /><link rel="stylesheet" href="css/connect-four.css?v=2" /><link rel="stylesheet" href="css/stratego.css?v=1" /><link rel="stylesheet" href="css/parcheesi.css?v=1" /><link rel="stylesheet" href="css/sorry.css?v=1" /><link rel="stylesheet" href="css/battleship.css?v=7" /><link rel="stylesheet" href="css/seven-wonders.css?v=1" /><link rel="stylesheet" href="css/azul.css?v=1" /><link rel="stylesheet" href="css/wingspan.css?v=1" /><link rel="stylesheet" href="css/dominion.css?v=1" /><link rel="stylesheet" href="css/terraforming-mars.css?v=1" />
 </noscript>
@@ -180,7 +180,7 @@
         <div class="hero-copy">
           <span class="eyebrow"><svg class="ic" aria-hidden="true"><use href="#i-spark"/></svg><span class="hero-count" data-hero-count>٤٥</span> لعبة — كلاسيكيات عائلية ومختارات BGG</span>
           <h1>ليلة ألعاب <span class="hero-gold">لا تُنسى</span></h1>
-          <p><span class="hero-count" data-hero-count>٤٥</span> لعبة تجمع الكلاسيكيات العائلية ومختارات BGG، بقواعد عربية واضحة ولعب محلي أو عبر الإنترنت — وأدوات تحفظ سرية المعلومات الخاصة.</p>
+          <p>كلاسيكيات عائلية ومختارات BGG، بقواعد عربية واضحة ولعب محلي أو عبر الإنترنت — وأدوات تحفظ سرية المعلومات الخاصة.</p>
           <div class="hero-actions">
             <button class="hero-btn primary" type="button" id="heroBrowse">
               <span>استكشف المكتبة</span>
@@ -359,6 +359,22 @@
         <span class="library-count" id="libraryCount" aria-live="polite" aria-atomic="true"></span>
       </div>
 
+      <div class="library-quickfilters" id="libraryQuickFilters" role="group" aria-label="تصفية سريعة">
+        <button class="library-quick-chip" type="button" data-quick-filter="all" aria-pressed="true" aria-controls="libraryGrid">
+          الكل <span class="library-quick-count" data-total-count>٤٥</span>
+        </button>
+        <button class="library-quick-chip library-quick-coop" type="button" data-quick-filter="coop" aria-pressed="false" aria-controls="libraryGrid">
+          <svg class="ic" aria-hidden="true"><use href="#i-users"/></svg>
+          تعاونية <span class="library-quick-count" data-coop-count>٦</span>
+        </button>
+        <button class="library-quick-chip" type="button" data-quick-filter="short" aria-pressed="false" aria-controls="libraryGrid">حتى ٣٠ دقيقة</button>
+        <button class="library-quick-chip" type="button" data-quick-filter="two" aria-pressed="false" aria-controls="libraryGrid">لاعبان</button>
+        <button class="library-quick-chip" type="button" data-quick-filter="easy" aria-pressed="false" aria-controls="libraryGrid">سهلة</button>
+        <button class="library-quick-chip library-quick-fav" type="button" data-quick-filter="favorites" aria-pressed="false" aria-controls="libraryGrid">
+          <span class="library-quick-star" aria-hidden="true">★</span> المفضلة
+        </button>
+      </div>
+
       <form class="library-tools" id="libraryFilters" role="search" onsubmit="return false" hidden>
         <label class="library-filter library-search">
           <span>ابحث عن لعبة</span>
@@ -400,12 +416,19 @@
             <option value="complexity">الأسهل أولًا</option>
           </select>
         </label>
-        <button class="library-favorites-toggle" id="libraryFavoritesOnly" type="button" aria-pressed="false" aria-controls="libraryGrid">
-          <span class="library-favorites-star" aria-hidden="true">★</span>
-          <span>المفضلة فقط</span>
-          <span class="library-favorite-count" id="libraryFavoriteCount" hidden>0</span>
-        </button>
-        <button class="library-filter-reset" id="libraryReset" type="button">مسح الفلاتر</button>
+        <div class="library-filter-actions">
+          <button class="library-favorites-toggle" id="libraryFavoritesOnly" type="button" aria-pressed="false" aria-controls="libraryGrid">
+            <span class="library-favorites-star" aria-hidden="true">★</span>
+            <span>المفضلة فقط</span>
+            <span class="library-favorite-count" id="libraryFavoriteCount" hidden>0</span>
+          </button>
+          <button class="library-coop-toggle" id="libraryCoopOnly" type="button" aria-pressed="false" aria-controls="libraryGrid">
+            <svg class="ic" aria-hidden="true"><use href="#i-users"/></svg>
+            <span>تعاونية فقط</span>
+            <span class="library-coop-count" data-coop-count>٦</span>
+          </button>
+          <button class="library-filter-reset" id="libraryReset" type="button">مسح الفلاتر</button>
+        </div>
       </form>
 
       <div class="library-grid" id="libraryGrid"></div>
@@ -486,7 +509,7 @@
 <script defer src="js/games/uno.js?v=38"></script>
 <script defer src="js/games/love-letter.js?v=3"></script>
 <script defer src="js/games/splendor.js?v=7"></script>
-<script defer src="js/games/pandemic.js?v=33"></script>
+<script defer src="js/games/pandemic.js?v=34"></script>
 <script defer src="js/games/tavla.js?v=31"></script>
 <script defer src="js/games/waraq.js?v=34"></script>
 <script defer src="js/games/kootbositta.js?v=4"></script>
@@ -536,7 +559,7 @@
 <script defer src="js/net.js?v=36"></script>
 <script defer src="js/library-art.js?v=1"></script>
 <script defer src="js/library-art-expansion.js?v=1"></script>
-<script defer src="js/app.js?v=58"></script>
+<script defer src="js/app.js?v=59"></script>
 <script defer src="js/online.js?v=52"></script>
 <script defer src="js/online-host.js?v=4"></script>
 <script defer src="js/site-extras.js?v=1"></script>

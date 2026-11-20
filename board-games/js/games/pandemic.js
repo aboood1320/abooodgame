@@ -3399,6 +3399,7 @@
     minPlayers: 2,
     maxPlayers: 4,
     defaultPlayers: 2,
+    coop: true,
 
     options: {
       hint: "عدد الأوبئة يحدد صعوبة انتشار المرض. مستوى ذكاء الكمبيوتر يُختار في إعداد اللاعبين.",

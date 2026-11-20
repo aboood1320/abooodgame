@@ -393,7 +393,10 @@
       body.innerHTML =
         '<span class="game-card-title">' +
           '<strong class="game-name">' + U.escape(game.name) + "</strong>" +
-          '<span class="game-complexity">' + U.escape(game.complexity || "") + "</span>" +
+          '<span class="game-card-badges">' +
+            (game.coop ? '<span class="game-coop-tag">' + icon("i-users") + "تعاونية</span>" : "") +
+            '<span class="game-complexity">' + U.escape(game.complexity || "") + "</span>" +
+          "</span>" +
         "</span>" +
         '<span class="game-tagline">' + U.escape(game.tagline || "") + "</span>" +
         '<span class="game-meta">' +
@@ -514,6 +517,110 @@
     return count >= (game.minPlayers || 2) && count <= (game.maxPlayers || 6);
   }
 
+  function isPressed(element) {
+    return !!element && element.getAttribute("aria-pressed") === "true";
+  }
+
+  function setPressed(element, active) {
+    if (!element) return;
+    element.setAttribute("aria-pressed", active ? "true" : "false");
+    element.classList.toggle("is-active", active);
+  }
+
+  function arabicDigits(value) {
+    return (Number(value) || 0).toLocaleString("ar-EG", { useGrouping: false });
+  }
+
+  function syncLibraryCounts() {
+    const total = BG.games.length;
+    const coop = BG.games.filter((game) => game.coop).length;
+    document.querySelectorAll("[data-total-count]").forEach((node) => {
+      node.textContent = arabicDigits(total);
+    });
+    document.querySelectorAll("[data-coop-count]").forEach((node) => {
+      node.textContent = arabicDigits(coop);
+    });
+  }
+
+  function quickFilterState() {
+    const search = document.getElementById("librarySearch");
+    const players = document.getElementById("libraryPlayers");
+    const duration = document.getElementById("libraryDuration");
+    const complexity = document.getElementById("libraryComplexity");
+    const favoritesOnly = document.getElementById("libraryFavoritesOnly");
+    const coopOnly = document.getElementById("libraryCoopOnly");
+    const favoritesActive = isPressed(favoritesOnly);
+    const coopActive = isPressed(coopOnly);
+    return {
+      all: !(search && search.value) &&
+        !(players && players.value) &&
+        !(duration && duration.value) &&
+        !(complexity && complexity.value) &&
+        !favoritesActive && !coopActive,
+      coop: coopActive,
+      short: !!duration && duration.value === "short",
+      two: !!players && players.value === "2",
+      easy: !!complexity && complexity.value === "easy",
+      favorites: favoritesActive,
+    };
+  }
+
+  function syncQuickFilters() {
+    const state = quickFilterState();
+    document.querySelectorAll("[data-quick-filter]").forEach((button) => {
+      const key = button.getAttribute("data-quick-filter");
+      button.setAttribute("aria-pressed", state[key] ? "true" : "false");
+    });
+  }
+
+  function resetLibraryFilters(focusSearch) {
+    const search = document.getElementById("librarySearch");
+    const players = document.getElementById("libraryPlayers");
+    const duration = document.getElementById("libraryDuration");
+    const complexity = document.getElementById("libraryComplexity");
+    const sort = document.getElementById("librarySort");
+    const favoritesOnly = document.getElementById("libraryFavoritesOnly");
+    const coopOnly = document.getElementById("libraryCoopOnly");
+    if (search) search.value = "";
+    if (players) players.value = "";
+    if (duration) duration.value = "";
+    if (complexity) complexity.value = "";
+    setPressed(favoritesOnly, false);
+    setPressed(coopOnly, false);
+    if (sort) {
+      sort.value = "featured";
+      BG.store.set(LIBRARY_SORT_KEY, "featured");
+      sortLibraryCards("featured");
+    }
+    applyLibraryFilters();
+    if (focusSearch && search) search.focus();
+  }
+
+  function bindQuickFilters() {
+    const group = document.getElementById("libraryQuickFilters");
+    if (!group) return;
+    group.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-quick-filter]");
+      if (!button || !group.contains(button)) return;
+      const key = button.getAttribute("data-quick-filter");
+      if (key === "all") {
+        resetLibraryFilters(false);
+        return;
+      }
+      const players = document.getElementById("libraryPlayers");
+      const duration = document.getElementById("libraryDuration");
+      const complexity = document.getElementById("libraryComplexity");
+      const favoritesOnly = document.getElementById("libraryFavoritesOnly");
+      const coopOnly = document.getElementById("libraryCoopOnly");
+      if (key === "coop") setPressed(coopOnly, !isPressed(coopOnly));
+      else if (key === "short" && duration) duration.value = duration.value === "short" ? "" : "short";
+      else if (key === "two" && players) players.value = players.value === "2" ? "" : "2";
+      else if (key === "easy" && complexity) complexity.value = complexity.value === "easy" ? "" : "easy";
+      else if (key === "favorites") setPressed(favoritesOnly, !isPressed(favoritesOnly));
+      applyLibraryFilters();
+    });
+  }
+
   function bindLibraryFilters() {
     const search = document.getElementById("librarySearch");
     const players = document.getElementById("libraryPlayers");
@@ -521,6 +628,7 @@
     const complexity = document.getElementById("libraryComplexity");
     const sort = document.getElementById("librarySort");
     const favoritesOnly = document.getElementById("libraryFavoritesOnly");
+    const coopOnly = document.getElementById("libraryCoopOnly");
     const reset = document.getElementById("libraryReset");
     const toggle = document.getElementById("libraryFiltersToggle");
     const panel = document.getElementById("libraryFilters");
@@ -529,7 +637,14 @@
         const open = panel.hidden;
         panel.hidden = !open;
         toggle.setAttribute("aria-expanded", open ? "true" : "false");
-        if (!open) toggle.focus();
+        if (open) {
+          const reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+          window.requestAnimationFrame(() => {
+            panel.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "start" });
+          });
+        } else {
+          toggle.focus();
+        }
       });
       panel.addEventListener("keydown", (event) => {
         if (event.key !== "Escape" || panel.hidden) return;
@@ -549,8 +664,13 @@
     }
     if (favoritesOnly) {
       favoritesOnly.addEventListener("click", () => {
-        const active = favoritesOnly.getAttribute("aria-pressed") !== "true";
-        favoritesOnly.setAttribute("aria-pressed", active ? "true" : "false");
+        setPressed(favoritesOnly, !isPressed(favoritesOnly));
+        applyLibraryFilters();
+      });
+    }
+    if (coopOnly) {
+      coopOnly.addEventListener("click", () => {
+        setPressed(coopOnly, !isPressed(coopOnly));
         applyLibraryFilters();
       });
     }
@@ -558,20 +678,9 @@
       if (!control) return;
       control.addEventListener(control === search ? "input" : "change", applyLibraryFilters);
     });
-    if (reset) reset.addEventListener("click", () => {
-      if (search) search.value = "";
-      if (players) players.value = "";
-      if (duration) duration.value = "";
-      if (complexity) complexity.value = "";
-      if (sort) {
-        sort.value = "featured";
-        BG.store.set(LIBRARY_SORT_KEY, "featured");
-        sortLibraryCards("featured");
-      }
-      if (favoritesOnly) favoritesOnly.setAttribute("aria-pressed", "false");
-      applyLibraryFilters();
-      if (search) search.focus();
-    });
+    if (reset) reset.addEventListener("click", () => resetLibraryFilters(true));
+    bindQuickFilters();
+    syncLibraryCounts();
   }
 
   function applyLibraryFilters() {
@@ -581,7 +690,9 @@
     const durationFilter = (document.getElementById("libraryDuration") || {}).value || "";
     const complexityFilter = (document.getElementById("libraryComplexity") || {}).value || "";
     const favoritesOnly = document.getElementById("libraryFavoritesOnly");
-    const favoritesActive = !!favoritesOnly && favoritesOnly.getAttribute("aria-pressed") === "true";
+    const favoritesActive = isPressed(favoritesOnly);
+    const coopOnly = document.getElementById("libraryCoopOnly");
+    const coopActive = isPressed(coopOnly);
     let visible = 0;
     BG.games.forEach((game) => {
       const card = els.libraryGrid.querySelector('[data-game-id="' + game.id + '"]');
@@ -596,7 +707,8 @@
         (!playerCount || supportsPlayerCount(game, playerCount)) &&
         matchesDuration &&
         (!complexityFilter || complexityGroup(game) === complexityFilter) &&
-        (!favoritesActive || favoriteGameIds.has(game.id));
+        (!favoritesActive || favoriteGameIds.has(game.id)) &&
+        (!coopActive || !!game.coop);
       const shell = card.closest(".game-card-shell") || card;
       shell.hidden = !show;
       card.hidden = !show;
@@ -604,10 +716,10 @@
     });
     const countEl = document.getElementById("libraryCount");
     const empty = document.getElementById("libraryEmpty");
-    const filtered = !!(query || playerCount || durationFilter || complexityFilter || favoritesActive);
+    const filtered = !!(query || playerCount || durationFilter || complexityFilter || favoritesActive || coopActive);
     const badge = document.getElementById("libraryFilterBadge");
     const toggle = document.getElementById("libraryFiltersToggle");
-    const activeFilterCount = [query, playerCount, durationFilter, complexityFilter, favoritesActive].filter(Boolean).length;
+    const activeFilterCount = [query, playerCount, durationFilter, complexityFilter, favoritesActive, coopActive].filter(Boolean).length;
     const favoriteCount = document.getElementById("libraryFavoriteCount");
     if (favoriteCount) {
       favoriteCount.textContent = String(favoriteGameIds.size);
@@ -619,6 +731,8 @@
     }
     if (toggle) toggle.classList.toggle("has-active-filters", activeFilterCount > 0);
     if (favoritesOnly) favoritesOnly.classList.toggle("is-active", favoritesActive);
+    if (coopOnly) coopOnly.classList.toggle("is-active", coopActive);
+    syncQuickFilters();
     const resume = els.libraryGrid.querySelector(".resume-card");
     if (resume) resume.hidden = filtered;
     if (countEl) {

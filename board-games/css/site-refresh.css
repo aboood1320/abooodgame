@@ -14,6 +14,11 @@ body {
   text-rendering: optimizeLegibility;
 }
 
+/* مساحة لمس أوسع لشريحة الملف الشخصي */
+.bg-profile-chip {
+  height: 42px;
+}
+
 body.library-mode #libraryHead {
   scroll-margin-top: 92px;
 }
@@ -25,6 +30,11 @@ body.library-mode #libraryHead {
 
 .bg-foot {
   padding-bottom: max(8px, env(safe-area-inset-bottom));
+}
+
+.bg-foot a {
+  display: inline-block;
+  padding-block: 4px;
 }
 
 .hero-count {
@@ -55,7 +65,7 @@ body.library-mode .hero-copy p .hero-count {
   body.game-mode .bg-topbar {
     flex-wrap: nowrap;
     gap: 6px;
-    padding: 7px 9px;
+    padding: 6px 8px;
     border-radius: 16px;
   }
   body.library-mode .bg-topbar {
@@ -70,8 +80,8 @@ body.library-mode .hero-copy p .hero-count {
   }
   .bg-logo,
   body.library-mode .bg-logo {
-    width: 38px;
-    height: 38px;
+    width: 40px;
+    height: 40px;
     border-radius: 12px;
     font-size: 1.25rem;
   }
@@ -90,17 +100,23 @@ body.library-mode .hero-copy p .hero-count {
     flex-wrap: nowrap;
     width: auto;
     margin-inline-start: auto;
-    gap: 4px;
+    gap: 3px;
   }
   .bg-nav .bg-btn {
     flex: 0 0 auto;
-    width: 38px;
-    height: 38px;
+    width: 42px;
+    height: 42px;
     padding: 0;
-    border-radius: 11px;
+    border-radius: 12px;
   }
   .bg-nav .bg-btn span { display: none; }
-  .bg-nav .bg-btn .ic { width: 17px; height: 17px; }
+  .bg-nav .bg-btn .ic { width: 18px; height: 18px; }
+  .bg-profile-chip {
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+  }
+  .bg-profile-chip-avatar { width: 34px; height: 34px; border-radius: 10px; }
   body.game-mode .bg-nav #btnSearch { display: none; }
 
   /* بطل مضغوط: النص أولًا، ثم لمسة فنية صغيرة */
@@ -166,9 +182,39 @@ body.library-mode .hero-copy p .hero-count {
   body.library-mode .section-kicker { font-size: 0.6rem; }
   body.library-mode .library-count { font-size: 0.72rem; }
   body.library-mode .library-filter-toggle {
-    height: 38px;
+    height: 42px;
     padding-inline: 12px;
     font-size: 0.72rem;
+  }
+
+  /* صف فلاتر سريع يُمرَّر أفقيًا دون كسر عرض الصفحة */
+  body.library-mode .library-quickfilters {
+    flex-wrap: nowrap;
+    gap: 7px;
+    margin: 0 0 12px;
+    padding-bottom: 4px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    -webkit-mask-image: linear-gradient(to left, #000 calc(100% - 22px), transparent);
+    mask-image: linear-gradient(to left, #000 calc(100% - 22px), transparent);
+  }
+  body.library-mode .library-quickfilters::-webkit-scrollbar { display: none; }
+  body.library-mode .library-quick-chip {
+    flex: 0 0 auto;
+    min-height: 42px;
+    padding-inline: 14px;
+    font-size: 0.72rem;
+  }
+  body.library-mode .library-filter-actions {
+    gap: 8px;
+  }
+  body.library-mode .library-filter-actions > button {
+    flex: 1 1 140px;
+  }
+  body.library-mode .library-filter-actions .library-filter-reset {
+    flex-basis: 100%;
+    margin-inline-start: 0;
   }
 
   /* بطاقات أفقية مضغوطة تقلّل طول الصفحة إلى الثلث تقريبًا */
@@ -215,6 +261,9 @@ body.library-mode .hero-copy p .hero-count {
   body.library-mode .game-card-title {
     gap: 6px;
   }
+  body.library-mode .game-card-badges {
+    gap: 4px;
+  }
   body.library-mode .game-name {
     font-size: 0.95rem;
     line-height: 1.35;
@@ -223,6 +272,11 @@ body.library-mode .hero-copy p .hero-count {
     padding: 3px 7px;
     font-size: 0.48rem;
   }
+  body.library-mode .game-coop-tag {
+    padding: 3px 6px;
+    font-size: 0.48rem;
+  }
+  body.library-mode .game-coop-tag .ic { width: 10px; height: 10px; }
   body.library-mode .game-tagline {
     min-height: 0;
     font-size: 0.69rem;
@@ -247,10 +301,17 @@ body.library-mode .hero-copy p .hero-count {
   body.library-mode .game-favorite {
     inset-block-start: 6px;
     inset-inline-start: 6px;
-    width: 30px;
-    height: 30px;
-    border-radius: 9px;
-    font-size: 1.05rem;
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    font-size: 1.15rem;
+  }
+  /* توسيع مساحة اللمس إلى 44px دون تضخيم الزر بصريًا */
+  body.library-mode .game-favorite::after {
+    content: "";
+    position: absolute;
+    inset: -4px;
+    border-radius: 12px;
   }
 
   /* بطاقة المتابعة تبقى بارزة لكن أقصر */
@@ -280,6 +341,12 @@ body.library-mode .hero-copy p .hero-count {
   body.library-mode .library-filter > span {
     font-size: 0.62rem;
   }
+
+  /* إعداد اللعبة: صفوف لا تتجاوز العرض وأزرار أسهل لمسًا */
+  .setup-names > .name-row { min-width: 0; }
+  .name-row input { height: 36px; }
+  .seat-type,
+  .setup-chip { height: 36px; }
 
   /* نافذة الإعدادات والقواعد */
   dialog.bg-dialog {
@@ -328,6 +395,25 @@ body.library-mode .hero-copy p .hero-count {
   }
 }
 
+@media (max-width: 360px) {
+  .bg-brand,
+  body.library-mode .bg-brand {
+    display: none;
+  }
+  .bg-nav {
+    width: 100%;
+    justify-content: space-between;
+    gap: 2px;
+  }
+  .bg-nav .bg-btn,
+  .bg-profile-chip {
+    width: 40px;
+    height: 40px;
+  }
+  .bg-profile-chip-avatar { width: 32px; height: 32px; }
+  body.library-mode .hero-btn { flex-basis: 100%; }
+}
+
 @media (max-width: 400px) {
   body.library-mode .game-card .game-art {
     flex-basis: 104px;
@@ -364,10 +450,10 @@ body.game-mode .bg-app {
   }
   body.game-mode .game-toolbar .bg-btn {
     flex: 0 0 auto;
-    height: 36px;
+    height: 40px;
   }
   body.game-mode #btnGameBack {
-    width: 36px;
+    width: 40px;
     padding: 0;
   }
   body.game-mode #btnGameBack span { display: none; }
@@ -393,10 +479,10 @@ body.game-mode .bg-app {
     width: auto;
   }
   body.game-mode .game-toolbar-actions .bg-btn {
-    width: 36px;
-    height: 36px;
+    width: 40px;
+    height: 40px;
     padding: 0;
-    border-radius: 10px;
+    border-radius: 11px;
   }
   body.game-mode .game-toolbar-actions .bg-btn span { display: none; }
   body.game-mode .game-stage { padding: 5px; }
