@@ -32,6 +32,16 @@
   let moveTimer = null;
   let specialTimer = null;
   let autoTimer = null;
+  let rollTimer = null;
+  let tumbleTimer = null;
+  let tumbleFaces = [];
+  let bigDie = null;
+
+  const TUMBLE_MS = 600;
+  const HOLD_MS = 220;
+  const DIE_DOTS = {
+    1: [4], 2: [0, 8], 3: [0, 4, 8], 4: [0, 2, 6, 8], 5: [0, 2, 4, 6, 8], 6: [0, 2, 3, 5, 6, 8],
+  };
 
   function cellCenter(n) {
     const row = Math.floor((n - 1) / 10);
@@ -110,6 +120,82 @@
 
   /* ------------------------------ اللعب ------------------------------ */
 
+  function reducedMotion() {
+    return !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+  }
+
+  function setFace(dieEl, value) {
+    if (!dieEl) return;
+    const on = new Set(DIE_DOTS[value] || []);
+    dieEl.querySelectorAll(".ld-pip").forEach((pip, i) => pip.classList.toggle("is-on", on.has(i)));
+  }
+
+  /* إيقاف أي تدحرج جارٍ وإزالة النرد الكبير من اللوحة */
+  function clearRoll() {
+    clearTimeout(rollTimer);
+    rollTimer = null;
+    clearInterval(tumbleTimer);
+    tumbleTimer = null;
+    if (bigDie && bigDie.parentNode) bigDie.parentNode.removeChild(bigDie);
+    bigDie = null;
+    tumbleFaces = [];
+  }
+
+  /* نرد كبير يسقط فوق اللوحة ويدور وتتبدّل أوجهه، مع تدوير نرد الزر أيضًا */
+  function startTumble() {
+    const board = rootRef && rootRef.querySelector(".sn-board");
+    if (!board) return;
+    const holder = document.createElement("div");
+    holder.className = "sn-bigdie";
+    holder.setAttribute("aria-hidden", "true");
+    holder.innerHTML = dieHTML(1 + Math.floor(Math.random() * 6));
+    board.appendChild(holder);
+    bigDie = holder;
+    const small = rootRef.querySelector(".sn-actions .ld-die");
+    tumbleFaces = [holder.querySelector(".ld-die"), small].filter(Boolean);
+    let last = 0;
+    tumbleTimer = setInterval(() => {
+      let v;
+      do { v = 1 + Math.floor(Math.random() * 6); } while (v === last);
+      last = v;
+      tumbleFaces.forEach((face) => setFace(face, v));
+    }, 70);
+    if (holder.animate) {
+      holder.animate(
+        [
+          { transform: "translate(-50%,-190%) rotate(0deg) scale(0.6)", opacity: 0, offset: 0 },
+          { transform: "translate(-50%,-50%) rotate(260deg) scale(1.15)", opacity: 1, offset: 0.35 },
+          { transform: "translate(-50%,-85%) rotate(430deg) scale(1.05)", opacity: 1, offset: 0.55 },
+          { transform: "translate(-50%,-50%) rotate(610deg) scale(1.1)", opacity: 1, offset: 0.78 },
+          { transform: "translate(-50%,-50%) rotate(720deg) scale(1)", opacity: 1, offset: 1 },
+        ],
+        { duration: TUMBLE_MS, easing: "ease-out", fill: "forwards" }
+      );
+    }
+    if (small && small.animate) {
+      small.animate(
+        [{ transform: "rotate(0deg)" }, { transform: "rotate(360deg)" }],
+        { duration: TUMBLE_MS / 2, iterations: 2 }
+      );
+    }
+  }
+
+  /* استقرار النرد على الرقم النهائي مع نبضة قصيرة */
+  function landTumble(value) {
+    clearInterval(tumbleTimer);
+    tumbleTimer = null;
+    tumbleFaces.forEach((face) => setFace(face, value));
+    if (bigDie && bigDie.animate) {
+      bigDie.animate(
+        [
+          { transform: "translate(-50%,-50%) scale(1.22)" },
+          { transform: "translate(-50%,-50%) scale(1)" },
+        ],
+        { duration: HOLD_MS, easing: "cubic-bezier(.3,.7,.35,1)" }
+      );
+    }
+  }
+
   function roll() {
     if (!state || state.over || state.busy || state.phase !== "roll") return null;
     const player = cur();
@@ -121,10 +207,42 @@
     player.rolls += 1;
     state.phase = "wait";
     state.busy = true;
-    state.notice = player.name + " رمى " + ar(value) + "…";
-    if (apiRef) apiRef.log("<strong>" + esc(player.name) + "</strong> رمى النرد: <strong>" + ar(value) + "</strong>.", "accent");
+    const quick = reducedMotion();
+    state.notice = quick ? player.name + " رمى " + ar(value) + "…" : player.name + " يرمي النرد…";
     if (FX) FX.dice(value);
     renderMotion();
+    if (quick) {
+      afterRoll(player, value);
+      return value;
+    }
+    clearRoll();
+    startTumble();
+    rollTimer = setTimeout(() => {
+      if (!state || state.over) return;
+      landTumble(value);
+      rollTimer = setTimeout(() => {
+        rollTimer = null;
+        clearRoll();
+        if (!state || state.over) return;
+        afterRoll(player, value);
+      }, HOLD_MS);
+    }, TUMBLE_MS);
+    return value;
+  }
+
+  /* بعد انتهاء حركة النرد: سجل الرمية ثم تحريك القطعة */
+  function afterRoll(player, value) {
+    if (!state || state.over) return;
+    state.notice = player.name + " رمى " + ar(value) + "…";
+    if (apiRef) apiRef.log("<strong>" + esc(player.name) + "</strong> رمى النرد: <strong>" + ar(value) + "</strong>.", "accent");
+    renderMotion();
+    const landed = rootRef && rootRef.querySelector(".sn-actions .ld-die");
+    if (landed && landed.animate && !reducedMotion()) {
+      landed.animate(
+        [{ transform: "scale(1.35) rotate(-14deg)" }, { transform: "scale(1) rotate(0deg)" }],
+        { duration: 260, easing: "cubic-bezier(.3,.7,.35,1)" }
+      );
+    }
 
     const target = player.pos + value;
     if (target > 100 && state.exactFinish) {
@@ -322,32 +440,122 @@
     return cells;
   }
 
+  /* ألوان جلود الثعابين: لكل ثعبان لون مختلف يسهّل تمييزه على اللوحة */
+  const SNAKE_SKINS = [
+    { body: "#3faa63", edge: "#16502d", dot: "#d4f5ae" },
+    { body: "#8c5ed3", edge: "#3b2169", dot: "#e6d4ff" },
+    { body: "#e48a2c", edge: "#793c05", dot: "#ffe4b0" },
+    { body: "#2aa4b6", edge: "#0d4852", dot: "#c4f3f8" },
+    { body: "#d4514e", edge: "#6a1513", dot: "#ffd6cf" },
+    { body: "#c8aa2a", edge: "#5a4a08", dot: "#fff4b0" },
+  ];
+
+  const r2 = (n) => String(Math.round(n * 100) / 100);
+
+  function lineSVG(x1, y1, x2, y2, stroke, width) {
+    return '<line x1="' + r2(x1) + '" y1="' + r2(y1) + '" x2="' + r2(x2) + '" y2="' + r2(y2) +
+      '" stroke="' + stroke + '" stroke-width="' + width + '" stroke-linecap="round"/>';
+  }
+
+  /* سلم خشبي: ظل، درجات، عمودان بحافة داكنة ولمعة فاتحة */
+  function ladderSVG(fromCell, toCell) {
+    const a = cellCenter(fromCell);
+    const b = cellCenter(toCell);
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const len = Math.sqrt(dx * dx + dy * dy);
+    const nx = (-dy / len) * 1.5;
+    const ny = (dx / len) * 1.5;
+    const count = Math.max(3, Math.round(len / 4.4));
+    const rungs = [];
+    for (let i = 1; i <= count; i++) {
+      const t = (i - 0.5) / count;
+      const x = a.x + dx * t;
+      const y = a.y + dy * t;
+      rungs.push([x + nx, y + ny, x - nx, y - ny]);
+    }
+    const rails = [
+      [a.x + nx, a.y + ny, b.x + nx, b.y + ny],
+      [a.x - nx, a.y - ny, b.x - nx, b.y - ny],
+    ];
+    const draw = (list, stroke, width, shiftX, shiftY) => list.map((l) =>
+      lineSVG(l[0] + (shiftX || 0), l[1] + (shiftY || 0), l[2] + (shiftX || 0), l[3] + (shiftY || 0), stroke, width)
+    ).join("");
+    return '<g class="sn-ladder">' +
+      '<g transform="translate(0.45 0.65)" opacity="0.3">' + draw(rails, "#000", 1.1) + draw(rungs, "#000", 0.7) + "</g>" +
+      draw(rungs, "#7a4a1a", 0.62) +
+      draw(rungs, "#d9a45c", 0.32) +
+      draw(rails, "#5d3912", 1.05) +
+      draw(rails, "#a86f2e", 0.72) +
+      draw(rails, "#efc98e", 0.2, -0.12, -0.12) +
+      "</g>";
+  }
+
+  /* ثعبان: جسم متعرّج يضيق نحو الذيل، نقاط زخرفية، ورأس بعينين ولسان */
+  function snakeSVG(fromCell, toCell, skin) {
+    const a = cellCenter(fromCell);
+    const b = cellCenter(toCell);
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const len = Math.sqrt(dx * dx + dy * dy);
+    const nx = -dy / len;
+    const ny = dx / len;
+    const waves = Math.max(1, Math.round(len / 15));
+    const amp = Math.min(3.6, 1.4 + len * 0.035);
+    const steps = Math.max(30, Math.round(len * 1.5));
+    const pts = [];
+    for (let i = 0; i <= steps; i++) {
+      const t = i / steps;
+      const off = Math.sin(t * waves * 2 * Math.PI) * amp * Math.pow(Math.sin(Math.PI * t), 0.6);
+      pts.push({ x: a.x + dx * t + nx * off, y: a.y + dy * t + ny * off, t });
+    }
+    const left = [];
+    const right = [];
+    const shine = [];
+    const mid = [];
+    pts.forEach((p, i) => {
+      const p0 = pts[Math.max(0, i - 1)];
+      const p1 = pts[Math.min(steps, i + 1)];
+      let tx = p1.x - p0.x;
+      let ty = p1.y - p0.y;
+      const tl = Math.sqrt(tx * tx + ty * ty) || 1;
+      tx /= tl;
+      ty /= tl;
+      const hw = 0.22 + 1.05 * Math.pow(1 - p.t, 0.7);
+      left.push([p.x - ty * hw, p.y + tx * hw]);
+      right.push([p.x + ty * hw, p.y - tx * hw]);
+      shine.push([p.x - ty * hw * 0.42, p.y + tx * hw * 0.42]);
+      mid.push([p.x, p.y]);
+    });
+    const path = (list) => list.map((q, i) => (i ? "L" : "M") + r2(q[0]) + " " + r2(q[1])).join("");
+    const outline = path(left.concat(right.slice().reverse())) + "Z";
+    const dots = path(mid.slice(0, Math.floor(steps * 0.86) + 1));
+    const angle = (Math.atan2(pts[0].y - pts[3].y, pts[0].x - pts[3].x) * 180 / Math.PI).toFixed(1);
+    const head =
+      '<g transform="translate(' + r2(a.x) + " " + r2(a.y) + ") rotate(" + angle + ')">' +
+      '<path d="M2.2 0H4.1M4.1 0L4.9-0.6M4.1 0L4.9 0.6" fill="none" stroke="#e23d56" stroke-width="0.24" stroke-linecap="round" stroke-linejoin="round"/>' +
+      '<ellipse cx="0.3" cy="0" rx="2.3" ry="1.75" fill="' + skin.body + '" stroke="' + skin.edge + '" stroke-width="0.34"/>' +
+      '<ellipse cx="0.1" cy="-0.55" rx="1.2" ry="0.5" fill="rgba(255,255,255,0.22)"/>' +
+      '<circle cx="1" cy="-0.88" r="0.5" fill="#fff" stroke="' + skin.edge + '" stroke-width="0.12"/>' +
+      '<circle cx="1" cy="0.88" r="0.5" fill="#fff" stroke="' + skin.edge + '" stroke-width="0.12"/>' +
+      '<circle cx="1.15" cy="-0.88" r="0.24" fill="#111"/>' +
+      '<circle cx="1.15" cy="0.88" r="0.24" fill="#111"/>' +
+      "</g>";
+    return '<g class="sn-snake-art">' +
+      '<path d="' + outline + '" transform="translate(0.4 0.6)" fill="rgba(0,0,0,0.3)"/>' +
+      '<path d="' + outline + '" fill="' + skin.body + '" stroke="' + skin.edge + '" stroke-width="0.34" stroke-linejoin="round"/>' +
+      '<path d="' + path(shine) + '" fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="0.32" stroke-linecap="round"/>' +
+      '<path d="' + dots + '" fill="none" stroke="' + skin.dot + '" stroke-width="0.46" stroke-linecap="round" stroke-dasharray="0 1.7" opacity="0.9"/>' +
+      head + "</g>";
+  }
+
   function overlayHTML() {
     let shapes = "";
     Object.keys(LADDERS).forEach((from) => {
-      const a = cellCenter(Number(from));
-      const b = cellCenter(LADDERS[from]);
-      const dx = b.x - a.x;
-      const dy = b.y - a.y;
-      const len = Math.sqrt(dx * dx + dy * dy);
-      const nx = (-dy / len) * 0.9;
-      const ny = (dx / len) * 0.9;
-      shapes += '<line class="sn-ladder-rail" x1="' + (a.x + nx) + '" y1="' + (a.y + ny) + '" x2="' + (b.x + nx) + '" y2="' + (b.y + ny) + '"/>';
-      shapes += '<line class="sn-ladder-rail" x1="' + (a.x - nx) + '" y1="' + (a.y - ny) + '" x2="' + (b.x - nx) + '" y2="' + (b.y - ny) + '"/>';
-      for (let i = 1; i < 6; i++) {
-        const t = i / 6;
-        const x = a.x + dx * t;
-        const y = a.y + dy * t;
-        shapes += '<line class="sn-ladder-rung" x1="' + (x + nx) + '" y1="' + (y + ny) + '" x2="' + (x - nx) + '" y2="' + (y - ny) + '"/>';
-      }
+      shapes += ladderSVG(Number(from), LADDERS[from]);
     });
-    Object.keys(SNAKES).forEach((from) => {
-      const a = cellCenter(Number(from));
-      const b = cellCenter(SNAKES[from]);
-      const mx = (a.x + b.x) / 2 + (b.y - a.y) * 0.12;
-      const my = (a.y + b.y) / 2 - (b.x - a.x) * 0.12;
-      shapes += '<path class="sn-snake" d="M' + a.x + " " + a.y + " Q" + mx + " " + my + " " + b.x + " " + b.y + '"/>';
-      shapes += '<circle class="sn-snake-head" cx="' + a.x + '" cy="' + a.y + '" r="1.4"/>';
+    Object.keys(SNAKES).forEach((from, index) => {
+      shapes += snakeSVG(Number(from), SNAKES[from], SNAKE_SKINS[index % SNAKE_SKINS.length]);
     });
     return '<svg class="sn-overlay" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">' + shapes + "</svg>";
   }
@@ -380,9 +588,7 @@
   }
 
   function dieHTML(value) {
-    const dots = {
-      1: [4], 2: [0, 8], 3: [0, 4, 8], 4: [0, 2, 6, 8], 5: [0, 2, 4, 6, 8], 6: [0, 2, 3, 5, 6, 8],
-    }[value] || [];
+    const dots = DIE_DOTS[value] || [];
     const on = new Set(dots);
     let cells = "";
     for (let i = 0; i < 9; i++) cells += '<i class="ld-pip' + (on.has(i) ? " is-on" : "") + '"></i>';
@@ -464,12 +670,17 @@
       const dx = old.left - now.left;
       const dy = old.top - now.top;
       if (Math.abs(dx) < 1 && Math.abs(dy) < 1) return;
+      /* خطوة عادية = قفزة صغيرة؛ صعود السلم أو لدغة الثعبان = انزلاق أطول بقوس أعلى */
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const far = dist > 90;
+      const hop = far ? Math.min(38, dist * 0.12) : 7;
       el.animate(
         [
-          { transform: "translate(-50%,-50%) translate(" + dx.toFixed(1) + "px," + dy.toFixed(1) + "px)" },
-          { transform: "translate(-50%,-50%)" },
+          { transform: "translate(-50%,-50%) translate(" + dx.toFixed(1) + "px," + dy.toFixed(1) + "px)", offset: 0 },
+          { transform: "translate(-50%,-50%) translate(" + (dx / 2).toFixed(1) + "px," + (dy / 2 - hop).toFixed(1) + "px) scale(1.12)", offset: 0.5 },
+          { transform: "translate(-50%,-50%)", offset: 1 },
         ],
-        { duration: 150, easing: "cubic-bezier(.2,.8,.3,1)" }
+        { duration: far ? Math.min(560, 150 + dist * 0.8) : 115, easing: "cubic-bezier(.3,.7,.35,1)" }
       );
     });
   }
@@ -546,6 +757,7 @@
       rootRef = root;
       apiRef = api;
       aiRunner = AI.runner();
+      clearRoll();
       clearTimeout(moveTimer);
       clearTimeout(specialTimer);
       clearTimeout(autoTimer);
@@ -599,6 +811,7 @@
         netLoad(data) {
           if (!data) return;
           BG.closeDialogs();
+          clearRoll();
           clearTimeout(moveTimer);
           clearTimeout(specialTimer);
           clearTimeout(autoTimer);
@@ -629,6 +842,7 @@
         destroy() {
           if (aiRunner) aiRunner.clear();
           aiRunner = null;
+          clearRoll();
           clearTimeout(moveTimer);
           clearTimeout(specialTimer);
           clearTimeout(autoTimer);
