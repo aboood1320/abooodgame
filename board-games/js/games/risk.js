@@ -1460,6 +1460,8 @@
   }
 
   function applyBattle(attacker, defender, attackerId, defenderId, aDice, dDice) {
+    const aCount = aDice.length;
+    const dCount = dDice.length;
     let aLoss = 0;
     let dLoss = 0;
     for (let i = 0; i < Math.min(aDice.length, dDice.length); i++) {
@@ -2040,7 +2042,7 @@
   }
 
   function cpuAttackStep() {
-    if (!state || state.over || state.phase !== "attack" || state.pendingMove) return;
+    if (!state || state.over || state.phase !== "attack" || state.pendingMove || rolling) return;
     const p = cur();
     if (!p) return;
     if (aiAttackCount >= 18) {
