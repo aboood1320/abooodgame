@@ -134,30 +134,57 @@
   }
 
   /* byAi: حركات الكمبيوتر تمرّ من هذه الدوال نفسها فلا تُفحص ب«هل يستطيع البشري التصرف» (كان يرفضها فلا يلعب الكمبيوتر) */
-  function roll(byAi) {
-    if (!state || state.over || state.busy) return null;
+  /* تدحرج النرد: لا تتغيّر الحالة حتى تستقر النرد المُعاد رميها فقط (المثبّت يبقى كما هو) */
+  let rolling = false;
+  let cancelRoll = null;
+
+  function clearRoll() {
+    if (cancelRoll) cancelRoll();
+    cancelRoll = null;
+    rolling = false;
+  }
+
+  /* then: دالة تُستدعى بعد استقرار النرد (يستخدمها الكمبيوتر لجدولة خطوته التالية) */
+  function roll(byAi, then) {
+    if (!state || state.over || state.busy || rolling) return null;
     if (!byAi && !XG.canAct(apiRef, state, state.current, state.over)) return null;
     if (state.rolls >= 3) return null;
-    for (let i = 0; i < 5; i++) {
-      if (state.rolls === 0 || !state.held[i]) state.dice[i] = U.roll(6);
-    }
-    state.rolls += 1;
+    const first = state.rolls === 0;
+    const fresh = state.dice.map((value, i) => (first || !state.held[i] ? U.roll(6) : value));
+    const rerolled = fresh.filter((value, i) => first || !state.held[i]);
     if (FX) FX.sound("dice");
+    rolling = true;
+    const rollBtn = rootRef && rootRef.querySelector("[data-yz-roll]");
+    if (rollBtn) rollBtn.disabled = true;
+    const land = () => {
+      cancelRoll = null;
+      rolling = false;
+      if (!state || state.over) return;
+      applyRoll(fresh);
+      if (then) then();
+    };
+    if (FX && FX.tumble) cancelRoll = FX.tumble(rootRef && rootRef.querySelector(".yz-dice"), rerolled, land);
+    else land();
+    return fresh.slice();
+  }
+
+  function applyRoll(fresh) {
+    state.dice = fresh;
+    state.rolls += 1;
     state.notice = state.rolls < 3 ? "اختر النرد الذي تريد تثبيته ثم ارمِ الباقي." : "اختر خانة من بطاقتك لتسجيل النتيجة.";
     if (state.rolls === 1) apiRef.log("<strong>" + esc(cur().name) + "</strong> بدأ دوره في ياهتزي.", "accent");
     render();
-    return state.dice.slice();
   }
 
   function toggleHold(index) {
-    if (!state || state.over || state.rolls === 0 || state.rolls >= 3) return;
+    if (!state || state.over || state.rolls === 0 || state.rolls >= 3 || rolling) return;
     if (!XG.canAct(apiRef, state, state.current, state.over)) return;
     state.held[index] = !state.held[index];
     render();
   }
 
   function score(key, byAi) {
-    if (!state || state.over || state.busy) return false;
+    if (!state || state.over || state.busy || rolling) return false;
     if (!byAi && !XG.canAct(apiRef, state, state.current, state.over)) return false;
     if (state.rolls === 0) {
       apiRef.toast("ارمِ النرد أولًا.", "warn");
@@ -280,16 +307,20 @@
     if (!state || state.over) return;
     if (!XG.cpuTurn(apiRef, state, state.current)) return;
     const player = cur();
+    /* الخطوة التالية تُجدول بعد استقرار النرد لا قبله، حتى تُبنى القرارات على القيم النهائية */
+    const rollThenStep = () => {
+      const next = () => aiRunner && aiRunner.later(aiStep, AI.delay(player.level, 0.7));
+      if (!roll(true, next)) next();
+    };
     if (state.rolls === 0) {
-      roll(true);
-      aiRunner.later(aiStep, AI.delay(player.level, 0.7));
+      rollThenStep();
       return;
     }
     if (state.rolls < 3) {
       const target = bestTarget(state.dice, player.card, player.level);
       state.held = chooseHolds(state.dice, target ? target.cat.key : "chance", player.level);
       render();
-      aiRunner.later(() => { if (state && !state.over) { roll(true); aiRunner.later(aiStep, AI.delay(player.level, 0.7)); } }, AI.delay(player.level, 0.5));
+      aiRunner.later(() => { if (state && !state.over) rollThenStep(); }, AI.delay(player.level, 0.5));
       return;
     }
     const target = bestTarget(state.dice, player.card, player.level);
@@ -434,6 +465,7 @@
       rootRef = root;
       apiRef = api;
       aiRunner = AI.runner();
+      clearRoll();
       clearTimeout(timer);
       state = newState();
       apiRef.log("بدأت ياهتزي مع " + ar(state.players.length) + " لاعبين. ثلاث رميات لكل دور.", "accent");
@@ -475,6 +507,7 @@
         netLoad(data) {
           if (!data) return;
           BG.closeDialogs();
+          clearRoll();
           clearTimeout(timer);
           state = BG.netCodec.decode(data);
           state.busy = false;
@@ -491,6 +524,7 @@
         destroy() {
           if (aiRunner) aiRunner.clear();
           aiRunner = null;
+          clearRoll();
           clearTimeout(timer);
           timer = null;
           if (rootRef) rootRef.removeEventListener("click", onClick);

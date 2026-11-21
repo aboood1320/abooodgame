@@ -633,6 +633,7 @@
       rootRef = root;
       apiRef = api;
       aiRunner = AI.runner();
+      clearRoll();
       aiAttackCount = 0;
       tradeSel = [];
       tradeOwner = -1;
@@ -667,6 +668,7 @@
         netLoad(data) {
           if (!data) return;
           BG.closeDialogs();
+          clearRoll();
           const decoded = BG.netCodec.decode(data);
           const incomingMap = (decoded && decoded.mapId) || (decoded && decoded.rules && decoded.rules.map) || "classic";
           const previousMap = state ? state.mapId : null;
@@ -716,6 +718,7 @@
           render();
         },
         destroy() {
+          clearRoll();
           if (aiRunner) aiRunner.clear();
           aiRunner = null;
           teardownShell();
@@ -1414,8 +1417,18 @@
     resolveBattle(state.selected, terrId);
   }
 
+  /* تدحرج نرد المعركة: لا تتغيّر الحالة حتى يستقر نرد المهاجم (أحمر) والمدافع (أبيض) */
+  let rolling = false;
+  let cancelRoll = null;
+
+  function clearRoll() {
+    if (cancelRoll) cancelRoll();
+    cancelRoll = null;
+    rolling = false;
+  }
+
   function resolveBattle(attackerId, defenderId) {
-    if (!state || state.over || state.pendingMove) return;
+    if (!state || state.over || state.pendingMove || rolling) return;
     const attacker = state.owner[attackerId];
     const defender = state.owner[defenderId];
     if (attacker !== state.current || defender === state.current || defender < 0) return;
@@ -1431,6 +1444,22 @@
     aDice.sort((x, y) => y - x);
     dDice.sort((x, y) => y - x);
 
+    if (FX) FX.sound("dice");
+    rolling = true;
+    const land = () => {
+      cancelRoll = null;
+      rolling = false;
+      if (!state || state.over || state.pendingMove) return;
+      if (state.owner[attackerId] !== attacker || state.owner[defenderId] !== defender) return;
+      applyBattle(attacker, defender, attackerId, defenderId, aDice, dDice);
+    };
+    if (FX && FX.tumble) {
+      const tones = aDice.map(() => "red").concat(dDice.map(() => ""));
+      cancelRoll = FX.tumble(mapSvg, aDice.concat(dDice), land, { tones });
+    } else land();
+  }
+
+  function applyBattle(attacker, defender, attackerId, defenderId, aDice, dDice) {
     let aLoss = 0;
     let dLoss = 0;
     for (let i = 0; i < Math.min(aDice.length, dDice.length); i++) {
@@ -1497,7 +1526,6 @@
       } else {
         state.selected = state.troops[attackerId] >= 2 ? attackerId : null;
       }
-      if (FX) FX.sound("dice");
       render();
       if (FX) FX.after(() => FX.shake(mapSvg && mapSvg.querySelector(".risk-battle-dice")), 35);
       return;
@@ -1511,7 +1539,6 @@
     );
     state.notice = "نتيجة المعركة: " + (dLoss > aLoss ? "تقدّم المهاجم" : aLoss > dLoss ? "صمود المدافع" : "تبادل خسائر") + " — يمكنك متابعة الهجوم أو التحصين.";
     if (FX) {
-      FX.sound("dice");
       FX.after(() => {
         const el = mapSvg && mapSvg.querySelector('[data-terr="' + defenderId + '"]');
         if (el) FX.shake(el);

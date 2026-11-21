@@ -494,9 +494,13 @@
 
   /* ------------------------------ الطقس ------------------------------ */
 
+  /* نرد الطقس يُرمى تلقائيًا في بداية كل دور، فالتدحرج هنا بصري فقط ولا يؤخّر منطق اللعبة */
+  const WEATHER_LABEL = { sun: "☀️", rain: "🌧️", wind: "🌬️", storm: "⛈️", clouds: "☁️", "?": "❓" };
+
   function rollWeather() {
     if (!state || state.over) return;
     const face = U.pick(["sun", "rain", "wind", "storm", "clouds", "?"]);
+    if (BG.fx && BG.fx.tumble) BG.fx.tumble(rootRef && rootRef.querySelector(".tk-board"), face, function () {}, { labels: WEATHER_LABEL });
     state.weather = face;
     applyWeather(face);
   }

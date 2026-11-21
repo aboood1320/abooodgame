@@ -714,6 +714,108 @@
     return null;
   }
 
+  const DIE_DOTS = {
+    1: [4], 2: [0, 8], 3: [0, 4, 8], 4: [0, 2, 6, 8], 5: [0, 2, 4, 6, 8], 6: [0, 2, 3, 5, 6, 8],
+  };
+
+  function setTumbleFace(die, value, labels) {
+    if (labels) {
+      die.textContent = labels[value] == null ? "" : labels[value];
+      return;
+    }
+    const on = DIE_DOTS[value] || [];
+    const pips = die.children;
+    for (let i = 0; i < pips.length; i++) pips[i].classList.toggle("is-on", on.indexOf(i) >= 0);
+  }
+
+  /**
+   * تدحرج نرد مشترك لكل الألعاب: نرد كبير (أو أكثر) يسقط فوق الشاشة ويدور
+   * وتتبدّل أوجهه ثم يستقر على القيم النهائية، وبعدها يُستدعى done.
+   * values: رقم أو مصفوفة أرقام (1–6). host: عنصر يُوسَّط النرد فوقه (اختياري).
+   * opts: { tone: "red"|"white", ms, hold, labels }. labels: خريطة وجه ← نص/رمز لنرد غير رقمي
+   * (مثل ملك طوكيو)؛ وعندها تكون values مفاتيح هذه الخريطة. يعيد دالة إلغاء.
+   * إن كانت الحركة معطّلة (إعدادات/تقليل حركة) يُستدعى done فورًا دون تأخير.
+   */
+  function tumble(host, values, done, opts) {
+    const o = Object.assign({ ms: isLite() ? 420 : 600, hold: 220, tone: "", labels: null }, opts || {});
+    const labels = o.labels || null;
+    const labelKeys = labels ? Object.keys(labels) : null;
+    const list = labels
+      ? [].concat(values).filter((v) => labels[v] != null)
+      : [].concat(values).map(Number).filter((v) => v >= 1 && v <= 6);
+    const finish = typeof done === "function" ? done : function () {};
+    if (!list.length || !motionEnabled()) {
+      finish();
+      return function () {};
+    }
+    const layer = document.createElement("div");
+    layer.className = "fx-tumble" + (list.length > 3 ? " is-many" : "");
+    layer.setAttribute("aria-hidden", "true");
+    const dice = list.map((_, i) => {
+      const die = document.createElement("span");
+      die.className = "fx-tumble-die" + (labels ? " is-symbol" : "");
+      const tone = (o.tones && o.tones[i]) || o.tone;
+      if (tone) die.setAttribute("data-tone", tone);
+      if (!labels) for (let i = 0; i < 9; i++) die.appendChild(document.createElement("i"));
+      layer.appendChild(die);
+      return die;
+    });
+    let x = window.innerWidth / 2;
+    let y = window.innerHeight / 2;
+    if (host && host.getBoundingClientRect) {
+      const rect = host.getBoundingClientRect();
+      if (rect.width || rect.height) {
+        x = rect.left + rect.width / 2;
+        y = rect.top + rect.height / 2;
+      }
+    }
+    layer.style.left = U.clamp(x, 80, Math.max(80, window.innerWidth - 80)) + "px";
+    layer.style.top = U.clamp(y, 80, Math.max(80, window.innerHeight - 80)) + "px";
+    document.body.appendChild(layer);
+
+    const random = () => (labels ? labelKeys[Math.floor(Math.random() * labelKeys.length)] : 1 + Math.floor(Math.random() * 6));
+    dice.forEach((die, i) => {
+      setTumbleFace(die, random(), labels);
+      const dir = i % 2 ? -1 : 1;
+      animate(die, [
+        { transform: "translateY(-150px) rotate(0deg) scale(0.6)", opacity: 0, offset: 0 },
+        { transform: "translateY(0) rotate(" + dir * 260 + "deg) scale(1.15)", opacity: 1, offset: 0.35 },
+        { transform: "translateY(-44px) rotate(" + dir * 430 + "deg) scale(1.05)", opacity: 1, offset: 0.55 },
+        { transform: "translateY(0) rotate(" + dir * 610 + "deg) scale(1.1)", opacity: 1, offset: 0.78 },
+        { transform: "translateY(0) rotate(" + dir * 720 + "deg) scale(1)", opacity: 1, offset: 1 },
+      ], { duration: o.ms, delay: i * 70, easing: "ease-out", fill: "both" });
+    });
+
+    let tick = setInterval(() => {
+      dice.forEach((die) => setTumbleFace(die, random(), labels));
+    }, 70);
+    let settle = null;
+    let release = null;
+    let cancelled = false;
+    const remove = () => { if (layer.parentNode) layer.parentNode.removeChild(layer); };
+    settle = setTimeout(() => {
+      clearInterval(tick);
+      tick = null;
+      dice.forEach((die, i) => {
+        setTumbleFace(die, list[i], labels);
+        animate(die, [{ transform: "scale(1.22)" }, { transform: "scale(1)" }], { duration: o.hold, easing: "cubic-bezier(.3,.7,.35,1)" });
+      });
+      release = setTimeout(() => {
+        remove();
+        if (!cancelled) finish();
+      }, o.hold);
+    }, o.ms + (list.length - 1) * 70);
+
+    return function cancel() {
+      if (cancelled) return;
+      cancelled = true;
+      if (tick) clearInterval(tick);
+      clearTimeout(settle);
+      clearTimeout(release);
+      remove();
+    };
+  }
+
   function isSvg(el) {
     return !!(el && el.namespaceURI && el.namespaceURI.indexOf("svg") !== -1);
   }
@@ -2164,6 +2266,7 @@
     spin,
     pulse,
     dice,
+    tumble,
     movePiece,
     screenEnter,
     banner,

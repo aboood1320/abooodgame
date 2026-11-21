@@ -562,6 +562,10 @@
 
   /* ------------------------------ الدور والحركة ------------------------------ */
 
+  /* نرد كلودو يُرمى تلقائيًا في بداية كل دور داخل تسلسل حالات متشابك، لذلك التدحرج هنا بصري فقط
+     ولا يؤخّر منطق اللعبة. */
+  let cancelTumble = null;
+
   function beginTurn(silent) {
     if (!state || state.over) return;
     const player = cur();
@@ -592,6 +596,10 @@
     }
     if (!silent && !player.cpu && (!isOnline() || player.index === apiRef.net.seat)) {
       FX.after(() => FX.banner("دورك — " + player.name, { icon: "🎲", duration: 1300 }), 180);
+    }
+    if (FX && FX.tumble && rootRef) {
+      if (cancelTumble) cancelTumble();
+      cancelTumble = FX.tumble(rootRef.querySelector(".cluedo-board-wrap"), state.dice, () => { cancelTumble = null; });
     }
     render();
   }
@@ -2003,6 +2011,8 @@
           return { name: card.name, icon: card.icon, cat: card.catName, color: card.color };
         },
         destroy() {
+          if (cancelTumble) cancelTumble();
+          cancelTumble = null;
           saveNotes();
           if (aiRunner) aiRunner.clear();
           aiRunner = null;
