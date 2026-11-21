@@ -1010,6 +1010,169 @@
     return node;
   }
 
+  /* ------------------------------ أوراق طائرة وبطاقات تنقلب ------------------------------ */
+
+  const activeFlights = new Set();
+
+  /* نسخة من عنصر ورقة بلا أي معرّفات أو مستمعات حتى لا تتفاعل مع منطق اللعبة */
+  function cloneForFlight(el) {
+    if (!el || !el.cloneNode) return null;
+    const node = el.cloneNode(true);
+    Array.prototype.slice.call(node.attributes).forEach((attr) => {
+      if (attr.name === "id" || attr.name === "disabled" || attr.name === "role" || attr.name === "aria-label" || attr.name.indexOf("data-") === 0) {
+        node.removeAttribute(attr.name);
+      }
+    });
+    Array.prototype.forEach.call(node.querySelectorAll("[id]"), (n) => n.removeAttribute("id"));
+    node.setAttribute("aria-hidden", "true");
+    node.tabIndex = -1;
+    node.classList.remove("is-blocked", "is-drawn", "is-playable", "is-dim", "is-lift");
+    node.classList.add("fx-card-ghost");
+    return node;
+  }
+
+  /**
+   * ورقة طائرة (بصرية فقط دون تأخير منطق اللعبة).
+   * from: عنصر يُنسخ مظهره ويُلتقط موقعه الآن (استدعِها قبل إعادة رسم الواجهة إن كان المصدر سيُزال).
+   * opts: { center: true } يبدأ من مركز المصدر بحجم الهدف (مقاعد اللاعبين)، ومظهر الهدف.
+   * يعيد كائنًا فيه land(to, o): تحرّك النسخة إلى العنصر الهدف بقوس ودوران.
+   *   o.face: "source" (الافتراضي) أو "target" لإظهار وجه الهدف.
+   *   o.mode: "card" (الافتراضي: تستقر مكان الهدف ويُخفى الهدف حتى الوصول) أو "point" (تصغر وتختفي عند مركز الهدف).
+   *   o.delay / o.duration / o.onDone.
+   * إن كانت الحركة معطّلة أو العناصر غير مرئية فلا يحدث شيء ولا يضرّ ذلك باللعبة.
+   */
+  function cardFlight(from, opts) {
+    const idle = { land() { return null; } };
+    if (!motionEnabled() || !from || !from.getBoundingClientRect) return idle;
+    const start = from.getBoundingClientRect();
+    if (!start.width && !start.height) return idle;
+    const center = !!(opts && opts.center);
+    const own = center ? null : cloneForFlight(from);
+    if (!center && !own) return idle;
+    return {
+      land(to, lo) {
+        if (!to || !to.getBoundingClientRect) return null;
+        const end = to.getBoundingClientRect();
+        if (!end.width && !end.height) return null;
+        const l = Object.assign({ face: "source", mode: "card", delay: 0, duration: 0, onDone: null }, lo || {});
+        const useTarget = l.face === "target" || !own;
+        const ghost = useTarget ? cloneForFlight(to) : own;
+        if (!ghost || !ghost.animate) return null;
+        const point = l.mode === "point";
+        let sw = start.width;
+        let sh = start.height;
+        let sx = start.left;
+        let sy = start.top;
+        if (useTarget) {
+          sw = end.width;
+          sh = end.height;
+          sx = start.left + start.width / 2 - sw / 2;
+          sy = start.top + start.height / 2 - sh / 2;
+        }
+        ghost.style.setProperty("--cw", sw + "px");
+        ghost.style.left = sx + "px";
+        ghost.style.top = sy + "px";
+        ghost.style.width = sw + "px";
+        ghost.style.height = sh + "px";
+        document.body.appendChild(ghost);
+        const dx = end.left + end.width / 2 - (sx + sw / 2);
+        const dy = end.top + end.height / 2 - (sy + sh / 2);
+        const scale = point ? 0.35 : U.clamp(end.width / (sw || 1), 0.2, 3);
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const lift = Math.min(70, 16 + dist * 0.12);
+        const tilt = (dx >= 0 ? 1 : -1) * (5 + Math.min(9, dist / 70));
+        const duration = l.duration || Math.min(640, 330 + dist * 0.35);
+        let hidden = null;
+        if (!point) {
+          hidden = to.style.visibility;
+          to.style.visibility = "hidden";
+        }
+        const anim = ghost.animate([
+          { transform: "translate(0,0) rotate(0deg) scale(1)", opacity: 1, offset: 0 },
+          { transform: "translate(" + dx * 0.5 + "px," + (dy * 0.5 - lift) + "px) rotate(" + tilt + "deg) scale(" + ((1 + scale) / 2) * 1.06 + ")", opacity: 1, offset: 0.55 },
+          { transform: "translate(" + dx + "px," + dy + "px) rotate(0deg) scale(" + scale + ")", opacity: point ? 0.05 : 1, offset: 1 },
+        ], { duration, delay: l.delay, easing: "cubic-bezier(.3,.75,.3,1)", fill: "both" });
+        let timer = null;
+        const flight = {
+          cancel() {
+            if (!activeFlights.has(flight)) return;
+            activeFlights.delete(flight);
+            clearTimeout(timer);
+            if (ghost.parentNode) ghost.parentNode.removeChild(ghost);
+            if (hidden !== null) to.style.visibility = hidden;
+          },
+        };
+        const finish = () => {
+          if (!activeFlights.has(flight)) return;
+          flight.cancel();
+          if (l.onDone) l.onDone();
+        };
+        activeFlights.add(flight);
+        if (anim && anim.finished) anim.finished.then(finish, finish);
+        timer = setTimeout(finish, duration + l.delay + 450);
+        return flight;
+      },
+    };
+  }
+
+  /* إلغاء كل الأوراق الطائرة الجارية (عند إغلاق اللعبة) */
+  function cancelFlights() {
+    Array.from(activeFlights).forEach((flight) => flight.cancel());
+  }
+
+  /**
+   * بطاقة كبيرة تطلع وتنقلب في وسط الشاشة ثم تطير إلى مكانها (بطاقات الحظ وصندوق المجتمع...).
+   * بصرية فقط. opts: { kicker, title, text, tone: "chance"|"chest", icon, hold, from, to }
+   * from وto عنصر أو دالة تعيد عنصرًا. يعيد دالة إلغاء.
+   */
+  function revealCard(opts) {
+    const o = Object.assign({ kicker: "", title: "", text: "", tone: "", icon: "🃏", hold: 1200, from: null, to: null }, opts || {});
+    if (!motionEnabled() || !document.body.animate) return function () {};
+    const layer = document.createElement("div");
+    layer.className = "fx-reveal" + (o.tone ? " is-" + o.tone : "");
+    layer.setAttribute("aria-hidden", "true");
+    layer.innerHTML =
+      '<div class="fx-reveal-inner">' +
+      '<div class="fx-reveal-face back"><b>' + U.escape(o.icon) + "</b><span>" + U.escape(o.kicker) + "</span></div>" +
+      '<div class="fx-reveal-face front"><small>' + U.escape(o.kicker) + "</small><strong>" + U.escape(o.title) + "</strong><p>" + U.escape(o.text) + "</p></div>" +
+      "</div>";
+    document.body.appendChild(layer);
+    const inner = layer.firstChild;
+    const pick = (value) => (typeof value === "function" ? value() : value);
+    const offsetTo = (el, fallback) => {
+      if (el && el.getBoundingClientRect) {
+        const rect = el.getBoundingClientRect();
+        if (rect.width || rect.height) {
+          return { x: rect.left + rect.width / 2 - window.innerWidth / 2, y: rect.top + rect.height / 2 - window.innerHeight / 2 };
+        }
+      }
+      return fallback;
+    };
+    const base = "translate(-50%,-50%) ";
+    const from = offsetTo(pick(o.from), { x: 0, y: 70 });
+    layer.animate([
+      { transform: base + "translate(" + from.x + "px," + from.y + "px) scale(0.4) rotate(-10deg)", opacity: 0, offset: 0 },
+      { transform: base + "translate(0,0) scale(1.08) rotate(0deg)", opacity: 1, offset: 0.7 },
+      { transform: base + "translate(0,0) scale(1) rotate(0deg)", opacity: 1, offset: 1 },
+    ], { duration: 460, easing: "cubic-bezier(.25,.85,.3,1)", fill: "both" });
+    inner.animate([{ transform: "rotateY(0deg)" }, { transform: "rotateY(180deg)" }], { duration: 520, delay: 260, easing: "cubic-bezier(.4,.1,.2,1)", fill: "both" });
+    const remove = () => { if (layer.parentNode) layer.parentNode.removeChild(layer); };
+    const exitAt = 260 + 520 + o.hold;
+    const exitTimer = setTimeout(() => {
+      const to = offsetTo(pick(o.to), { x: 0, y: 140 });
+      layer.animate([
+        { transform: base + "translate(0,0) scale(1) rotate(0deg)", opacity: 1 },
+        { transform: base + "translate(" + to.x + "px," + to.y + "px) scale(0.3) rotate(6deg)", opacity: 0 },
+      ], { duration: 400, easing: "cubic-bezier(.5,0,.8,.4)", fill: "both" });
+    }, exitAt);
+    const removeTimer = setTimeout(remove, exitAt + 440);
+    return function cancel() {
+      clearTimeout(exitTimer);
+      clearTimeout(removeTimer);
+      remove();
+    };
+  }
+
   function flyCard(fromEl, toEl, opts) {
     if (!motionEnabled() || !fromEl || !toEl) return null;
     const o = Object.assign({ color: "#e8dfc9", ink: "#27332e", label: "▮", duration: 460 }, opts || {});
@@ -2274,6 +2437,9 @@
     stagger,
     floatText,
     flyCard,
+    cardFlight,
+    cancelFlights,
+    revealCard,
     playerRow,
     motionEnabled,
     observePieces,

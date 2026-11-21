@@ -38,6 +38,7 @@
   let state = null;
   let aiRunner = null;
   let timer = null;
+  let cancelReveal = null;
 
   function ringCoords(n) {
     const out = [];
@@ -111,6 +112,18 @@
     const info = cardInfo(card);
     state.notice = cur().name + " سحب " + info.label + " — " + info.text + ".";
     apiRef.log("<strong>" + esc(cur().name) + "</strong> سحب بطاقة <strong>" + esc(info.label) + "</strong>.", "accent");
+    /* حركة بصرية: البطاقة تطلع وتنقلب في الوسط ثم تطير إلى لوحة بطاقة الدور */
+    if (BG.fx && BG.fx.revealCard) {
+      if (cancelReveal) cancelReveal();
+      cancelReveal = BG.fx.revealCard({
+        kicker: "سوري!",
+        title: info.label,
+        text: info.text,
+        icon: "🃏",
+        hold: 900,
+        to: () => rootRef && rootRef.querySelector(".sy-card"),
+      });
+    }
     if (!state.moves.length && !state.sorryTargets.length) {
       state.notice = "لا توجد حركة قانونية بهذه البطاقة. يمكنك تخطي الدور.";
       apiRef.log("لا حركة قانونية؛ تخطي الدور.", "warn");
@@ -525,6 +538,8 @@
           if (!data) return;
           BG.closeDialogs();
           clearTimeout(timer);
+          if (cancelReveal) cancelReveal();
+          cancelReveal = null;
           state = BG.netCodec.decode(data);
           render();
         },
@@ -532,6 +547,8 @@
         netOver() { return !!(state && state.over); },
         netResume() { if (state) { render(); settle(); } },
         destroy() {
+          if (cancelReveal) cancelReveal();
+          cancelReveal = null;
           if (aiRunner) aiRunner.clear();
           aiRunner = null;
           clearTimeout(timer);

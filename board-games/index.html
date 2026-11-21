@@ -57,7 +57,7 @@
 <link rel="stylesheet" href="css/cards.css?v=32" media="print" onload="this.media='all'" />
 <link rel="stylesheet" href="css/classic.css?v=38" media="print" onload="this.media='all'" />
 <link rel="stylesheet" href="css/theme-refresh.css?v=31" />
-<link rel="stylesheet" href="css/fx.css?v=38" />
+<link rel="stylesheet" href="css/fx.css?v=39" />
 <link rel="stylesheet" href="css/net.css?v=31" />
 <link rel="stylesheet" href="css/polish.css?v=35" />
 <link rel="stylesheet" href="css/upgrade.css?v=1" />
@@ -89,6 +89,7 @@
 <link rel="stylesheet" href="css/coop.css?v=3" media="print" onload="this.media='all'" />
 <link rel="stylesheet" href="css/perf.css?v=1" />
 <link rel="stylesheet" href="css/site-refresh.css?v=2" />
+<link rel="stylesheet" href="css/window-manager.css?v=1" />
 <noscript>
 <link rel="stylesheet" href="css/ttr.css?v=36" /><link rel="stylesheet" href="css/carcassonne.css?v=32" /><link rel="stylesheet" href="css/risk.css?v=37" /><link rel="stylesheet" href="css/scrabble.css?v=33" /><link rel="stylesheet" href="css/cluedo.css?v=40" /><link rel="stylesheet" href="css/uno.css?v=32" /><link rel="stylesheet" href="css/love-letter.css?v=1" /><link rel="stylesheet" href="css/splendor.css?v=2" /><link rel="stylesheet" href="css/kootbositta.css?v=2" /><link rel="stylesheet" href="css/chess.css?v=12" /><link rel="stylesheet" href="css/pandemic.css?v=34" /><link rel="stylesheet" href="css/tavla.css?v=30" /><link rel="stylesheet" href="css/cards.css?v=32" /><link rel="stylesheet" href="css/classic.css?v=38" /><link rel="stylesheet" href="css/ludo.css?v=2" /><link rel="stylesheet" href="css/expansion.css?v=1" /><link rel="stylesheet" href="css/yahtzee.css?v=1" /><link rel="stylesheet" href="css/rummikub.css?v=1" /><link rel="stylesheet" href="css/othello.css?v=1" /><link rel="stylesheet" href="css/connect-four.css?v=2" /><link rel="stylesheet" href="css/stratego.css?v=1" /><link rel="stylesheet" href="css/parcheesi.css?v=1" /><link rel="stylesheet" href="css/sorry.css?v=1" /><link rel="stylesheet" href="css/battleship.css?v=7" /><link rel="stylesheet" href="css/seven-wonders.css?v=1" /><link rel="stylesheet" href="css/azul.css?v=1" /><link rel="stylesheet" href="css/wingspan.css?v=1" /><link rel="stylesheet" href="css/dominion.css?v=1" /><link rel="stylesheet" href="css/terraforming-mars.css?v=1" />
 </noscript>
@@ -116,6 +117,7 @@
     <symbol id="i-volume" viewBox="0 0 24 24"><path d="M3.8 9.6h3.5l4.2-3.4v11.6l-4.2-3.4H3.8Z"/><path d="M14.8 9.4a3.9 3.9 0 0 1 0 5.2"/><path d="M17.2 7.2a7 7 0 0 1 0 9.6"/></symbol>
     <symbol id="i-motion" viewBox="0 0 24 24"><path d="M3.4 8.4h8.2M6.2 12h9.4M3.4 15.6h8.2M14.6 8.4h6M16.8 12h3.8M14.6 15.6h6"/><path d="m18.8 5.6 2.2 2.8-2.2 2.8"/></symbol>
     <symbol id="i-expand" viewBox="0 0 24 24"><path d="M9 4H4v5M15 4h5v5M20 15v5h-5M4 15v5h5"/></symbol>
+    <symbol id="i-windows" viewBox="0 0 24 24"><rect x="3.2" y="4.2" width="7.6" height="6.6" rx="1.6"/><rect x="13.2" y="4.2" width="7.6" height="6.6" rx="1.6"/><rect x="3.2" y="13.2" width="7.6" height="6.6" rx="1.6"/><rect x="13.2" y="13.2" width="7.6" height="6.6" rx="1.6"/></symbol>
     <symbol id="i-compress" viewBox="0 0 24 24"><path d="M4 9h5V4M20 9h-5V4M15 20v-5h5M9 20v-5H4"/></symbol>
     <symbol id="i-install" viewBox="0 0 24 24"><path d="M12 3.6v10.8m-4-4.2 4 4.2 4-4.2"/><path d="M4.4 15.4v2.8a2.4 2.4 0 0 0 2.4 2.4h10.4a2.4 2.4 0 0 0 2.4-2.4v-2.8"/></symbol>
     <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.3"/><path d="m15.2 15.2 4.6 4.6"/></symbol>
@@ -461,6 +463,7 @@
         <div class="game-toolbar-actions">
           <button class="bg-btn small" type="button" id="btnGameRules" aria-label="القواعد"><svg class="ic" aria-hidden="true"><use href="#i-book"/></svg><span>القواعد</span></button>
           <button class="bg-btn small" type="button" id="btnGameFullscreen" aria-label="ملء الشاشة (F)" aria-keyshortcuts="F" aria-pressed="false" title="ملء الشاشة (F)"><svg class="ic" aria-hidden="true"><use href="#i-expand"/></svg><span>ملء الشاشة</span></button>
+          <button class="bg-btn small" type="button" id="btnGameWindows" aria-label="ترتيب النوافذ" aria-pressed="false" title="ترتيب النوافذ" hidden><svg class="ic" aria-hidden="true"><use href="#i-windows"/></svg><span>النوافذ</span></button>
           <button class="bg-btn small primary" type="button" id="btnGameNew" aria-label="لعبة جديدة" hidden><svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg><span>لعبة جديدة</span></button>
         </div>
       </div>
@@ -486,7 +489,7 @@
 
 <script defer src="js/avatars.js?v=3"></script>
 <script defer src="js/core.js?v=39"></script>
-<script defer src="js/fx.js?v=41"></script>
+<script defer src="js/fx.js?v=42"></script>
 <script defer src="js/ai.js?v=33"></script>
 <script defer src="js/games/expansion-common.js?v=2"></script>
 <script defer src="js/games/coop-common.js?v=2"></script>
@@ -494,7 +497,7 @@
 <script defer src="js/engine.js?v=1"></script>
 <script defer src="js/chess-ai.js?v=2"></script>
 <script defer src="js/games/chess.js?v=46"></script>
-<script defer src="js/games/monopoly.js?v=37"></script>
+<script defer src="js/games/monopoly.js?v=38"></script>
 <script defer src="js/games/catan.js?v=34"></script>
 <script defer src="js/games/ttr-art.js?v=1"></script>
 <script defer src="js/games/ttr-board.js?v=1"></script>
@@ -506,13 +509,13 @@
 <script defer src="js/games/scrabble.js?v=37"></script>
 <script defer src="js/games/cluedo-art.js?v=1"></script>
 <script defer src="js/games/cluedo.js?v=41"></script>
-<script defer src="js/games/uno.js?v=38"></script>
+<script defer src="js/games/uno.js?v=39"></script>
 <script defer src="js/games/love-letter.js?v=3"></script>
 <script defer src="js/games/splendor.js?v=7"></script>
 <script defer src="js/games/pandemic.js?v=34"></script>
 <script defer src="js/games/tavla.js?v=32"></script>
 <script defer src="js/games/waraq.js?v=34"></script>
-<script defer src="js/games/kootbositta.js?v=4"></script>
+<script defer src="js/games/kootbositta.js?v=5"></script>
 <script defer src="js/games/domino.js?v=32"></script>
 <script defer src="js/games/ludo.js?v=37"></script>
 <script defer src="js/games/snakes.js?v=36"></script>
@@ -524,7 +527,7 @@
 <script defer src="js/games/connect-four.js?v=3"></script>
 <script defer src="js/games/stratego.js?v=3"></script>
 <script defer src="js/games/parcheesi.js?v=4"></script>
-<script defer src="js/games/sorry.js?v=3"></script>
+<script defer src="js/games/sorry.js?v=4"></script>
 <script defer src="js/games/battleship.js?v=7"></script>
 <script defer src="js/games/seven-wonders.js?v=4"></script>
 <script defer src="js/games/azul.js?v=2"></script>
@@ -549,6 +552,10 @@
     <span class="fs-hud-title" id="fsHudTitle">لعبة</span>
     <span class="fs-hud-status" id="fsHudStatus" hidden></span>
   </span>
+  <button type="button" id="btnFsWindows" class="fs-win-toggle" aria-label="ترتيب النوافذ" aria-pressed="false" title="ترتيب النوافذ" hidden>
+    <svg class="ic" aria-hidden="true"><use href="#i-windows"/></svg>
+    <span>النوافذ</span>
+  </button>
   <button type="button" id="btnExitFullscreen" class="fs-exit" aria-label="إنهاء ملء الشاشة (Shift+Esc)" aria-keyshortcuts="Shift+Escape" title="إنهاء ملء الشاشة (Shift+Esc)">
     <svg class="ic" aria-hidden="true"><use href="#i-compress"/></svg>
     <span>خروج</span>
@@ -559,7 +566,8 @@
 <script defer src="js/net.js?v=36"></script>
 <script defer src="js/library-art.js?v=1"></script>
 <script defer src="js/library-art-expansion.js?v=1"></script>
-<script defer src="js/app.js?v=59"></script>
+<script defer src="js/app.js?v=60"></script>
+<script defer src="js/window-manager.js?v=1"></script>
 <script defer src="js/online.js?v=52"></script>
 <script defer src="js/online-host.js?v=4"></script>
 <script defer src="js/site-extras.js?v=1"></script>

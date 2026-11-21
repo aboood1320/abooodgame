@@ -893,7 +893,19 @@
     apiRef.log("سحب <strong>" + U.escape(p.name) + "</strong> بطاقة " + state.lastCard.deck + ": <strong>" + U.escape(card.title) + "</strong>.", "accent");
     if (FX) {
       FX.sound("card");
-      FX.after(() => FX.deal(rootRef && rootRef.querySelector(".mcard:not(.empty)")), 55);
+      if (FX.revealCard && FX.motionEnabled()) {
+        if (cancelReveal) cancelReveal();
+        cancelReveal = FX.revealCard({
+          kicker: state.lastCard.deck,
+          title: card.title,
+          text: card.text,
+          tone: isChance ? "chance" : "chest",
+          icon: isChance ? "❓" : "📦",
+          to: () => rootRef && rootRef.querySelector(".mcard:not(.empty)"),
+        });
+      } else {
+        FX.after(() => FX.deal(rootRef && rootRef.querySelector(".mcard:not(.empty)")), 55);
+      }
     }
 
     switch (card.id) {
@@ -1089,11 +1101,14 @@
   /* تدحرج النرد: لا تتغيّر حالة اللعبة حتى يستقر النردان */
   let rolling = false;
   let cancelRoll = null;
+  let cancelReveal = null;
 
   function clearRoll() {
     if (cancelRoll) cancelRoll();
     cancelRoll = null;
     rolling = false;
+    if (cancelReveal) cancelReveal();
+    cancelReveal = null;
   }
 
   function tumbleThen(values, apply) {
