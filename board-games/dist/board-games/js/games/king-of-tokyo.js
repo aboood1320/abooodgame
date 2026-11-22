@@ -152,28 +152,56 @@
     settle();
   }
 
-  function rollDice() {
-    if (!state || state.over || state.phase !== "roll" || state.rolls >= 3) return false;
+  /* تدحرج النرد: لا تتغيّر الحالة حتى تستقر النرد المُعاد رميها فقط (المثبّت يبقى كما هو) */
+  let rolling = false;
+  let cancelRoll = null;
+
+  function clearRoll() {
+    if (cancelRoll) cancelRoll();
+    cancelRoll = null;
+    rolling = false;
+  }
+
+  /* then: تُستدعى بعد استقرار النرد (يستخدمها الكمبيوتر لجدولة خطوته التالية) */
+  function rollDice(then) {
+    if (!state || state.over || state.phase !== "roll" || state.rolls >= 3 || rolling) return false;
     const player = cur();
     if (!canPick(player)) return false;
     const extra = hasPower(player, "die") ? 1 : 0;
     const total = 6 + extra;
-    if (!state.dice.length) {
-      state.dice = Array.from({ length: total }, () => U.pick(FACES));
-      state.kept = Array.from({ length: total }, () => false);
-    } else {
-      state.dice = state.dice.map((value, index) => (state.kept[index] ? value : U.pick(FACES)));
-    }
-    state.rolls += 1;
+    const first = !state.dice.length;
+    const fresh = first
+      ? Array.from({ length: total }, () => U.pick(FACES))
+      : state.dice.map((value, index) => (state.kept[index] ? value : U.pick(FACES)));
+    const rerolled = first ? fresh : fresh.filter((value, index) => !state.kept[index]);
     if (FX) FX.sound("dice");
-    state.notice = "الرمية " + ar(state.rolls) + " من ٣. اضغط النرد للإبقاء عليه، ثم أعد الرمي أو ثبّت النتائج.";
-    render();
-    settle();
+    rolling = true;
+    const rollBtn = rootRef && rootRef.querySelector("[data-kt-roll]");
+    if (rollBtn) rollBtn.disabled = true;
+    const land = () => {
+      cancelRoll = null;
+      rolling = false;
+      if (!state || state.over || state.phase !== "roll") return;
+      applyRoll(fresh, first, total);
+      if (then) then();
+    };
+    if (FX && FX.tumble) {
+      cancelRoll = FX.tumble(rootRef && rootRef.querySelector(".kt-roll"), rerolled, land, { labels: FACE_LABEL });
+    } else land();
     return true;
   }
 
+  function applyRoll(fresh, first, total) {
+    if (first) state.kept = Array.from({ length: total }, () => false);
+    state.dice = fresh;
+    state.rolls += 1;
+    state.notice = "الرمية " + ar(state.rolls) + " من ٣. اضغط النرد للإبقاء عليه، ثم أعد الرمي أو ثبّت النتائج.";
+    render();
+    settle();
+  }
+
   function toggleKeep(index) {
-    if (!state || state.over || state.phase !== "roll" || state.rolls < 1) return false;
+    if (!state || state.over || state.phase !== "roll" || state.rolls < 1 || rolling) return false;
     if (!state.kept[index] && state.kept.filter(Boolean).length >= state.dice.length) return false;
     state.kept[index] = !state.kept[index];
     render();
@@ -181,7 +209,7 @@
   }
 
   function resolveDice() {
-    if (!state || state.over || state.phase !== "roll" || state.rolls < 1) return false;
+    if (!state || state.over || state.phase !== "roll" || state.rolls < 1 || rolling) return false;
     const player = cur();
     if (!canPick(player)) return false;
     const counts = diceCount();
@@ -570,20 +598,24 @@
   }
 
   function aiRollStep() {
-    if (!state || state.over || state.phase !== "roll") return;
+    if (!state || state.over || state.phase !== "roll" || rolling) return;
     const player = cur();
     if (!XG.cpuTurn(apiRef, state, player.index)) return;
+    /* الخطوة التالية تُجدول بعد استقرار النرد لا قبله */
+    const rollThenStep = () => {
+      const next = () => {
+        clearTimeout(timer);
+        timer = setTimeout(aiRollStep, AI.delay(player.level, 0.7));
+      };
+      if (!rollDice(next)) next();
+    };
     if (state.rolls === 0) {
-      rollDice();
-      clearTimeout(timer);
-      timer = setTimeout(aiRollStep, AI.delay(player.level, 0.7));
+      rollThenStep();
       return;
     }
     if (state.rolls < 3) {
       autoKeep();
-      rollDice();
-      clearTimeout(timer);
-      timer = setTimeout(aiRollStep, AI.delay(player.level, 0.7));
+      rollThenStep();
       return;
     }
     resolveDice();
@@ -878,6 +910,7 @@
       rootRef = root;
       apiRef = api;
       aiRunner = AI.runner();
+      clearRoll();
       clearTimeout(timer);
       state = newState();
       apiRef.log("بدأت ملك طوكيو مع " + ar(state.players.length) + " وحوش. أول من يدخل طوكيو يحصل على نقطة.", "accent");
@@ -926,6 +959,7 @@
         netLoad(data) {
           if (!data) return;
           BG.closeDialogs();
+          clearRoll();
           clearTimeout(timer);
           state = BG.netCodec.decode(data);
           render();
@@ -936,6 +970,7 @@
         destroy() {
           if (aiRunner) aiRunner.clear();
           aiRunner = null;
+          clearRoll();
           clearTimeout(timer);
           timer = null;
           if (rootRef) rootRef.removeEventListener("click", onClick);

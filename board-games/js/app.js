@@ -1209,6 +1209,7 @@
       try { instance.destroy(); } catch (err) { console.warn(err); }
     }
     instance = null;
+    if (BG.windows) BG.windows.detach();
     if (gameMount) {
       gameMount.hidden = true;
       gameMount = null;
@@ -1361,6 +1362,7 @@
     els.gameStatus.textContent = "الإعداد";
     els.gameStatus.className = "game-status";
     els.gameLogCard.hidden = true;
+    if (BG.windows) BG.windows.detach();
     BG.clear(els.stage);
     gameMount = null;
 
@@ -1747,6 +1749,7 @@
       const own = { ludo: 1, snakes: 1, checkers: 1, mancala: 1, monopoly: 1, cluedo: 1 };
       stopPieceObserver = BG.fx.observePieces(gameMount, { skip: !!own[game.id] });
     }
+    if (BG.windows) BG.windows.attach(gameMount, game.id);
 
     return { api, mount: gameMount, roster };
   }
@@ -1778,6 +1781,7 @@
       // لا شيء: الإدارة عبر online
     }
     gameMount.hidden = false;
+    if (BG.windows) BG.windows.refresh();
     return instance;
   }
 

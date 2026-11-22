@@ -5,7 +5,7 @@
    ========================================================================== */
 "use strict";
 
-const VERSION = "1.9.40";
+const VERSION = "1.9.41";
 const CACHE = "bg-shell-v" + VERSION + "-r1";
 const OFFLINE_URL = "index.html";
 
@@ -74,6 +74,7 @@ const CORE = [
   "css/takenoko.css",
   "css/coop.css",
   "css/perf.css",
+  "css/window-manager.css",
   "js/avatars.js",
   "js/core.js",
   "js/fx.js",
@@ -89,6 +90,7 @@ const CORE = [
   "js/sound-packs.js",
   "js/net.js",
   "js/app.js",
+  "js/window-manager.js",
   "js/online.js",
   "js/online-host.js",
   "js/site-extras.js",

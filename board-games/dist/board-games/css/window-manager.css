@@ -1,0 +1,329 @@
+/* ==========================================================================
+   إدارة نوافذ الألعاب — شريط تحرير، نوافذ عائمة، وتلميحات الترتيب
+   ========================================================================== */
+
+.bg-win-window {
+  --bg-win-accent: color-mix(in srgb, var(--accent, #e1b45c) 62%, #fff);
+}
+
+.bg-win-edit .bg-win-window {
+  outline: 1px dashed color-mix(in srgb, var(--accent-2, #4cc9a4) 55%, transparent);
+  outline-offset: 3px;
+}
+
+.bg-win-edit .bg-win-window:not(.bg-window-float) {
+  position: relative;
+}
+
+.bg-win-tools {
+  display: none;
+  position: absolute;
+  z-index: 30;
+  top: 4px;
+  inset-inline-end: 4px;
+  align-items: center;
+  gap: 4px;
+  width: max-content;
+  max-width: calc(100% - 8px);
+  margin: 0;
+  padding: 4px;
+  border: 1px solid color-mix(in srgb, var(--accent, #e1b45c) 34%, var(--stroke, rgba(255, 255, 255, 0.09)));
+  border-radius: 11px;
+  background: rgba(7, 17, 22, 0.94);
+  box-shadow: 0 12px 24px -18px rgba(0, 0, 0, 0.95);
+  direction: rtl;
+  box-sizing: border-box;
+}
+
+.bg-win-edit .bg-win-tools {
+  display: flex;
+}
+
+.bg-win-tools .bg-win-tool {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 27px;
+  height: 27px;
+  min-width: 27px;
+  padding: 0;
+  border: 1px solid var(--stroke, rgba(255, 255, 255, 0.09));
+  border-radius: 8px;
+  background: var(--panel, rgba(255, 255, 255, 0.038));
+  color: var(--text, #eef4f5);
+  font: inherit;
+  font-size: 0.9rem;
+  line-height: 1;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.bg-win-tools .bg-win-tool:hover {
+  border-color: var(--stroke-2, rgba(255, 255, 255, 0.17));
+  background: var(--panel-2, rgba(255, 255, 255, 0.07));
+}
+
+.bg-win-tools .bg-win-tool:focus-visible,
+.bg-win-hint-btn:focus-visible {
+  outline: 2px solid var(--accent-2, #4cc9a4);
+  outline-offset: 2px;
+}
+
+.bg-win-tools .bg-win-tool:disabled {
+  opacity: 0.34;
+  cursor: default;
+}
+
+.bg-win-tools .bg-win-tool.is-floating {
+  color: var(--accent, #e1b45c);
+}
+
+.bg-win-tools .bg-win-grip {
+  cursor: grab;
+  color: var(--accent, #e1b45c);
+  touch-action: none;
+}
+
+.bg-win-tools .bg-win-grip:active {
+  cursor: grabbing;
+}
+
+.bg-win-tools .bg-win-label {
+  flex: 1 1 72px;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted, #a9b8bd);
+  font-size: 0.64rem;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ------------------------------ نافذة عائمة ------------------------------ */
+
+.bg-win-window.bg-window-float {
+  position: fixed !important;
+  inset: auto !important;
+  left: var(--bg-win-x, 8px) !important;
+  top: var(--bg-win-y, 8px) !important;
+  width: var(--bg-win-w, auto) !important;
+  float: none !important;
+  grid-column: auto !important;
+  grid-row: auto !important;
+  justify-self: auto !important;
+  align-self: auto !important;
+  margin: 0 !important;
+  min-width: 0 !important;
+  max-width: calc(100vw - 16px) !important;
+  max-height: calc(100vh - 16px) !important;
+  max-height: calc(100dvh - 16px) !important;
+  overflow: auto !important;
+  overscroll-behavior: contain;
+  border-radius: 16px !important;
+  border: 1px solid color-mix(in srgb, var(--accent, #e1b45c) 28%, var(--stroke, rgba(255, 255, 255, 0.09))) !important;
+  background-color: #0d1a22 !important;
+  box-shadow:
+    0 30px 70px -26px rgba(0, 0, 0, 0.94),
+    0 0 0 1px rgba(255, 255, 255, 0.04) inset;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(118, 224, 188, 0.32) transparent;
+  transform: none !important;
+}
+
+.bg-win-window.bg-window-float > .bg-win-tools {
+  position: absolute;
+  top: 4px;
+  inset-inline-end: 4px;
+  margin: 0;
+  border-radius: 11px;
+}
+
+.bg-win-window.bg-window-float::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+
+.bg-win-window.bg-window-float::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.bg-win-window.bg-window-float::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 10px;
+  background: rgba(118, 224, 188, 0.32);
+  background-clip: padding-box;
+}
+
+.bg-window-float .bg-win-tools,
+.bg-window-float.bg-win-window {
+  touch-action: manipulation;
+}
+
+/* ------------------------------ شريط التعليمات ------------------------------ */
+
+.bg-win-hint {
+  position: fixed;
+  z-index: 6200;
+  right: 50%;
+  bottom: max(10px, env(safe-area-inset-bottom, 0px));
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: max-content;
+  max-width: calc(100vw - 20px);
+  padding: 7px 9px;
+  border: 1px solid color-mix(in srgb, var(--accent-2, #4cc9a4) 34%, var(--stroke, rgba(255, 255, 255, 0.09)));
+  border-radius: 14px;
+  background: rgba(7, 17, 22, 0.94);
+  box-shadow: 0 22px 50px -26px rgba(0, 0, 0, 0.96);
+  color: var(--text, #eef4f5);
+  direction: rtl;
+  transform: translateX(50%);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+.bg-win-hint[hidden] {
+  display: none !important;
+}
+
+.bg-win-hint-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: var(--muted, #a9b8bd);
+  font-size: 0.7rem;
+  line-height: 1.5;
+}
+
+.bg-win-hint-btn {
+  flex: 0 0 auto;
+  min-height: 30px;
+  padding: 5px 10px;
+  border: 1px solid var(--stroke, rgba(255, 255, 255, 0.09));
+  border-radius: 9px;
+  background: var(--panel, rgba(255, 255, 255, 0.038));
+  color: var(--text, #eef4f5);
+  font: inherit;
+  font-size: 0.68rem;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.bg-win-hint-btn:hover {
+  border-color: var(--stroke-2, rgba(255, 255, 255, 0.17));
+  background: var(--panel-2, rgba(255, 255, 255, 0.07));
+}
+
+.bg-win-hint-btn.is-primary {
+  border-color: color-mix(in srgb, var(--accent-2, #4cc9a4) 48%, transparent);
+  background: color-mix(in srgb, var(--accent-2, #4cc9a4) 16%, transparent);
+  color: #eafff8;
+}
+
+body.bg-win-dragging {
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: grabbing;
+}
+
+/* زر النوافذ داخل شريط ملء الشاشة */
+.fs-win-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  margin-inline-start: auto;
+  min-height: 32px;
+  padding: 5px 11px;
+  border: 1px solid color-mix(in srgb, var(--accent, #e1b45c) 55%, rgba(118, 224, 188, 0.4));
+  border-radius: 999px;
+  background: rgba(7, 19, 21, 0.72);
+  color: #e9fff7;
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.fs-win-toggle[hidden] {
+  display: none !important;
+}
+
+.fs-win-toggle .ic {
+  width: 16px;
+  height: 16px;
+}
+
+.fs-win-toggle:hover,
+.fs-win-toggle:focus-visible {
+  border-color: color-mix(in srgb, var(--accent, #e1b45c) 85%, #fff);
+  background: color-mix(in srgb, var(--accent, #e1b45c) 18%, transparent);
+  outline: none;
+}
+
+.fs-win-toggle:focus-visible {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent, #e1b45c) 30%, transparent);
+}
+
+.fs-win-toggle[aria-pressed="true"] {
+  border-color: color-mix(in srgb, var(--accent-2, #4cc9a4) 72%, transparent);
+  background: color-mix(in srgb, var(--accent-2, #4cc9a4) 16%, transparent);
+}
+
+.fs-win-toggle + .fs-exit {
+  margin-inline-start: 0;
+}
+
+@media (max-width: 420px) {
+  .fs-win-toggle {
+    padding-inline: 9px;
+  }
+  .fs-win-toggle span {
+    display: none;
+  }
+}
+
+body.bg-win-dragging * {
+  cursor: grabbing !important;
+}
+
+@media (max-width: 560px) {
+  .bg-win-tools {
+    gap: 3px;
+    padding: 3px;
+  }
+  .bg-win-tools .bg-win-tool {
+    width: 26px;
+    height: 26px;
+    min-width: 26px;
+    font-size: 0.82rem;
+  }
+  .bg-win-tools .bg-win-label {
+    display: none;
+  }
+  .bg-win-hint {
+    right: 8px;
+    left: 8px;
+    width: auto;
+    max-width: none;
+    transform: none;
+    gap: 5px;
+    padding: 6px 7px;
+  }
+  .bg-win-hint-text {
+    font-size: 0.63rem;
+  }
+  .bg-win-hint-btn {
+    padding: 5px 8px;
+    font-size: 0.63rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bg-win-tools .bg-win-tool {
+    transition: none;
+  }
+}

@@ -799,155 +799,243 @@
 
 /* ------------------------------ السلم والثعبان ------------------------------ */
 
-.sn-board {
+.sn-game { --sn-pad: 9px; }
+
+/* اللوحة: إطار خشبي دافئ مع خانات فاتحة بنمط شطرنجي ملوّن */
+.sn-game .sn-board {
   position: relative;
   direction: ltr;
   display: grid;
   grid-template-columns: repeat(10, minmax(0, 1fr));
   grid-template-rows: repeat(10, minmax(0, 1fr));
-  gap: 2px;
+  gap: 0;
   aspect-ratio: 1;
   width: 100%;
   max-width: 660px;
   margin-inline: auto;
-  padding: 6px;
-  border-radius: 16px;
+  padding: var(--sn-pad);
+  border-radius: 20px;
+  border: 1px solid rgba(255, 226, 170, 0.4);
   background:
-    radial-gradient(100% 100% at 50% 0%, rgba(111, 198, 162, 0.12), transparent 72%),
-    linear-gradient(165deg, #172b2d, #081519 76%);
-  border: 1px solid rgba(194, 224, 207, 0.2);
-  box-shadow: inset 0 0 50px rgba(0, 0, 0, 0.5), 0 16px 38px -28px rgba(0, 0, 0, 0.95);
+    repeating-linear-gradient(100deg, rgba(255, 255, 255, 0.035) 0 2px, transparent 2px 9px),
+    linear-gradient(145deg, #8a5a2e, #5b3818 46%, #7a4d24 74%, #4a2d14);
+  box-shadow:
+    inset 0 0 0 2px rgba(35, 20, 6, 0.55),
+    inset 0 2px 0 rgba(255, 230, 180, 0.25),
+    0 26px 46px -28px rgba(0, 0, 0, 0.98);
   overflow: hidden;
 }
-.sn-cell {
+.sn-game .sn-board::before {
+  content: "";
+  position: absolute;
+  inset: calc(var(--sn-pad) - 2px);
+  z-index: 1;
+  border-radius: 6px;
+  box-shadow: 0 0 0 1px rgba(30, 16, 4, 0.7), 0 0 0 2px rgba(255, 224, 164, 0.3);
+  pointer-events: none;
+}
+.sn-game .sn-cell {
   position: relative;
   display: flex;
   align-items: flex-start;
   justify-content: flex-start;
   padding: 3px 4px;
-  border-radius: 6px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(246, 242, 232, 0.08);
+  border: 0;
+  border-radius: 0;
+  background-color: #f5ead0;
+  background-image:
+    linear-gradient(150deg, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0) 46%),
+    linear-gradient(0deg, rgba(120, 86, 40, 0.1), rgba(120, 86, 40, 0) 40%);
+  box-shadow: inset 0 0 0 1px rgba(110, 80, 40, 0.18);
   overflow: hidden;
 }
-.sn-cell.is-alt { background: rgba(255, 255, 255, 0.085); }
-.sn-cell.is-start {
-  background: linear-gradient(145deg, rgba(103, 196, 143, 0.3), rgba(48, 121, 88, 0.2));
-  border-color: rgba(143, 229, 181, 0.42);
+.sn-game .sn-cell.is-alt { background-color: #aedcc7; }
+.sn-game .sn-cell:nth-child(1) { border-bottom-left-radius: 5px; }
+.sn-game .sn-cell:nth-child(10) { border-bottom-right-radius: 5px; }
+.sn-game .sn-cell:nth-child(91) { border-top-right-radius: 5px; }
+.sn-game .sn-cell:nth-child(100) { border-top-left-radius: 5px; }
+.sn-game .sn-cell.is-ladder { background-color: #d3e8a0; }
+.sn-game .sn-cell.is-snake { background-color: #f4bcae; }
+.sn-game .sn-cell.is-start,
+.sn-game .sn-cell.is-start.is-ladder {
+  background-color: #7fd29c;
+  box-shadow: inset 0 0 0 1px rgba(20, 90, 55, 0.4), inset 0 0 12px rgba(255, 255, 255, 0.35);
 }
-.sn-cell.is-start::after {
+.sn-game .sn-cell.is-start::after {
   content: "بداية";
   position: absolute;
   z-index: 3;
   inset-inline-start: 3px;
   inset-block-end: 2px;
-  color: rgba(176, 239, 204, 0.8);
-  font-size: clamp(0.34rem, 0.8vw, 0.46rem);
-  font-weight: 800;
+  color: #145a37;
+  font-size: clamp(0.36rem, 0.85vw, 0.5rem);
+  font-weight: 900;
   line-height: 1;
 }
-.sn-cell.is-ladder { background: color-mix(in srgb, #5cb07c 18%, transparent); }
-.sn-cell.is-snake { background: color-mix(in srgb, #e2655d 18%, transparent); }
-.sn-cell.is-start.is-ladder {
-  background: linear-gradient(145deg, rgba(103, 196, 143, 0.3), rgba(48, 121, 88, 0.2));
+.sn-game .sn-cell.is-finish {
+  background-color: #f3c75c;
+  background-image:
+    radial-gradient(90% 90% at 50% 40%, rgba(255, 255, 255, 0.7), transparent 70%),
+    linear-gradient(150deg, #ffe08a, #d79a2c);
+  box-shadow: inset 0 0 0 1px rgba(255, 248, 210, 0.9), inset 0 0 14px rgba(255, 255, 255, 0.55);
 }
-.sn-cell.is-finish {
-  background: linear-gradient(150deg, #f6d489, #c9973c);
-  border-color: rgba(255, 236, 196, 0.75);
-}
-.sn-cell.is-finish::after {
+.sn-game .sn-cell.is-finish::after {
   content: "🏁";
   position: absolute;
   z-index: 3;
   inset-inline-start: 2px;
   inset-block-end: 0;
-  font-size: clamp(0.48rem, 1vw, 0.7rem);
+  font-size: clamp(0.5rem, 1.1vw, 0.76rem);
   line-height: 1;
 }
-.sn-cell.is-finish .sn-num { color: #2a1a06; }
-.sn-num {
+.sn-game .sn-cell.is-finish .sn-num { color: #4a2c05; }
+.sn-game .sn-num {
   position: relative;
   z-index: 3;
-  font-size: clamp(0.5rem, 1.5vw, 0.64rem);
-  font-weight: 800;
-  color: rgba(246, 242, 232, 0.7);
+  font-size: clamp(0.52rem, 1.7vw, 0.74rem);
+  font-weight: 900;
+  color: #6a5127;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.65);
   direction: ltr;
 }
-.sn-mark {
+.sn-game .sn-mark {
   position: absolute;
   inset-block-end: 1px;
   inset-inline-end: 3px;
-  font-size: clamp(0.52rem, 1.55vw, 0.68rem);
+  font-size: clamp(0.55rem, 1.6vw, 0.72rem);
+  font-weight: 900;
   line-height: 1;
   font-style: normal;
   z-index: 3;
 }
-.sn-mark.is-up { color: #8ce0b4; }
-.sn-mark.is-down { color: #f0938c; }
+.sn-game .sn-mark.is-up { color: #2f8a52; }
+.sn-game .sn-mark.is-down { color: #c2413a; }
 
-.sn-overlay {
+/* طبقة السلالم والثعابين (الألوان والسماكات مكتوبة داخل الـ SVG من snakes.js) */
+.sn-game .sn-overlay {
   position: absolute;
-  inset: 6px;
+  inset: var(--sn-pad);
   z-index: 2;
-  width: calc(100% - 12px);
-  height: calc(100% - 12px);
+  width: calc(100% - var(--sn-pad) * 2);
+  height: calc(100% - var(--sn-pad) * 2);
   pointer-events: none;
   overflow: visible;
 }
-.sn-ladder-rail {
-  stroke: rgba(255, 226, 168, 0.7);
-  stroke-width: 0.62;
-  stroke-linecap: round;
-}
-.sn-ladder-rung {
-  stroke: rgba(255, 226, 168, 0.52);
-  stroke-width: 0.4;
-  stroke-linecap: round;
-}
-.sn-snake {
-  fill: none;
-  stroke: rgba(239, 111, 104, 0.7);
-  stroke-width: 1.25;
-  stroke-linecap: round;
-  stroke-dasharray: 2.5 2.2;
-}
-.sn-snake-head {
-  fill: rgba(255, 158, 148, 0.9);
-  stroke: rgba(80, 20, 18, 0.6);
-  stroke-width: 0.3;
-}
-.sn-pawns { position: absolute; inset: 6px; z-index: 4; pointer-events: none; }
-.sn-pawn {
-  --sn-t: clamp(15px, 3.8vw, 24px);
+/* القطع: حجر لامع بظل وحلقة نبض للاعب صاحب الدور */
+.sn-game .sn-pawns { position: absolute; inset: var(--sn-pad); z-index: 4; pointer-events: none; }
+.sn-game .sn-pawn {
+  --sn-t: clamp(19px, 4.6vw, 31px);
   position: absolute;
   width: var(--sn-t);
   height: var(--sn-t);
   padding: 0;
-  border-radius: 50% 50% 46% 46%;
+  border-radius: 50%;
   transform: translate(-50%, -50%);
   background:
-    radial-gradient(60% 60% at 34% 26%, rgba(255, 255, 255, 0.6), transparent 62%),
-    radial-gradient(circle at 50% 60%, var(--pc), color-mix(in srgb, var(--pc) 42%, #07120f));
-  border: 1.5px solid rgba(255, 255, 255, 0.66);
-  box-shadow: 0 5px 10px -5px #000;
+    radial-gradient(circle at 50% 38%, color-mix(in srgb, var(--pc) 58%, #fff) 0, var(--pc) 58%, color-mix(in srgb, var(--pc) 52%, #000) 100%);
+  border: 2px solid rgba(255, 255, 255, 0.92);
+  box-shadow:
+    0 6px 9px -3px rgba(0, 0, 0, 0.75),
+    0 0 0 1px rgba(0, 0, 0, 0.28),
+    inset 0 -4px 6px rgba(0, 0, 0, 0.28),
+    inset 0 2px 3px rgba(255, 255, 255, 0.45);
   cursor: default;
   transition: box-shadow 0.12s ease;
 }
-.sn-pawn span {
+.sn-game .sn-pawn::before {
+  content: "";
   position: absolute;
-  inset-block-start: 28%;
-  inset-inline-start: 50%;
+  top: 10%;
+  left: 18%;
   width: 34%;
-  height: 34%;
-  transform: translateX(-50%);
+  height: 22%;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.55);
+  transform: rotate(-24deg);
+  pointer-events: none;
 }
-.sn-pawn .sn-avatar { inset: 0; display: grid; place-items: center; width: auto; height: auto; transform: none; border-radius: inherit; background: transparent; font-size: clamp(0.65rem, 1.3vw, 0.9rem); line-height: 1; }
-.sn-pawn.is-current { box-shadow: 0 0 0 2px color-mix(in srgb, var(--pc) 58%, white), 0 5px 10px -5px #000; }
-.sn-pawn.is-mine { box-shadow: 0 0 0 2px rgba(255, 226, 176, 0.9), 0 5px 10px -5px #000; }
-.sn-pawn.is-winner { box-shadow: 0 0 0 3px rgba(255, 226, 176, 0.95), 0 0 18px color-mix(in srgb, var(--pc) 60%, transparent); }
-.sn-pawn.is-mine.is-winner { box-shadow: 0 0 0 3px rgba(255, 226, 176, 0.95), 0 0 18px color-mix(in srgb, var(--pc) 60%, transparent); }
+.sn-game .sn-pawn .sn-avatar {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  font-size: clamp(0.72rem, 1.9vw, 1.1rem);
+  line-height: 1;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.35));
+}
+.sn-game .sn-pawn.is-current {
+  z-index: 2;
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--pc) 55%, #fff),
+    0 0 16px color-mix(in srgb, var(--pc) 70%, transparent),
+    0 6px 9px -3px #000,
+    inset 0 -4px 6px rgba(0, 0, 0, 0.28);
+}
+.sn-game .sn-pawn.is-current::after {
+  content: "";
+  position: absolute;
+  inset: -5px;
+  border-radius: 50%;
+  border: 2px solid color-mix(in srgb, var(--pc) 60%, #fff);
+  opacity: 0;
+  animation: sn-pawn-halo 1.6s ease-out infinite;
+  pointer-events: none;
+}
+.sn-game .sn-pawn.is-mine {
+  box-shadow: 0 0 0 2px rgba(255, 226, 176, 0.95), 0 6px 9px -3px #000, inset 0 -4px 6px rgba(0, 0, 0, 0.28);
+}
+.sn-game .sn-pawn.is-winner,
+.sn-game .sn-pawn.is-mine.is-winner {
+  z-index: 3;
+  box-shadow: 0 0 0 3px rgba(255, 226, 176, 0.98), 0 0 22px color-mix(in srgb, var(--pc) 70%, transparent);
+  animation: sn-pawn-bob 1s ease-in-out infinite;
+}
+@keyframes sn-pawn-halo {
+  0% { opacity: 0.9; transform: scale(0.85); }
+  80%, 100% { opacity: 0; transform: scale(1.45); }
+}
+@keyframes sn-pawn-bob {
+  50% { translate: 0 -4px; }
+}
+
+/* زر النرد: أكبر وبنبض خفيف عندما يكون دورك */
+/* النرد الكبير أثناء التدحرج (يُضاف من snakes.js ويُزال عند الاستقرار) */
+.sn-game .sn-bigdie {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 6;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  filter: drop-shadow(0 18px 14px rgba(0, 0, 0, 0.45));
+}
+.sn-game .sn-bigdie .ld-die {
+  width: clamp(56px, 11vw, 78px);
+  height: clamp(56px, 11vw, 78px);
+  gap: 4px;
+  padding: 9px;
+  border-radius: 16px;
+  opacity: 1;
+}
+.sn-game .sn-actions .ld-die { width: 44px; height: 44px; gap: 3px; padding: 5px; border-radius: 12px; }
+.sn-game .sn-actions .ld-roll { padding: 10px 14px; font-size: 0.78rem; border-radius: 16px; }
+.sn-game .sn-actions .ld-roll.is-live {
+  background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 26%, transparent), color-mix(in srgb, var(--accent) 10%, transparent));
+  animation: sn-roll-pulse 1.9s ease-in-out infinite;
+}
+@keyframes sn-roll-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 38%, transparent); }
+  50% { box-shadow: 0 0 0 7px color-mix(in srgb, var(--accent) 0%, transparent); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sn-game .sn-pawn.is-current::after,
+  .sn-game .sn-pawn.is-winner,
+  .sn-game .sn-actions .ld-roll.is-live { animation: none; }
+}
+html.lite .sn-game .sn-pawn.is-current::after,
+html.lite .sn-game .sn-pawn.is-winner,
+html.lite .sn-game .sn-actions .ld-roll.is-live { animation: none; }
 
 .sn-players { display: flex; flex-direction: column; gap: 6px; }
 .sn-player {
@@ -1446,11 +1534,9 @@
   .dm-chain .dm-tile { --dm-w: 48px; }
   .dm-chain-wrap { min-height: 132px; padding: 8px; }
   .dm-hand { min-height: 72px; gap: 5px; }
-  .ld-board,
-  .sn-board { padding: 4px; }
-  .ld-tokens,
-  .sn-pawns { inset: 4px; }
-  .sn-overlay { inset: 4px; width: calc(100% - 8px); height: calc(100% - 8px); }
+  .ld-board { padding: 4px; }
+  .ld-tokens { inset: 4px; }
+  .sn-game { --sn-pad: 6px; }
 }
 
 @media (max-width: 430px) {

@@ -1098,6 +1098,120 @@
   100% { box-shadow: inset 0 0 0 0 rgba(255, 216, 140, 0); }
 }
 
+/* ------------------------------ تدحرج النرد المشترك (FX.tumble) ------------------------------ */
+
+.fx-tumble {
+  position: fixed;
+  z-index: 9000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  filter: drop-shadow(0 18px 14px rgba(0, 0, 0, 0.45));
+}
+.fx-tumble-die {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  width: clamp(54px, 11vw, 76px);
+  height: clamp(54px, 11vw, 76px);
+  padding: 9px;
+  gap: 3px;
+  border-radius: 16px;
+  background: linear-gradient(145deg, #fffdf6, #e6dcc4);
+  border: 1px solid rgba(90, 66, 30, 0.35);
+  box-shadow: inset 0 -4px 6px rgba(120, 90, 40, 0.25), inset 0 2px 3px #fff;
+}
+.fx-tumble-die i {
+  place-self: center;
+  width: 78%;
+  height: 78%;
+  border-radius: 50%;
+  background: transparent;
+}
+.fx-tumble-die i.is-on { background: radial-gradient(circle at 35% 30%, #4a4a52, #14141a); }
+.fx-tumble-die[data-tone="red"] {
+  background: linear-gradient(145deg, #f06a5f, #b02a22);
+  border-color: rgba(70, 10, 8, 0.5);
+  box-shadow: inset 0 -4px 6px rgba(70, 10, 8, 0.35), inset 0 2px 3px rgba(255, 255, 255, 0.5);
+}
+.fx-tumble-die[data-tone="red"] i.is-on { background: radial-gradient(circle at 35% 30%, #fff, #f3dcd8); }
+.fx-tumble.is-many { flex-wrap: wrap; max-width: min(92vw, 420px); gap: 10px; }
+.fx-tumble.is-many .fx-tumble-die { width: clamp(44px, 9vw, 58px); height: clamp(44px, 9vw, 58px); padding: 6px; border-radius: 13px; }
+.fx-tumble-die.is-symbol {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  font-size: clamp(1.5rem, 4.4vw, 2.2rem);
+  font-weight: 900;
+  line-height: 1;
+  color: #2a2418;
+}
+
+/* ------------------------------ أوراق طائرة وبطاقات تنقلب (FX.cardFlight / FX.revealCard) ------------------------------ */
+
+.fx-card-ghost {
+  position: fixed !important;
+  z-index: 9100;
+  margin: 0 !important;
+  box-sizing: border-box;
+  pointer-events: none;
+  transform-origin: center;
+  transition: none !important;
+  will-change: transform, opacity;
+  filter: drop-shadow(0 14px 14px rgba(0, 0, 0, 0.38));
+}
+.fx-reveal {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  z-index: 9050;
+  width: clamp(190px, 44vw, 250px);
+  aspect-ratio: 3 / 4;
+  perspective: 900px;
+  pointer-events: none;
+  filter: drop-shadow(0 24px 22px rgba(0, 0, 0, 0.5));
+}
+.fx-reveal-inner { position: relative; width: 100%; height: 100%; transform-style: preserve-3d; }
+.fx-reveal-face {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 18px;
+  text-align: center;
+  border-radius: 18px;
+  border: 3px solid rgba(255, 255, 255, 0.85);
+  box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.18);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+.fx-reveal-face.back {
+  transform: rotateY(0deg);
+  color: #fff;
+  background:
+    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.12) 0 8px, transparent 8px 16px),
+    linear-gradient(145deg, #e0a232, #a8670f);
+}
+.fx-reveal-face.back b { font-size: 3rem; line-height: 1; }
+.fx-reveal-face.back span { font-weight: 900; }
+.fx-reveal-face.front {
+  transform: rotateY(180deg);
+  color: #2d2414;
+  background: linear-gradient(160deg, #fffaf0, #f0e4c8);
+}
+.fx-reveal-face.front small { font-weight: 900; color: #a8670f; letter-spacing: 0.03em; }
+.fx-reveal-face.front strong { font-size: 1.12rem; line-height: 1.35; }
+.fx-reveal-face.front p { margin: 0; font-size: 0.86rem; line-height: 1.65; color: #4c3f28; }
+.fx-reveal.is-chest .fx-reveal-face.back { background: repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.12) 0 8px, transparent 8px 16px), linear-gradient(145deg, #4d8fd6, #1f4f8f); }
+.fx-reveal.is-chest .fx-reveal-face.front small { color: #1f5aa6; }
+
 /* ------------------------------ احترام تقليل الحركة ------------------------------ */
 
 @media (prefers-reduced-motion: reduce) {

@@ -943,6 +943,85 @@
     );
   }
 
+  /* ------------------------------ حركة الأوراق ------------------------------ */
+
+  /* لقطة من الحالة عند آخر رسم، ونقارنها بالحالة الجديدة: إن تغيّرت الورقة العليا طارت ورقة من مصدرها،
+     وإن زاد عدد أوراق لاعب طارت أوراق من كومة السحب. هذا يعمل للاعب والكمبيوتر والأونلاين
+     دون أن يؤخّر شيئًا من منطق اللعبة. */
+  let lastSnap = null;
+
+  function fxSnapshot() {
+    const viewer = viewerPlayer();
+    const top = topCard();
+    return {
+      round: state.round,
+      top: top ? top.id : null,
+      counts: state.players.map((player) => player.hand.length),
+      mine: viewer ? viewer.hand.map((card) => card.id) : [],
+      mineIndex: viewer ? viewer.index : -1,
+    };
+  }
+
+  /* تُستدعى قبل استبدال الـ DOM القديم حتى يمكن التقاط ورقة اللاعب من يده */
+  function planFlights(snap) {
+    const jobs = [];
+    if (!FX || !FX.cardFlight || !FX.motionEnabled() || !rootRef) return jobs;
+    const prev = lastSnap;
+    if (!prev || prev.round !== snap.round) {
+      if (state.turn <= 1) jobs.push({ kind: "deal" });
+      return jobs;
+    }
+    let who = -1;
+    if (snap.top && snap.top !== prev.top) {
+      snap.counts.forEach((count, i) => { if (count < prev.counts[i]) who = i; });
+      if (who >= 0) {
+        const fromHand = who === snap.mineIndex && prev.mineIndex === who
+          ? rootRef.querySelector('[data-card="' + snap.top + '"]')
+          : null;
+        const seat = rootRef.querySelectorAll(".uno-seat")[who];
+        if (fromHand) jobs.push({ kind: "play", flight: FX.cardFlight(fromHand), face: "source" });
+        else if (seat) jobs.push({ kind: "play", flight: FX.cardFlight(seat, { center: true }), face: "target" });
+      }
+    }
+    snap.counts.forEach((count, i) => {
+      const gained = count - prev.counts[i] + (i === who ? 1 : 0);
+      if (gained <= 0) return;
+      const ids = i === snap.mineIndex && prev.mineIndex === i
+        ? snap.mine.filter((id) => prev.mine.indexOf(id) < 0)
+        : [];
+      jobs.push({ kind: "draw", player: i, count: Math.min(gained, 5), ids });
+    });
+    return jobs;
+  }
+
+  /* تُستدعى بعد بناء الـ DOM الجديد لتطير الأوراق إلى مواضعها النهائية */
+  function runFlights(jobs) {
+    if (!jobs.length || !rootRef) return;
+    const deck = rootRef.querySelector(".uno-card-back");
+    const seats = rootRef.querySelectorAll(".uno-seat");
+    jobs.forEach((job) => {
+      if (job.kind === "deal") {
+        if (!deck || !seats.length) return;
+        const rounds = Math.min(3, Math.max(1, Math.ceil(12 / seats.length)));
+        for (let r = 0; r < rounds; r++) {
+          Array.prototype.forEach.call(seats, (seat, i) => {
+            FX.cardFlight(deck).land(seat, { mode: "point", delay: (r * seats.length + i) * 75, duration: 420 });
+          });
+        }
+      } else if (job.kind === "play") {
+        const discard = rootRef.querySelector(".uno-card.is-discard");
+        if (discard) job.flight.land(discard, { face: job.face, onDone: () => { if (FX.pop) FX.pop(discard); } });
+      } else if (job.kind === "draw" && deck) {
+        for (let k = 0; k < job.count; k++) {
+          const own = job.ids[k] ? rootRef.querySelector('[data-card="' + job.ids[k] + '"]') : null;
+          const target = own || seats[job.player];
+          if (!target) continue;
+          FX.cardFlight(deck).land(target, own ? { delay: k * 110 } : { mode: "point", delay: k * 110 });
+        }
+      }
+    });
+  }
+
   function render() {
     if (!rootRef || !state) return;
     const wrap = document.createElement("div");
@@ -993,8 +1072,12 @@
 
     wrap.appendChild(main);
     wrap.appendChild(side);
+    const snap = fxSnapshot();
+    const jobs = planFlights(snap);
     rootRef.innerHTML = "";
     rootRef.appendChild(wrap);
+    lastSnap = snap;
+    runFlights(jobs);
     syncCpu();
   }
 
@@ -1130,6 +1213,7 @@
         gained: 0,
       };
 
+      lastSnap = null;
       const firstCard = newDeal(0);
       state.notice = "دور " + players[state.current].name + " — أظهر يدك ثم العب بطاقة مطابقة أو اسحب بطاقة.";
       apiRef.log(
@@ -1188,6 +1272,8 @@
           render();
         },
         destroy() {
+          if (FX && FX.cancelFlights) FX.cancelFlights();
+          lastSnap = null;
           if (aiRunner) aiRunner.clear();
           aiRunner = null;
           if (rootRef) rootRef.removeEventListener("click", handleClick);

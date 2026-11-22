@@ -714,6 +714,108 @@
     return null;
   }
 
+  const DIE_DOTS = {
+    1: [4], 2: [0, 8], 3: [0, 4, 8], 4: [0, 2, 6, 8], 5: [0, 2, 4, 6, 8], 6: [0, 2, 3, 5, 6, 8],
+  };
+
+  function setTumbleFace(die, value, labels) {
+    if (labels) {
+      die.textContent = labels[value] == null ? "" : labels[value];
+      return;
+    }
+    const on = DIE_DOTS[value] || [];
+    const pips = die.children;
+    for (let i = 0; i < pips.length; i++) pips[i].classList.toggle("is-on", on.indexOf(i) >= 0);
+  }
+
+  /**
+   * تدحرج نرد مشترك لكل الألعاب: نرد كبير (أو أكثر) يسقط فوق الشاشة ويدور
+   * وتتبدّل أوجهه ثم يستقر على القيم النهائية، وبعدها يُستدعى done.
+   * values: رقم أو مصفوفة أرقام (1–6). host: عنصر يُوسَّط النرد فوقه (اختياري).
+   * opts: { tone: "red"|"white", ms, hold, labels }. labels: خريطة وجه ← نص/رمز لنرد غير رقمي
+   * (مثل ملك طوكيو)؛ وعندها تكون values مفاتيح هذه الخريطة. يعيد دالة إلغاء.
+   * إن كانت الحركة معطّلة (إعدادات/تقليل حركة) يُستدعى done فورًا دون تأخير.
+   */
+  function tumble(host, values, done, opts) {
+    const o = Object.assign({ ms: isLite() ? 420 : 600, hold: 220, tone: "", labels: null }, opts || {});
+    const labels = o.labels || null;
+    const labelKeys = labels ? Object.keys(labels) : null;
+    const list = labels
+      ? [].concat(values).filter((v) => labels[v] != null)
+      : [].concat(values).map(Number).filter((v) => v >= 1 && v <= 6);
+    const finish = typeof done === "function" ? done : function () {};
+    if (!list.length || !motionEnabled()) {
+      finish();
+      return function () {};
+    }
+    const layer = document.createElement("div");
+    layer.className = "fx-tumble" + (list.length > 3 ? " is-many" : "");
+    layer.setAttribute("aria-hidden", "true");
+    const dice = list.map((_, i) => {
+      const die = document.createElement("span");
+      die.className = "fx-tumble-die" + (labels ? " is-symbol" : "");
+      const tone = (o.tones && o.tones[i]) || o.tone;
+      if (tone) die.setAttribute("data-tone", tone);
+      if (!labels) for (let i = 0; i < 9; i++) die.appendChild(document.createElement("i"));
+      layer.appendChild(die);
+      return die;
+    });
+    let x = window.innerWidth / 2;
+    let y = window.innerHeight / 2;
+    if (host && host.getBoundingClientRect) {
+      const rect = host.getBoundingClientRect();
+      if (rect.width || rect.height) {
+        x = rect.left + rect.width / 2;
+        y = rect.top + rect.height / 2;
+      }
+    }
+    layer.style.left = U.clamp(x, 80, Math.max(80, window.innerWidth - 80)) + "px";
+    layer.style.top = U.clamp(y, 80, Math.max(80, window.innerHeight - 80)) + "px";
+    document.body.appendChild(layer);
+
+    const random = () => (labels ? labelKeys[Math.floor(Math.random() * labelKeys.length)] : 1 + Math.floor(Math.random() * 6));
+    dice.forEach((die, i) => {
+      setTumbleFace(die, random(), labels);
+      const dir = i % 2 ? -1 : 1;
+      animate(die, [
+        { transform: "translateY(-150px) rotate(0deg) scale(0.6)", opacity: 0, offset: 0 },
+        { transform: "translateY(0) rotate(" + dir * 260 + "deg) scale(1.15)", opacity: 1, offset: 0.35 },
+        { transform: "translateY(-44px) rotate(" + dir * 430 + "deg) scale(1.05)", opacity: 1, offset: 0.55 },
+        { transform: "translateY(0) rotate(" + dir * 610 + "deg) scale(1.1)", opacity: 1, offset: 0.78 },
+        { transform: "translateY(0) rotate(" + dir * 720 + "deg) scale(1)", opacity: 1, offset: 1 },
+      ], { duration: o.ms, delay: i * 70, easing: "ease-out", fill: "both" });
+    });
+
+    let tick = setInterval(() => {
+      dice.forEach((die) => setTumbleFace(die, random(), labels));
+    }, 70);
+    let settle = null;
+    let release = null;
+    let cancelled = false;
+    const remove = () => { if (layer.parentNode) layer.parentNode.removeChild(layer); };
+    settle = setTimeout(() => {
+      clearInterval(tick);
+      tick = null;
+      dice.forEach((die, i) => {
+        setTumbleFace(die, list[i], labels);
+        animate(die, [{ transform: "scale(1.22)" }, { transform: "scale(1)" }], { duration: o.hold, easing: "cubic-bezier(.3,.7,.35,1)" });
+      });
+      release = setTimeout(() => {
+        remove();
+        if (!cancelled) finish();
+      }, o.hold);
+    }, o.ms + (list.length - 1) * 70);
+
+    return function cancel() {
+      if (cancelled) return;
+      cancelled = true;
+      if (tick) clearInterval(tick);
+      clearTimeout(settle);
+      clearTimeout(release);
+      remove();
+    };
+  }
+
   function isSvg(el) {
     return !!(el && el.namespaceURI && el.namespaceURI.indexOf("svg") !== -1);
   }
@@ -906,6 +1008,169 @@
     if (anim) anim.finished.then(cleanup).catch(cleanup);
     else setTimeout(cleanup, o.duration);
     return node;
+  }
+
+  /* ------------------------------ أوراق طائرة وبطاقات تنقلب ------------------------------ */
+
+  const activeFlights = new Set();
+
+  /* نسخة من عنصر ورقة بلا أي معرّفات أو مستمعات حتى لا تتفاعل مع منطق اللعبة */
+  function cloneForFlight(el) {
+    if (!el || !el.cloneNode) return null;
+    const node = el.cloneNode(true);
+    Array.prototype.slice.call(node.attributes).forEach((attr) => {
+      if (attr.name === "id" || attr.name === "disabled" || attr.name === "role" || attr.name === "aria-label" || attr.name.indexOf("data-") === 0) {
+        node.removeAttribute(attr.name);
+      }
+    });
+    Array.prototype.forEach.call(node.querySelectorAll("[id]"), (n) => n.removeAttribute("id"));
+    node.setAttribute("aria-hidden", "true");
+    node.tabIndex = -1;
+    node.classList.remove("is-blocked", "is-drawn", "is-playable", "is-dim", "is-lift");
+    node.classList.add("fx-card-ghost");
+    return node;
+  }
+
+  /**
+   * ورقة طائرة (بصرية فقط دون تأخير منطق اللعبة).
+   * from: عنصر يُنسخ مظهره ويُلتقط موقعه الآن (استدعِها قبل إعادة رسم الواجهة إن كان المصدر سيُزال).
+   * opts: { center: true } يبدأ من مركز المصدر بحجم الهدف (مقاعد اللاعبين)، ومظهر الهدف.
+   * يعيد كائنًا فيه land(to, o): تحرّك النسخة إلى العنصر الهدف بقوس ودوران.
+   *   o.face: "source" (الافتراضي) أو "target" لإظهار وجه الهدف.
+   *   o.mode: "card" (الافتراضي: تستقر مكان الهدف ويُخفى الهدف حتى الوصول) أو "point" (تصغر وتختفي عند مركز الهدف).
+   *   o.delay / o.duration / o.onDone.
+   * إن كانت الحركة معطّلة أو العناصر غير مرئية فلا يحدث شيء ولا يضرّ ذلك باللعبة.
+   */
+  function cardFlight(from, opts) {
+    const idle = { land() { return null; } };
+    if (!motionEnabled() || !from || !from.getBoundingClientRect) return idle;
+    const start = from.getBoundingClientRect();
+    if (!start.width && !start.height) return idle;
+    const center = !!(opts && opts.center);
+    const own = center ? null : cloneForFlight(from);
+    if (!center && !own) return idle;
+    return {
+      land(to, lo) {
+        if (!to || !to.getBoundingClientRect) return null;
+        const end = to.getBoundingClientRect();
+        if (!end.width && !end.height) return null;
+        const l = Object.assign({ face: "source", mode: "card", delay: 0, duration: 0, onDone: null }, lo || {});
+        const useTarget = l.face === "target" || !own;
+        const ghost = useTarget ? cloneForFlight(to) : own;
+        if (!ghost || !ghost.animate) return null;
+        const point = l.mode === "point";
+        let sw = start.width;
+        let sh = start.height;
+        let sx = start.left;
+        let sy = start.top;
+        if (useTarget) {
+          sw = end.width;
+          sh = end.height;
+          sx = start.left + start.width / 2 - sw / 2;
+          sy = start.top + start.height / 2 - sh / 2;
+        }
+        ghost.style.setProperty("--cw", sw + "px");
+        ghost.style.left = sx + "px";
+        ghost.style.top = sy + "px";
+        ghost.style.width = sw + "px";
+        ghost.style.height = sh + "px";
+        document.body.appendChild(ghost);
+        const dx = end.left + end.width / 2 - (sx + sw / 2);
+        const dy = end.top + end.height / 2 - (sy + sh / 2);
+        const scale = point ? 0.35 : U.clamp(end.width / (sw || 1), 0.2, 3);
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const lift = Math.min(70, 16 + dist * 0.12);
+        const tilt = (dx >= 0 ? 1 : -1) * (5 + Math.min(9, dist / 70));
+        const duration = l.duration || Math.min(640, 330 + dist * 0.35);
+        let hidden = null;
+        if (!point) {
+          hidden = to.style.visibility;
+          to.style.visibility = "hidden";
+        }
+        const anim = ghost.animate([
+          { transform: "translate(0,0) rotate(0deg) scale(1)", opacity: 1, offset: 0 },
+          { transform: "translate(" + dx * 0.5 + "px," + (dy * 0.5 - lift) + "px) rotate(" + tilt + "deg) scale(" + ((1 + scale) / 2) * 1.06 + ")", opacity: 1, offset: 0.55 },
+          { transform: "translate(" + dx + "px," + dy + "px) rotate(0deg) scale(" + scale + ")", opacity: point ? 0.05 : 1, offset: 1 },
+        ], { duration, delay: l.delay, easing: "cubic-bezier(.3,.75,.3,1)", fill: "both" });
+        let timer = null;
+        const flight = {
+          cancel() {
+            if (!activeFlights.has(flight)) return;
+            activeFlights.delete(flight);
+            clearTimeout(timer);
+            if (ghost.parentNode) ghost.parentNode.removeChild(ghost);
+            if (hidden !== null) to.style.visibility = hidden;
+          },
+        };
+        const finish = () => {
+          if (!activeFlights.has(flight)) return;
+          flight.cancel();
+          if (l.onDone) l.onDone();
+        };
+        activeFlights.add(flight);
+        if (anim && anim.finished) anim.finished.then(finish, finish);
+        timer = setTimeout(finish, duration + l.delay + 450);
+        return flight;
+      },
+    };
+  }
+
+  /* إلغاء كل الأوراق الطائرة الجارية (عند إغلاق اللعبة) */
+  function cancelFlights() {
+    Array.from(activeFlights).forEach((flight) => flight.cancel());
+  }
+
+  /**
+   * بطاقة كبيرة تطلع وتنقلب في وسط الشاشة ثم تطير إلى مكانها (بطاقات الحظ وصندوق المجتمع...).
+   * بصرية فقط. opts: { kicker, title, text, tone: "chance"|"chest", icon, hold, from, to }
+   * from وto عنصر أو دالة تعيد عنصرًا. يعيد دالة إلغاء.
+   */
+  function revealCard(opts) {
+    const o = Object.assign({ kicker: "", title: "", text: "", tone: "", icon: "🃏", hold: 1200, from: null, to: null }, opts || {});
+    if (!motionEnabled() || !document.body.animate) return function () {};
+    const layer = document.createElement("div");
+    layer.className = "fx-reveal" + (o.tone ? " is-" + o.tone : "");
+    layer.setAttribute("aria-hidden", "true");
+    layer.innerHTML =
+      '<div class="fx-reveal-inner">' +
+      '<div class="fx-reveal-face back"><b>' + U.escape(o.icon) + "</b><span>" + U.escape(o.kicker) + "</span></div>" +
+      '<div class="fx-reveal-face front"><small>' + U.escape(o.kicker) + "</small><strong>" + U.escape(o.title) + "</strong><p>" + U.escape(o.text) + "</p></div>" +
+      "</div>";
+    document.body.appendChild(layer);
+    const inner = layer.firstChild;
+    const pick = (value) => (typeof value === "function" ? value() : value);
+    const offsetTo = (el, fallback) => {
+      if (el && el.getBoundingClientRect) {
+        const rect = el.getBoundingClientRect();
+        if (rect.width || rect.height) {
+          return { x: rect.left + rect.width / 2 - window.innerWidth / 2, y: rect.top + rect.height / 2 - window.innerHeight / 2 };
+        }
+      }
+      return fallback;
+    };
+    const base = "translate(-50%,-50%) ";
+    const from = offsetTo(pick(o.from), { x: 0, y: 70 });
+    layer.animate([
+      { transform: base + "translate(" + from.x + "px," + from.y + "px) scale(0.4) rotate(-10deg)", opacity: 0, offset: 0 },
+      { transform: base + "translate(0,0) scale(1.08) rotate(0deg)", opacity: 1, offset: 0.7 },
+      { transform: base + "translate(0,0) scale(1) rotate(0deg)", opacity: 1, offset: 1 },
+    ], { duration: 460, easing: "cubic-bezier(.25,.85,.3,1)", fill: "both" });
+    inner.animate([{ transform: "rotateY(0deg)" }, { transform: "rotateY(180deg)" }], { duration: 520, delay: 260, easing: "cubic-bezier(.4,.1,.2,1)", fill: "both" });
+    const remove = () => { if (layer.parentNode) layer.parentNode.removeChild(layer); };
+    const exitAt = 260 + 520 + o.hold;
+    const exitTimer = setTimeout(() => {
+      const to = offsetTo(pick(o.to), { x: 0, y: 140 });
+      layer.animate([
+        { transform: base + "translate(0,0) scale(1) rotate(0deg)", opacity: 1 },
+        { transform: base + "translate(" + to.x + "px," + to.y + "px) scale(0.3) rotate(6deg)", opacity: 0 },
+      ], { duration: 400, easing: "cubic-bezier(.5,0,.8,.4)", fill: "both" });
+    }, exitAt);
+    const removeTimer = setTimeout(remove, exitAt + 440);
+    return function cancel() {
+      clearTimeout(exitTimer);
+      clearTimeout(removeTimer);
+      remove();
+    };
   }
 
   function flyCard(fromEl, toEl, opts) {
@@ -2164,6 +2429,7 @@
     spin,
     pulse,
     dice,
+    tumble,
     movePiece,
     screenEnter,
     banner,
@@ -2171,6 +2437,9 @@
     stagger,
     floatText,
     flyCard,
+    cardFlight,
+    cancelFlights,
+    revealCard,
     playerRow,
     motionEnabled,
     observePieces,

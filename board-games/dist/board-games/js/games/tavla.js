@@ -389,11 +389,38 @@
 
   /* ------------------------------ الحركات والأدوار ------------------------------ */
 
+  /* تدحرج النرد: لا تتغيّر حالة اللعبة حتى يستقر النردان */
+  let rolling = false;
+  let cancelRoll = null;
+
+  function clearRoll() {
+    if (cancelRoll) cancelRoll();
+    cancelRoll = null;
+    rolling = false;
+  }
+
   function rollDice() {
-    if (!state || state.over || state.phase !== "roll") return false;
+    if (!state || state.over || state.phase !== "roll" || rolling) return false;
     clearAutoEnd();
     const first = U.roll(6);
     const second = U.roll(6);
+    if (FX) FX.sound("dice");
+    rolling = true;
+    const rollBtn = rootRef && rootRef.querySelector('[data-act="roll"]');
+    if (rollBtn) rollBtn.disabled = true;
+    const dblBtn = rootRef && rootRef.querySelector('[data-act="double"]');
+    if (dblBtn) dblBtn.disabled = true;
+    const land = () => {
+      cancelRoll = null;
+      rolling = false;
+      if (state && !state.over && state.phase === "roll") applyRoll(first, second);
+    };
+    if (FX && FX.tumble) cancelRoll = FX.tumble(rootRef && rootRef.querySelector(".tav-board"), [first, second], land);
+    else land();
+    return true;
+  }
+
+  function applyRoll(first, second) {
     const values = first === second ? [first, first, first, first] : [first, second];
     state.rolled = values.slice();
     state.dice = values.slice();
@@ -405,7 +432,6 @@
       (first === second ? " — دبل!" : "."),
       "accent"
     );
-    if (FX) FX.sound("dice");
 
     const legal = legalMovesNow();
     if (!legal.length) {
@@ -769,7 +795,7 @@
   }
 
   function canDoubleNow() {
-    if (!state || state.over || state.phase !== "roll" || !tavOption("useCube")) return false;
+    if (!state || state.over || state.phase !== "roll" || !tavOption("useCube") || rolling) return false;
     if (onlineGame()) return false;
     if (state.cube >= 64) return false;
     return state.cubeOwner == null || state.cubeOwner === state.current;
@@ -1295,6 +1321,7 @@
     create(root, api) {
       rootRef = root;
       apiRef = api;
+      clearRoll();
       clearAutoEnd();
       legalCache = { key: "", moves: [] };
       aiRunner = AI.runner();
@@ -1415,6 +1442,7 @@
         netLoad(data) {
           if (!data) return;
           BG.closeDialogs();
+          clearRoll();
           clearAutoEnd();
           state = BG.netCodec.decode(data);
           state.selected = null;
@@ -1442,6 +1470,7 @@
           render();
         },
         destroy() {
+          clearRoll();
           clearAutoEnd();
           if (aiRunner) aiRunner.clear();
           aiRunner = null;

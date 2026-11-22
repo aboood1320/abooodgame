@@ -1183,6 +1183,60 @@
     return '<div class="ko-watch"><b>مشاهدة</b><span>الأوراق مخفية في وضع المشاهدة.</span></div>';
   }
 
+  /* ------------------------------ حركة الأوراق ------------------------------ */
+
+  /* نقارن لقطة آخر رسم بالحالة الجديدة: كل ورقة جديدة على الطاولة تطير من يد اللاعب (أو مقعده)،
+     وعند بداية جولة تنتقل أوراق يدك من وسط الطاولة. بصري فقط ولا يؤخّر المنطق. */
+  let lastSnap = null;
+
+  function fxSnapshot() {
+    return {
+      round: state.round,
+      trick: visibleTrick().map((entry) => entry.card.id),
+      mineIndex: viewerIndex(),
+    };
+  }
+
+  /* تُستدعى قبل استبدال الـ DOM القديم حتى يمكن التقاط ورقة اللاعب من يده */
+  function planFlights(snap) {
+    const jobs = [];
+    if (!FX || !FX.cardFlight || !FX.motionEnabled() || !rootRef) return jobs;
+    const prev = lastSnap;
+    if (!prev || prev.round !== snap.round) {
+      if (state.phase === "bidding") jobs.push({ kind: "deal" });
+      return jobs;
+    }
+    const seats = rootRef.querySelectorAll(".ko-seat");
+    visibleTrick().forEach((entry, index) => {
+      if (prev.trick.indexOf(entry.card.id) >= 0) return;
+      const fromHand = entry.p === snap.mineIndex && prev.mineIndex === entry.p
+        ? rootRef.querySelector('[data-ko-card="' + entry.card.id + '"]')
+        : null;
+      if (fromHand) jobs.push({ kind: "play", index, flight: FX.cardFlight(fromHand), face: "source" });
+      else if (seats[entry.p]) jobs.push({ kind: "play", index, flight: FX.cardFlight(seats[entry.p], { center: true }), face: "target" });
+    });
+    return jobs;
+  }
+
+  /* تُستدعى بعد بناء الـ DOM الجديد لتطير الأوراق إلى مواضعها النهائية */
+  function runFlights(jobs) {
+    if (!jobs.length || !rootRef) return;
+    const trickEls = rootRef.querySelectorAll(".ko-trick-cards .ko-trick-card");
+    jobs.forEach((job) => {
+      if (job.kind === "deal") {
+        const table = rootRef.querySelector(".ko-trick");
+        const cards = rootRef.querySelectorAll(".ko-hand .ko-card");
+        if (!table) return;
+        Array.prototype.slice.call(cards, 0, 8).forEach((card, i) => {
+          FX.cardFlight(table, { center: true }).land(card, { face: "target", delay: i * 70 });
+        });
+      } else if (job.kind === "play") {
+        const target = trickEls[job.index] && trickEls[job.index].querySelector(".ko-card");
+        if (target) job.flight.land(target, { face: job.face, onDone: () => { if (FX.pop) FX.pop(target); } });
+      }
+    });
+  }
+
   function render() {
     if (!rootRef || !state) return;
     const wrap = document.createElement("div");
@@ -1204,6 +1258,8 @@
     wrap.appendChild(side);
 
     const viewer = viewerPlayer();
+    const snap = fxSnapshot();
+    const jobs = planFlights(snap);
     rootRef.innerHTML = "";
     rootRef.appendChild(wrap);
 
@@ -1226,6 +1282,9 @@
     } else {
       handSlot.innerHTML = watchHTML();
     }
+
+    lastSnap = snap;
+    runFlights(jobs);
 
     if (FX) {
       const active = rootRef.querySelector(".ko-seat.is-active");
@@ -1449,6 +1508,8 @@
           maybeAI();
         },
         destroy() {
+          if (FX && FX.cancelFlights) FX.cancelFlights();
+          lastSnap = null;
           if (aiRunner) aiRunner.clear();
           aiRunner = null;
           if (rootRef) rootRef.removeEventListener("click", onClick);

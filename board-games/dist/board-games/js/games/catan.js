@@ -270,6 +270,7 @@
       rootRef = root;
       apiRef = api;
       aiRunner = AI.runner();
+      clearRoll();
       cpuOps = 0;
       if (!geometry) geometry = buildGeometry();
       const robber = setupResources();
@@ -350,6 +351,7 @@
         netLoad(data) {
           if (!data) return;
           BG.closeDialogs();
+          clearRoll();
           state = BG.netCodec.decode(data);
           state.mode = null;
           state.fxBuild = null;
@@ -381,6 +383,7 @@
         destroy() {
           if (aiRunner) aiRunner.clear();
           aiRunner = null;
+          clearRoll();
         },
       };
     },
@@ -583,15 +586,34 @@
     return discarded;
   }
 
+  /* تدحرج النرد: لا تتغيّر حالة اللعبة حتى يستقر النردان */
+  let rolling = false;
+  let cancelRoll = null;
+
+  function clearRoll() {
+    if (cancelRoll) cancelRoll();
+    cancelRoll = null;
+    rolling = false;
+  }
+
   function rollDice() {
-    if (state.over || state.phase !== "roll") return;
+    if (state.over || state.phase !== "roll" || rolling) return;
     const d1 = U.roll(6);
     const d2 = U.roll(6);
+    if (FX) FX.sound("dice");
+    rolling = true;
+    const land = () => {
+      cancelRoll = null;
+      rolling = false;
+      if (state && !state.over && state.phase === "roll") applyRoll(d1, d2);
+    };
+    if (FX && FX.tumble) cancelRoll = FX.tumble(rootRef && rootRef.querySelector(".cat-board-wrap"), [d1, d2], land);
+    else land();
+  }
+
+  function applyRoll(d1, d2) {
     state.dice = [d1, d2];
-    if (FX) {
-      FX.sound("dice");
-      FX.after(() => FX.shake(rootRef && rootRef.querySelector(".cat-dice")), 30);
-    }
+    if (FX) FX.after(() => FX.shake(rootRef && rootRef.querySelector(".cat-dice")), 30);
     const total = d1 + d2;
     apiRef.log("<strong>" + U.escape(cur().name) + "</strong> رمى النرد: " + d1 + " + " + d2 + " = <strong>" + total + "</strong>.");
 

@@ -211,6 +211,17 @@
     return moves;
   }
 
+  /* تدحرج النرد: الحالة تُحسم فورًا لكن الرقم يُخفى وتُؤخَّر النتائج حتى يستقر النرد */
+  let rolling = false;
+  let cancelRoll = null;
+  const shown = () => (rolling ? null : state.dice);
+
+  function clearRoll() {
+    if (cancelRoll) cancelRoll();
+    cancelRoll = null;
+    rolling = false;
+  }
+
   function rollDie() {
     if (!state || state.over || state.busy || state.phase !== "roll") return null;
     const value = 1 + Math.floor(Math.random() * 6);
@@ -219,9 +230,24 @@
     const player = cur();
     state.sixes = value === 6 ? (state.sixes || 0) + 1 : 0;
     state.phase = "wait";
+    state.notice = player.name + " يرمي النرد…";
+    if (FX) FX.dice(value, { label: false });
+    rolling = true;
+    update();
+    const land = () => {
+      cancelRoll = null;
+      rolling = false;
+      afterRoll(player, value);
+    };
+    if (FX && FX.tumble) cancelRoll = FX.tumble(q(".ld-board"), value, land);
+    else land();
+    return value;
+  }
+
+  function afterRoll(player, value) {
+    if (!state || state.over) return value;
     state.notice = player.name + " رمى " + ar(value) + "…";
     if (apiRef) apiRef.log("<strong>" + esc(player.name) + "</strong> رمى النرد: <strong>" + ar(value) + "</strong>.", "accent");
-    if (FX) FX.dice(value);
 
     /* ثلاث ستات متتالية: يضيع الدور */
     if (state.opts.tripleSix && state.sixes >= 3) {
@@ -617,7 +643,7 @@
     return (
       '<div class="ld-actions">' +
       '<button type="button" class="ld-roll' + (canRoll ? " is-live" : "") + '" data-ld-roll' + (canRoll ? "" : " disabled") + ">" +
-      dieHTML(state.dice) +
+      dieHTML(shown()) +
       "<span>" + (state.phase === "roll" ? "ارمِ النرد" : state.phase === "move" ? "اختر قطعة" : "…") + "</span></button>" +
       (state.phase === "move" && mine
         ? '<p class="ld-action-hint">' + (moves.length ? "اضغط قطعة أو الدائرة المضيئة لنقلها " + ar(state.dice) + " خطوات." : "لا حركة.") + "</p>"
@@ -732,7 +758,10 @@
   function animateDie() {
     if (!rootRef || !state) return;
     const rolls = state.rolls || 0;
-    const fresh = seenRolls >= 0 && rolls !== seenRolls && state.dice;
+    if (seenRolls < 0) seenRolls = rolls;
+    const dice = shown();
+    if (!dice) return;
+    const fresh = rolls !== seenRolls;
     seenRolls = rolls;
     if (!fresh) return;
     const die = rootRef.querySelector(".ld-roll .ld-die");
@@ -771,7 +800,7 @@
     const player = cur();
 
     setText(q("[data-ld-turn]"), player ? player.name : "—");
-    setText(q("[data-ld-dice]"), state.dice ? ar(state.dice) : "—");
+    setText(q("[data-ld-dice]"), shown() ? ar(shown()) : "—");
     setText(q("[data-ld-rolls]"), ar(state.rolls));
     const net = q("[data-ld-net]");
     if (net) {
@@ -914,6 +943,7 @@
     create(root, api) {
       rootRef = root;
       apiRef = api;
+      clearRoll();
       clearTimeout(moveTimer);
       clearTimeout(autoTimer);
       state = newState();
@@ -967,6 +997,7 @@
         netLoad(data) {
           if (!data) return;
           BG.closeDialogs();
+          clearRoll();
           clearTimeout(moveTimer);
           clearTimeout(autoTimer);
           state = BG.netCodec.decode(data);
@@ -991,6 +1022,7 @@
           if (!state.over) settle();
         },
         destroy() {
+          clearRoll();
           clearTimeout(moveTimer);
           clearTimeout(autoTimer);
           moveTimer = null;

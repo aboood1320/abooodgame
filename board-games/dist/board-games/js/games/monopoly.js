@@ -337,6 +337,7 @@
       apiRef = api;
       aiRunner = AI.runner();
       tokenPositions = new Map();
+      clearRoll();
       clearTokenTimers();
       cpuBuildCount = 0;
       const opts = Object.assign({}, DEFAULT_OPTIONS, (api && api.options) || {});
@@ -442,6 +443,7 @@
             player.money = Math.max(0, Number(player.money) || 0);
           });
           tokenPositions = new Map();
+          clearRoll();
           clearTokenTimers();
           cpuBuildCount = 0;
           render();
@@ -470,6 +472,7 @@
         destroy() {
           if (aiRunner) aiRunner.clear();
           aiRunner = null;
+          clearRoll();
           clearTokenTimers();
           tokenPositions = new Map();
         },
@@ -890,7 +893,19 @@
     apiRef.log("سحب <strong>" + U.escape(p.name) + "</strong> بطاقة " + state.lastCard.deck + ": <strong>" + U.escape(card.title) + "</strong>.", "accent");
     if (FX) {
       FX.sound("card");
-      FX.after(() => FX.deal(rootRef && rootRef.querySelector(".mcard:not(.empty)")), 55);
+      if (FX.revealCard && FX.motionEnabled()) {
+        if (cancelReveal) cancelReveal();
+        cancelReveal = FX.revealCard({
+          kicker: state.lastCard.deck,
+          title: card.title,
+          text: card.text,
+          tone: isChance ? "chance" : "chest",
+          icon: isChance ? "❓" : "📦",
+          to: () => rootRef && rootRef.querySelector(".mcard:not(.empty)"),
+        });
+      } else {
+        FX.after(() => FX.deal(rootRef && rootRef.querySelector(".mcard:not(.empty)")), 55);
+      }
     }
 
     switch (card.id) {
@@ -1083,8 +1098,32 @@
     render();
   }
 
+  /* تدحرج النرد: لا تتغيّر حالة اللعبة حتى يستقر النردان */
+  let rolling = false;
+  let cancelRoll = null;
+  let cancelReveal = null;
+
+  function clearRoll() {
+    if (cancelRoll) cancelRoll();
+    cancelRoll = null;
+    rolling = false;
+    if (cancelReveal) cancelReveal();
+    cancelReveal = null;
+  }
+
+  function tumbleThen(values, apply) {
+    rolling = true;
+    const land = () => {
+      cancelRoll = null;
+      rolling = false;
+      if (state && !state.over) apply();
+    };
+    if (FX && FX.tumble) cancelRoll = FX.tumble(rootRef && rootRef.querySelector(".mono-board"), values, land);
+    else land();
+  }
+
   function onRoll() {
-    if (state.over || state.phase !== "roll") return;
+    if (state.over || state.phase !== "roll" || rolling) return;
     const p = cur();
     if (!p || p.bankrupt) { endTurn(); return; }
 
@@ -1094,11 +1133,14 @@
 
     const d1 = U.roll(6);
     const d2 = U.roll(6);
+    if (FX) FX.sound("dice");
+    tumbleThen([d1, d2], () => applyRoll(p, d1, d2));
+  }
+
+  function applyRoll(p, d1, d2) {
+    if (state.phase !== "roll" || cur() !== p) return;
     state.dice = [d1, d2];
-    if (FX) {
-      FX.sound("dice");
-      FX.after(() => FX.shake(rootRef && rootRef.querySelector(".mdice")), 35);
-    }
+    if (FX) FX.after(() => FX.shake(rootRef && rootRef.querySelector(".mdice")), 35);
     const total = d1 + d2;
     apiRef.log("<strong>" + U.escape(p.name) + "</strong> رمى النرد: " + d1 + " + " + d2 + " = <strong>" + total + "</strong>.");
 
@@ -1139,12 +1181,15 @@
   function rollInJail(p) {
     const d1 = U.roll(6);
     const d2 = U.roll(6);
+    if (FX) FX.sound("dice");
+    tumbleThen([d1, d2], () => applyJailRoll(p, d1, d2));
+  }
+
+  function applyJailRoll(p, d1, d2) {
+    if (state.phase !== "roll" || !p.inJail) return;
     state.dice = [d1, d2];
     state.extraRoll = false;
-    if (FX) {
-      FX.sound("dice");
-      FX.after(() => FX.shake(rootRef && rootRef.querySelector(".mdice")), 35);
-    }
+    if (FX) FX.after(() => FX.shake(rootRef && rootRef.querySelector(".mdice")), 35);
     apiRef.log("<strong>" + U.escape(p.name) + "</strong> حاول الخروج من السجن: " + d1 + " + " + d2 + ".");
 
     if (d1 === d2) {

@@ -71,16 +71,39 @@
     return (state.offsets[player.index] + token.pos) % TRACK;
   }
 
+  /* تدحرج النرد: لا تتغيّر حالة اللعبة حتى يستقر النردان */
+  let rolling = false;
+  let cancelRoll = null;
+
+  function clearRoll() {
+    if (cancelRoll) cancelRoll();
+    cancelRoll = null;
+    rolling = false;
+  }
+
   function roll() {
-    if (!state || state.over || state.phase !== "roll" || state.busy) return null;
+    if (!state || state.over || state.phase !== "roll" || state.busy || rolling) return null;
     if (!XG.canAct(apiRef, state, state.current, state.over) && !XG.cpuTurn(apiRef, state, state.current)) return null;
     const d1 = U.roll(6);
     const d2 = U.roll(6);
+    if (FX) FX.sound("dice");
+    rolling = true;
+    render();
+    const land = () => {
+      cancelRoll = null;
+      rolling = false;
+      if (state && !state.over) applyRoll(d1, d2);
+    };
+    if (FX && FX.tumble) cancelRoll = FX.tumble(rootRef && rootRef.querySelector(".pc-board"), [d1, d2], land);
+    else land();
+    return [d1, d2];
+  }
+
+  function applyRoll(d1, d2) {
     state.dice = [d1, d2];
     state.used = [false, false];
     state.phase = "move";
     state.doubleExtra = d1 === d2;
-    if (FX) FX.sound("dice");
     state.notice = cur().name + " رمى " + ar(d1) + " و" + ar(d2) + (d1 === d2 ? " (زوجان — دور إضافي)" : "") + ". اختر حركة.";
     apiRef.log("<strong>" + esc(cur().name) + "</strong> رمى النردين: <strong>" + ar(d1) + "</strong> و<strong>" + ar(d2) + "</strong>." + (d1 === d2 ? " زوجان!" : ""), "accent");
     render();
@@ -95,7 +118,6 @@
       clearTimeout(timer);
       timer = setTimeout(aiStep, AI.delay(cur().level, 0.8));
     }
-    return state.dice.slice();
   }
 
   function hasBlockade(player, abs) {
@@ -379,7 +401,7 @@
       '<aside class="pc-side"><div class="xg-panel pc-dice-panel">' +
       '<div class="xg-spread"><h3>النرد</h3><span class="xg-chip">' + (state.doubleExtra ? "زوجان" : state.extraRoll ? "أسر" : "") + "</span></div>" +
       '<div class="pc-dice">' + (state.dice ? state.dice.map((value, index) => dieHtml(value, state.used[index])).join("") : '<span class="pc-empty-dice">— —</span>') + "</div>" +
-      '<button type="button" class="xg-btn primary pc-roll" data-pc-roll ' + (!can || state.phase !== "roll" ? "disabled" : "") + ">ارمِ النردين</button>" +
+      '<button type="button" class="xg-btn primary pc-roll" data-pc-roll ' + (!can || rolling || state.phase !== "roll" ? "disabled" : "") + ">ارمِ النردين</button>" +
       '<button type="button" class="xg-btn pc-end" data-pc-end ' + (!can || state.phase !== "move" || legalMoves().length ? "disabled" : "") + ">إنهاء الدور</button>" +
       movesHtml() +
       '<p class="xg-note">' + esc(state.notice) + "</p>" +
@@ -454,6 +476,7 @@
       rootRef = root;
       apiRef = api;
       aiRunner = AI.runner();
+      clearRoll();
       clearTimeout(timer);
       state = newState();
       apiRef.log("بدأت باتشيزي. اخرج بخمسة، أسر الخصوم، وأوصل قطعك إلى البيت.", "accent");
@@ -488,6 +511,7 @@
         netLoad(data) {
           if (!data) return;
           BG.closeDialogs();
+          clearRoll();
           clearTimeout(timer);
           state = BG.netCodec.decode(data);
           render();
@@ -498,6 +522,7 @@
         destroy() {
           if (aiRunner) aiRunner.clear();
           aiRunner = null;
+          clearRoll();
           clearTimeout(timer);
           timer = null;
           if (rootRef) rootRef.removeEventListener("click", onClick);
