@@ -1212,6 +1212,67 @@
 .fx-reveal.is-chest .fx-reveal-face.back { background: repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.12) 0 8px, transparent 8px 16px), linear-gradient(145deg, #4d8fd6, #1f4f8f); }
 .fx-reveal.is-chest .fx-reveal-face.front small { color: #1f5aa6; }
 
+/* ------------------------------ نرد في منتصف اللوحة (يظهر عند الحاجة إلى الرمي) ------------------------------ */
+
+.fx-rollpad {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  padding: 11px 15px 9px;
+  transform: translate(-50%, -50%);
+  border: 2px solid rgba(255, 255, 255, 0.78);
+  border-radius: 22px;
+  background: linear-gradient(160deg, rgba(22, 42, 50, 0.94), rgba(8, 18, 22, 0.96));
+  color: #fff;
+  font: inherit;
+  cursor: pointer;
+  box-shadow: 0 14px 30px -8px rgba(0, 0, 0, 0.75);
+  animation: fx-rollpad-pulse 1.6s ease-in-out infinite;
+  -webkit-tap-highlight-color: transparent;
+}
+.fx-rollpad:hover,
+.fx-rollpad:focus-visible {
+  transform: translate(-50%, -50%) scale(1.07);
+  border-color: #f6c85f;
+  outline: none;
+}
+.fx-rollpad:active { transform: translate(-50%, -50%) scale(0.96); }
+.fx-rollpad:disabled { cursor: default; opacity: 0.7; animation: none; }
+.fx-rollpad small { font-size: 0.7rem; font-weight: 900; letter-spacing: 0.02em; color: #f6e2a8; }
+.fx-rollpad-dice { display: flex; align-items: center; gap: 9px; }
+.fx-rollpad .fx-tumble-die {
+  width: 46px;
+  height: 46px;
+  padding: 7px;
+  gap: 2px;
+  border-radius: 12px;
+  animation: fx-rollpad-bob 1.2s ease-in-out infinite;
+}
+.fx-rollpad .fx-tumble-die:nth-child(2) { animation-delay: 0.3s; }
+@keyframes fx-rollpad-pulse {
+  0%, 100% { box-shadow: 0 14px 30px -8px rgba(0, 0, 0, 0.75), 0 0 0 0 rgba(246, 200, 95, 0.6); }
+  50% { box-shadow: 0 14px 30px -8px rgba(0, 0, 0, 0.75), 0 0 0 11px rgba(246, 200, 95, 0); }
+}
+@keyframes fx-rollpad-bob {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-4px) rotate(-7deg); }
+}
+@media (max-width: 640px) {
+  .fx-rollpad { padding: 8px 11px 7px; gap: 5px; }
+  .fx-rollpad .fx-tumble-die { width: 38px; height: 38px; padding: 6px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .fx-rollpad,
+  .fx-rollpad .fx-tumble-die { animation: none; }
+}
+html.lite .fx-rollpad,
+html.lite .fx-rollpad .fx-tumble-die { animation: none; }
+
 /* ------------------------------ احترام تقليل الحركة ------------------------------ */
 
 @media (prefers-reduced-motion: reduce) {

@@ -602,6 +602,8 @@
     const d2 = U.roll(6);
     if (FX) FX.sound("dice");
     rolling = true;
+    const rollBtn = rootRef && rootRef.querySelector(".cat-roll");
+    if (rollBtn) rollBtn.disabled = true;
     const land = () => {
       cancelRoll = null;
       rolling = false;
@@ -1702,7 +1704,7 @@
         "</p></div>"
       );
     } else if (state.phase === "roll") {
-      actions.push('<button class="bg-btn primary big cat-roll" data-act="roll">🎲 ارمِ النرد</button>');
+      actions.push('<button class="bg-btn primary big cat-roll" data-act="roll"' + (AI.isCpu(cur()) || rolling ? " disabled" : "") + ">🎲 ارمِ النرد</button>");
       actions.push('<p class="cat-hint">الإنتاج يعتمد على مجموع النرد. الرقم 7 يفعّل قاطع الطريق.</p>');
     } else if (state.phase === "robber") {
       actions.push('<div class="cat-setup-note robber"><span>☠</span><p>اضغط على حقل مضيء لنقل قاطع الطريق.</p></div>');

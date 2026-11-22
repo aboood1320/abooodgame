@@ -1173,6 +1173,95 @@
     };
   }
 
+  /* ------------------------------ نرد في منتصف اللوحة عند الحاجة إلى الرمي ------------------------------ */
+
+  /* كل إدخال: زر الرمي الموجود في اللعبة، واللوحة التي يظهر النرد في منتصفها، وعدد النردات.
+     النرد ينوب عن الزر الأصلي: يظهر فقط حين يكون الزر مفعّلًا (أي حين يحقّ لك الرمي)،
+     وعند النقر عليه يضغط الزر نفسه، فتبقى كل شروط اللعبة ومنطقها دون تغيير. */
+  const ROLL_PADS = [
+    { btn: "[data-sn-roll]", host: ".sn-board", dice: 1 },
+    { btn: "[data-ld-roll]", host: ".ld-board", dice: 1 },
+    { btn: "[data-pc-roll]", host: ".pc-board", dice: 2 },
+    { btn: '[data-act="roll"]', host: ".tav-board", dice: 2 },
+    { btn: ".cat-roll", host: ".cat-board-wrap", dice: 2 },
+  ];
+
+  function makeRollPad(button, count) {
+    const pad = document.createElement("button");
+    pad.type = "button";
+    pad.className = "fx-rollpad";
+    pad.setAttribute("aria-label", "ارمِ النرد");
+    const wrap = document.createElement("span");
+    wrap.className = "fx-rollpad-dice";
+    const dice = [];
+    for (let i = 0; i < count; i++) {
+      const die = document.createElement("span");
+      die.className = "fx-tumble-die";
+      for (let k = 0; k < 9; k++) die.appendChild(document.createElement("i"));
+      wrap.appendChild(die);
+      dice.push(die);
+    }
+    const label = document.createElement("small");
+    label.textContent = "اضغط للرمي";
+    pad.appendChild(wrap);
+    pad.appendChild(label);
+    const randomFace = () => 1 + Math.floor(Math.random() * 6);
+    dice.forEach((die) => setTumbleFace(die, randomFace()));
+    /* تتبدّل أوجه النرد ببطء لجذب الانتباه، ويتوقف المؤقّت من تلقاء نفسه عند إزالة اللوحة */
+    const timer = setInterval(() => {
+      if (!pad.isConnected) {
+        clearInterval(timer);
+        return;
+      }
+      dice.forEach((die) => setTumbleFace(die, randomFace()));
+    }, 900);
+    pad._btn = button;
+    pad.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (pad.disabled) return;
+      pad.disabled = true;
+      if (button.isConnected && !button.disabled) button.click();
+    });
+    return pad;
+  }
+
+  function syncRollPads() {
+    ROLL_PADS.forEach((cfg) => {
+      const host = document.querySelector(cfg.host);
+      if (!host) return;
+      const btn = document.querySelector(cfg.btn);
+      const existing = host.querySelector(":scope > .fx-rollpad");
+      const wanted = !!btn && !btn.disabled && btn.getClientRects().length > 0;
+      if (!wanted) {
+        if (existing) existing.remove();
+        return;
+      }
+      if (existing && existing._btn === btn) return;
+      if (existing) existing.remove();
+      if (window.getComputedStyle(host).position === "static") host.style.position = "relative";
+      host.appendChild(makeRollPad(btn, cfg.dice));
+    });
+  }
+
+  let rollPadScheduled = false;
+  function scheduleRollPads() {
+    if (rollPadScheduled) return;
+    rollPadScheduled = true;
+    requestAnimationFrame(() => {
+      rollPadScheduled = false;
+      syncRollPads();
+    });
+  }
+  if (typeof MutationObserver === "function" && document.body) {
+    new MutationObserver(scheduleRollPads).observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["disabled"],
+    });
+  }
+
   function flyCard(fromEl, toEl, opts) {
     if (!motionEnabled() || !fromEl || !toEl) return null;
     const o = Object.assign({ color: "#e8dfc9", ink: "#27332e", label: "▮", duration: 460 }, opts || {});
