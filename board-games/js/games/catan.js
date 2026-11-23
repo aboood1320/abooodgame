@@ -1739,6 +1739,31 @@
     );
   }
 
+  /* هل بقي للاعب فعل مفيد: بناء يقدر عليه، بطاقة تطوّر يمكن لعبها، أو تبادل مع البنك/الموانئ؟ */
+  function hasUsefulAction(p) {
+    if (state.freeRoads || canPay(p, COSTS.road) || canPay(p, COSTS.settlement) || canPay(p, COSTS.city)) return true;
+    if (canPay(p, COSTS.dev) && state.deck.length) return true;
+    if (p.dev.some((card) => card.type !== "vp" && canPlayDev(p, card))) return true;
+    return RES_LIST.some((r) => (p.res[r] || 0) >= bestTradeRatio(p, r));
+  }
+
+  /* زر «إنهاء الدور» في منتصف الجزيرة عندما لا يبقى للاعب شيء يفعله */
+  function syncEndPad(host) {
+    if (!FX || !FX.centerPad || !rootRef) return;
+    const p = cur();
+    const mine = !!(state && !state.over && state.phase === "action" && p && !AI.isCpu(p) && (!isOnline() || viewerSeat() === state.current));
+    const show = mine && !state.mode && !hasUsefulAction(p);
+    FX.centerPad(host, show ? {
+      key: "end",
+      icon: "✅",
+      label: "إنهاء الدور",
+      onClick: () => {
+        const btn = rootRef && rootRef.querySelector('[data-act="end"]');
+        if (btn) btn.click();
+      },
+    } : null);
+  }
+
   function render() {
     if (!rootRef) return;
     const wrap = document.createElement("div");
@@ -1790,6 +1815,7 @@
 
     rootRef.innerHTML = "";
     rootRef.appendChild(wrap);
+    syncEndPad(boardWrap);
 
     // أحداث اللوحة
     const svg = boardWrap.querySelector(".cat-svg");

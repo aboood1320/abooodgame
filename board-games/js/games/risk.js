@@ -3298,6 +3298,25 @@
       (rule("cards") === "classic" ? " مكافأة الإقليم المطابق +2 كتيبة." : "") + "</p></div>";
   }
 
+  /* زر «إنهاء الدور» في منتصف الخريطة عندما لا يبقى للقائد أي هجوم ممكن (لا إقليم فيه كتيبتان مجاور لعدو) ولا تحصين متاح */
+  function syncEndPad() {
+    if (!FX || !FX.centerPad || !mapViewport) return;
+    let show = false;
+    if (state && !state.over && state.phase === "attack" && !state.pendingMove && !rolling && canControl() && state.toPlace <= 0 && !handLimitBlocked(cur())) {
+      const canAttack = territoriesOf(state.current).some((id) => state.troops[id] >= 2 && adjacentEnemies(id, state.current).length > 0);
+      show = !canAttack && !fortifyMovable();
+    }
+    FX.centerPad(mapViewport, show ? {
+      key: "end",
+      icon: "✅",
+      label: "إنهاء الدور",
+      onClick: () => {
+        const btn = rootRef && rootRef.querySelector('[data-act="end"]:not(:disabled)');
+        if (btn) btn.click();
+      },
+    } : null);
+  }
+
   function render() {
     if (!rootRef || !state || !ready) return;
     const viewer = viewerSeat();
@@ -3316,6 +3335,7 @@
       noticeEl.classList.toggle("is-over", !!state.over);
     }
     updateStatus();
+    syncEndPad();
     syncCpu();
   }
 

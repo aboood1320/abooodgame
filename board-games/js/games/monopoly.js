@@ -2590,6 +2590,22 @@
     }
   }
 
+  /* زر «إنهاء الدور» في منتصف اللوحة حين ينتهي إجراء الدور ولا يبقى إلا إنهاؤه (بعد الرمي ومعالجة المربع — بلا شراء أو مزاد معلّق) */
+  function syncEndPad() {
+    if (!FX || !FX.centerPad || !rootRef) return;
+    const host = rootRef.querySelector(".mono-board");
+    const show = !!(state && !state.over && state.phase === "end" && canActNow() && rootRef.querySelector('[data-act="endTurn"]'));
+    FX.centerPad(host, show ? {
+      key: "end",
+      icon: "✅",
+      label: "إنهاء الدور",
+      onClick: () => {
+        const btn = rootRef && rootRef.querySelector('[data-act="endTurn"]');
+        if (btn) btn.click();
+      },
+    } : null);
+  }
+
   function render() {
     if (!rootRef || !state) return;
     const wrap = document.createElement("div");
@@ -2661,6 +2677,7 @@
     wrap.querySelectorAll("[data-unmortgage]").forEach((btn) => btn.addEventListener("click", () => {
       if (canActNow()) unmortgage(Number(btn.dataset.unmortgage));
     }));
+    syncEndPad();
     syncCpu();
   }
 

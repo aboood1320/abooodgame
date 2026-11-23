@@ -1184,9 +1184,42 @@
     { btn: "[data-pc-roll]", host: ".pc-board", dice: 2 },
     { btn: '[data-act="roll"]', host: ".tav-board", dice: 2 },
     { btn: ".cat-roll", host: ".cat-board-wrap", dice: 2 },
+    /* أزرار إجراء: label وicon بدل عدد النرد. blockers: إن وجد أي عنصر يطابقها فهناك فعل آخر ممكن فلا يظهر الزر. */
+    { btn: "[data-pc-end]", host: ".pc-board", icon: "✅", label: "إنهاء الدور" },
+    { btn: "[data-sy-draw]", host: ".sy-board", icon: "🃏", label: "اسحب بطاقة" },
+    { btn: "[data-sy-skip]", host: ".sy-board", icon: "⏭", label: "تخطَّ الدور", blockers: "[data-sy-move],[data-sy-sorry]" },
   ];
 
-  function makeRollPad(button, count) {
+  /* زر إجراء كبير: أيقونة ونص */
+  function buildActionPad(icon, text) {
+    const pad = document.createElement("button");
+    pad.type = "button";
+    pad.className = "fx-rollpad is-action";
+    pad.setAttribute("aria-label", text);
+    const ic = document.createElement("span");
+    ic.className = "fx-pad-icon";
+    ic.textContent = icon;
+    const label = document.createElement("small");
+    label.textContent = text;
+    pad.appendChild(ic);
+    pad.appendChild(label);
+    return pad;
+  }
+
+  function makeRollPad(button, cfg) {
+    if (cfg.label) {
+      const action = buildActionPad(cfg.icon || "✅", cfg.label);
+      action._btn = button;
+      action.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        if (action.disabled) return;
+        action.disabled = true;
+        if (button.isConnected && !button.disabled) button.click();
+      });
+      return action;
+    }
+    const count = cfg.dice || 1;
     const pad = document.createElement("button");
     pad.type = "button";
     pad.className = "fx-rollpad";
@@ -1227,12 +1260,13 @@
   }
 
   function syncRollPads() {
-    ROLL_PADS.forEach((cfg) => {
+    ROLL_PADS.forEach((cfg, index) => {
       const host = document.querySelector(cfg.host);
       if (!host) return;
       const btn = document.querySelector(cfg.btn);
-      const existing = host.querySelector(":scope > .fx-rollpad");
-      const wanted = !!btn && !btn.disabled && btn.getClientRects().length > 0;
+      const existing = host.querySelector(':scope > .fx-rollpad[data-pad="' + index + '"]');
+      const blocked = !!cfg.blockers && !!document.querySelector(cfg.blockers);
+      const wanted = !!btn && !btn.disabled && !blocked && btn.getClientRects().length > 0;
       if (!wanted) {
         if (existing) existing.remove();
         return;
@@ -1240,8 +1274,44 @@
       if (existing && existing._btn === btn) return;
       if (existing) existing.remove();
       if (window.getComputedStyle(host).position === "static") host.style.position = "relative";
-      host.appendChild(makeRollPad(btn, cfg.dice));
+      const pad = makeRollPad(btn, cfg);
+      pad.setAttribute("data-pad", String(index));
+      host.appendChild(pad);
     });
+  }
+
+  /**
+   * زر إجراء كبير في منتصف اللوحة (إنهاء الدور، سحب ورقة، تمرير...) تستدعيه اللعبة بنفسها بعد كل رسم.
+   * host: عنصر اللوحة. spec: { key, icon, label, onClick } أو null لإزالته.
+   * تكرار الاستدعاء بنفس key لا يُعيد بناء الزر (لا وميض، ولا تضيع نقرة).
+   */
+  function centerPad(host, spec) {
+    if (!host || !host.querySelector) return null;
+    const existing = host.querySelector(':scope > .fx-rollpad[data-pad="game"]');
+    if (!spec) {
+      if (existing) existing.remove();
+      return null;
+    }
+    if (existing && existing._key === spec.key) {
+      existing._onClick = spec.onClick;
+      return existing;
+    }
+    if (existing) existing.remove();
+    if (window.getComputedStyle(host).position === "static") host.style.position = "relative";
+    const pad = buildActionPad(spec.icon || "✅", spec.label || "");
+    pad.setAttribute("data-pad", "game");
+    pad._key = spec.key;
+    pad._onClick = spec.onClick;
+    pad.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (pad.disabled) return;
+      pad.disabled = true;
+      setTimeout(() => { if (pad.isConnected) pad.disabled = false; }, 800);
+      if (typeof pad._onClick === "function") pad._onClick();
+    });
+    host.appendChild(pad);
+    return pad;
   }
 
   let rollPadScheduled = false;
@@ -2526,6 +2596,7 @@
     stagger,
     floatText,
     flyCard,
+    centerPad,
     cardFlight,
     cancelFlights,
     revealCard,

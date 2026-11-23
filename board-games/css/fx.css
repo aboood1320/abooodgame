@@ -1245,6 +1245,9 @@
 .fx-rollpad:disabled { cursor: default; opacity: 0.7; animation: none; }
 .fx-rollpad small { font-size: 0.7rem; font-weight: 900; letter-spacing: 0.02em; color: #f6e2a8; }
 .fx-rollpad-dice { display: flex; align-items: center; gap: 9px; }
+.fx-rollpad.is-action { min-width: 96px; padding: 12px 18px 10px; }
+.fx-rollpad.is-action .fx-pad-icon { font-size: 2rem; line-height: 1; filter: drop-shadow(0 3px 4px rgba(0, 0, 0, 0.5)); animation: fx-rollpad-bob 1.2s ease-in-out infinite; }
+.fx-rollpad.is-action small { font-size: 0.82rem; color: #fff; }
 .fx-rollpad .fx-tumble-die {
   width: 46px;
   height: 46px;
@@ -1268,9 +1271,11 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .fx-rollpad,
+  .fx-rollpad .fx-pad-icon,
   .fx-rollpad .fx-tumble-die { animation: none; }
 }
 html.lite .fx-rollpad,
+html.lite .fx-rollpad .fx-pad-icon,
 html.lite .fx-rollpad .fx-tumble-die { animation: none; }
 
 /* ------------------------------ احترام تقليل الحركة ------------------------------ */
