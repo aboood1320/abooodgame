@@ -1278,6 +1278,80 @@ html.lite .fx-rollpad,
 html.lite .fx-rollpad .fx-pad-icon,
 html.lite .fx-rollpad .fx-tumble-die { animation: none; }
 
+/* ------------------------------ وضع «اللوحة فقط» ------------------------------ */
+
+.bo-hide { display: none !important; }
+body.board-only .bo-layout { grid-template-columns: minmax(0, 1fr) !important; }
+body.board-only .bo-layout.is-flex { flex-direction: column !important; }
+body.board-only .bo-board { width: 100% !important; max-width: none !important; justify-self: stretch; }
+body.board-only .bo-square {
+  width: min(100%, calc(100vh - 200px)) !important;
+  width: min(100%, calc(100dvh - 200px)) !important;
+  max-width: none !important;
+  margin-inline: auto !important;
+}
+body.board-only #gameLogCard { display: none !important; }
+body.board-only #gameView:not([hidden]) { padding-bottom: calc(86px + env(safe-area-inset-bottom, 0px)); }
+#btnGameBoardOnly[aria-pressed="true"],
+#btnFsBoardOnly[aria-pressed="true"] {
+  background: linear-gradient(135deg, rgba(246, 200, 95, 0.32), rgba(246, 200, 95, 0.12));
+  border-color: rgba(246, 200, 95, 0.7);
+  color: #ffe9b0;
+}
+.bo-tray {
+  position: fixed;
+  left: 50%;
+  bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+  z-index: 900;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: min(96vw, 820px);
+  padding: 8px 10px;
+  overflow-x: auto;
+  transform: translateX(-50%);
+  border: 1px solid rgba(246, 200, 95, 0.4);
+  border-radius: 18px;
+  background: linear-gradient(165deg, rgba(20, 38, 46, 0.97), rgba(8, 17, 21, 0.98));
+  box-shadow: 0 18px 38px -12px rgba(0, 0, 0, 0.9);
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.bo-tray::-webkit-scrollbar { display: none; }
+.bo-tray.is-empty { display: none; }
+.bo-status {
+  flex: 0 1 auto;
+  max-width: 38%;
+  overflow: hidden;
+  padding-inline: 4px 8px;
+  color: #f6e2a8;
+  font-size: 0.74rem;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.bo-chip {
+  flex: 0 0 auto;
+  min-height: 40px;
+  padding: 0 15px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 13px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 900;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.bo-chip:hover { background: rgba(255, 255, 255, 0.16); }
+.bo-chip.is-primary {
+  border-color: rgba(246, 200, 95, 0.85);
+  background: linear-gradient(135deg, #f6c85f, #d49a2a);
+  color: #2a1c05;
+}
+.bo-chip:active { transform: scale(0.96); }
+
 /* ------------------------------ احترام تقليل الحركة ------------------------------ */
 
 @media (prefers-reduced-motion: reduce) {
