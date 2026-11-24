@@ -1243,12 +1243,20 @@
     const previousId = selfId;
     const target = cloudGuestTarget || hostId;
     const name = cloudGuestName || "لاعب";
+    /* مهلة طويلة: تحديث صفحة المضيف على شبكة بطيئة قد يستغرق أكثر من دقيقة.
+       لا نعلن انتهاء الغرفة إلا بعد استنفاد المحاولات كلها. */
+    const deadline = Date.now() + 100000;
     setStatus("reconnecting", { reason, guest: true });
+    emit("host-away", {
+      reason: reason || "انقطع الاتصال بالمضيف — نحاول إعادته…",
+      graceMs: Math.max(0, deadline - Date.now()),
+      cloud: true,
+    });
     emit("peer-state", { id: target, state: "reconnecting" });
 
     (async () => {
       let lastError = null;
-      for (let attempt = 0; attempt < 9; attempt += 1) {
+      for (let attempt = 0; attempt < 24 && Date.now() < deadline; attempt += 1) {
         if (cloudClosing || role !== "guest" || !roomStarted) {
           cloudGuestConnecting = false;
           return;
@@ -1261,7 +1269,7 @@
             await sleep(800);
           }
           const conn = peer.connect(target, { reliable: true, metadata: { name } });
-          await waitDcOpen(conn, 8000, peer);
+          await waitDcOpen(conn, 6000, peer);
           if (cloudClosing || role !== "guest" || !roomStarted) {
             try { conn.close(); } catch (err) { /* ignore */ }
             cloudGuestConnecting = false;
@@ -1679,15 +1687,8 @@
   window.addEventListener("pagehide", () => {
     if (!roomStarted) return;
     if (mode === "cloud") {
-      try {
-        if (role === "guest" && hostConn) hostConn.dc.send(JSON.stringify({ t: "__leave" }));
-        if (role === "host" && cloudPeer) {
-          guestConns.forEach((conn) => {
-            if (!channelOpen(conn)) return;
-            try { conn.dc.send(JSON.stringify({ t: "__closed", reason: "انقطع اتصال المضيف.", final: false })); } catch (err) { /* ignore */ }
-          });
-        }
-      } catch (err) { /* ignore */ }
+      /* لا نرسل إغلاقًا عند إخفاء صفحة المضيف أو الضيف: نترك القناة تنقطع طبيعيًا
+         كي يبقى الطرف الآخر في وضع إعادة الاتصال ويستعيد الغرفة نفسها. */
       return;
     }
     /* مضيف الشبكة المحلية: لا نرسل «مغادرة» كي يعلّق الخادم الغرفة بدل إغلاقها،

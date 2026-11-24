@@ -36,6 +36,7 @@
     wasInGame: false,
     kicked: false,
     aloneTimer: null,
+    migrateTimer: null,
     handingOver: false,
     peakHumans: 0,
     allowSpectators: true,
@@ -93,6 +94,10 @@
 
   function onPeers() {
     if (!BG.net || !core()) return;
+    if (BG.net.inRoom && st.migrateTimer) {
+      clearTimeout(st.migrateTimer);
+      st.migrateTimer = null;
+    }
     const selfNow = BG.net.selfId || "";
     if (selfNow && st.selfId && selfNow !== st.selfId) st.lastSelfId = st.selfId;
     if (selfNow) st.selfId = selfNow;
@@ -633,6 +638,8 @@
   function softReset() {
     const c = core();
     const s = c.state;
+    clearTimeout(st.migrateTimer);
+    st.migrateTimer = null;
     clearInterval(s.hostTimer);
     clearInterval(s.guestTimer);
     s.hostTimer = null;
@@ -914,6 +921,21 @@
     if (/أنهى المضيف|غادر المضيف|غادر أحد اللاعبين/.test(reason)) return false;
     if (BG.net.isHost) return false;
     if (!st.lastPeers.length || !st.code) return false;
+    /* السحابة: رابط المضيف نفسه قد يعود بعد انقطاع طويل. نمنحه مهلة أخيرة
+       قبل نقل الاستضافة إلى غرفة جديدة، كي لا ينفصل الضيف عن المضيف العائد. */
+    if (BG.net.mode === "cloud") {
+      if (st.migrateTimer) return true;
+      st.wasInGame = !!S().inGame;
+      banner("انقطع الاتصال بالمضيف — مهلة أخيرة قبل نقل الاستضافة…");
+      BG.toast("انقطع الاتصال بالمضيف. سنحاول العودة إلى الغرفة نفسها قبل نقل الاستضافة.", "warn");
+      st.migrateTimer = setTimeout(() => {
+        st.migrateTimer = null;
+        if (st.migrating || st.kicked) return;
+        if (BG.net && BG.net.inRoom) return;
+        startMigration({ reason: reason || "أُغلقت الغرفة." });
+      }, 15000);
+      return true;
+    }
     startMigration({ reason: reason || "أُغلقت الغرفة." });
     return true;
   }
@@ -1287,6 +1309,8 @@
     unpublish();
     clearTimeout(st.aloneTimer);
     st.aloneTimer = null;
+    clearTimeout(st.migrateTimer);
+    st.migrateTimer = null;
     closePanel();
     st.visibility = "private";
     st.banned.clear();

@@ -3474,9 +3474,19 @@
       if (state.isHost) return;
       const previous = info && info.previousId;
       if (previous) state.reclaimId = previous;
+      const wasAway = state.hostAway;
+      state.hostAway = false;
       updateHudConnection("online");
-      if (!state.inGame) return;
-      BG.toast("عاد الاتصال — جارٍ استرداد مقعدك…", "good");
+      if (!state.inGame) {
+        renderLobby();
+        return;
+      }
+      if (wasAway) {
+        showWaiting(false);
+        BG.toast("عاد الاتصال بالمضيف — جارٍ مزامنة الطاولة…", "good");
+      } else {
+        BG.toast("عاد الاتصال — جارٍ استرداد مقعدك…", "good");
+      }
       scheduleClaimRetries();
       scheduleNeedSync("reconnect", 1200);
     });
