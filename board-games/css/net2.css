@@ -227,6 +227,16 @@
 .net-player-ping[data-quality="fair"] { color: #f0c35a; border-color: rgba(240, 195, 90, 0.35); }
 .net-player-ping[data-quality="poor"] { color: #ef8074; border-color: rgba(239, 128, 116, 0.4); }
 
+/* طابور اتصال اللاعبين في اللوبي: المضيف يرى من لم يكتمل اتصاله بعد */
+.net-note.is-pending {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-color: rgba(240, 195, 90, 0.35);
+  background: rgba(240, 195, 90, 0.08);
+  color: #f3d69a;
+}
+
 /* دور اللاعب المحلي */
 .net-hud.is-my-turn {
   border-color: rgba(76, 201, 164, 0.8);
@@ -374,4 +384,37 @@
   .net-profile-card { flex-wrap: wrap; }
   .net-profile-main { flex-basis: calc(100% - 58px); }
   .net-profile-edit { flex: 1 1 100%; justify-content: center; }
+}
+
+/* شاشات 320–380px: أزرار الرمز والدعوة تبقى كبيرة وقابلة للضغط دون كسر التخطيط */
+@media (max-width: 380px) {
+  .net-lobby { padding: 14px 10px 22px; }
+  .net-room-head { padding-inline-start: 40px; }
+  .net-code-box { gap: 8px; padding: 10px 8px; }
+  .net-code-box strong { font-size: 1.45rem; letter-spacing: 0.18em; }
+  .net-code-box .bg-btn {
+    flex: 1 1 calc(50% - 4px);
+    min-height: 38px;
+    padding: 4px 8px;
+    font-size: 0.72rem;
+  }
+  .net-code-box [data-net-copy] { flex-basis: 100%; }
+  .net-host-controls { padding: 12px 10px; border-radius: 14px; }
+  .net-controls-grid { grid-template-columns: 1fr; }
+  .net-player-list { grid-template-columns: 1fr; }
+  .net-player { padding: 8px 10px; }
+  .net-player-name { white-space: normal; overflow-wrap: anywhere; }
+  .net-hud { gap: 4px; padding: 6px 8px; font-size: 0.66rem; }
+  .net-hud-code { letter-spacing: 0.06em; }
+  .net-hud-sep { display: none; }
+  .net-hud-role {
+    display: inline-block;
+    max-width: 24vw;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .net-hud-bell,
+  .net-hud-react { padding: 2px 5px; }
+  .net-resume-actions .bg-btn { flex: 1 1 100%; }
 }

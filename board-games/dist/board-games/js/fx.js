@@ -1173,6 +1173,414 @@
     };
   }
 
+  /* ------------------------------ نرد في منتصف اللوحة عند الحاجة إلى الرمي ------------------------------ */
+
+  /* كل إدخال: زر الرمي الموجود في اللعبة، واللوحة التي يظهر النرد في منتصفها، وعدد النردات.
+     النرد ينوب عن الزر الأصلي: يظهر فقط حين يكون الزر مفعّلًا (أي حين يحقّ لك الرمي)،
+     وعند النقر عليه يضغط الزر نفسه، فتبقى كل شروط اللعبة ومنطقها دون تغيير. */
+  const ROLL_PADS = [
+    { btn: "[data-sn-roll]", host: ".sn-board", dice: 1 },
+    { btn: "[data-ld-roll]", host: ".ld-board", dice: 1 },
+    { btn: "[data-pc-roll]", host: ".pc-board", dice: 2 },
+    { btn: '[data-act="roll"]', host: ".tav-board", dice: 2 },
+    { btn: ".cat-roll", host: ".cat-board-wrap", dice: 2 },
+    /* أزرار إجراء: label وicon بدل عدد النرد. blockers: إن وجد أي عنصر يطابقها فهناك فعل آخر ممكن فلا يظهر الزر. */
+    { btn: "[data-pc-end]", host: ".pc-board", icon: "✅", label: "إنهاء الدور" },
+    { btn: "[data-sy-draw]", host: ".sy-board", icon: "🃏", label: "اسحب بطاقة" },
+    { btn: "[data-sy-skip]", host: ".sy-board", icon: "⏭", label: "تخطَّ الدور", blockers: "[data-sy-move],[data-sy-sorry]" },
+  ];
+
+  /* زر إجراء كبير: أيقونة ونص */
+  function buildActionPad(icon, text) {
+    const pad = document.createElement("button");
+    pad.type = "button";
+    pad.className = "fx-rollpad is-action";
+    pad.setAttribute("aria-label", text);
+    const ic = document.createElement("span");
+    ic.className = "fx-pad-icon";
+    ic.textContent = icon;
+    const label = document.createElement("small");
+    label.textContent = text;
+    pad.appendChild(ic);
+    pad.appendChild(label);
+    return pad;
+  }
+
+  function makeRollPad(button, cfg) {
+    if (cfg.label) {
+      const action = buildActionPad(cfg.icon || "✅", cfg.label);
+      action._btn = button;
+      action.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        if (action.disabled) return;
+        action.disabled = true;
+        if (button.isConnected && !button.disabled) button.click();
+      });
+      return action;
+    }
+    const count = cfg.dice || 1;
+    const pad = document.createElement("button");
+    pad.type = "button";
+    pad.className = "fx-rollpad";
+    pad.setAttribute("aria-label", "ارمِ النرد");
+    const wrap = document.createElement("span");
+    wrap.className = "fx-rollpad-dice";
+    const dice = [];
+    for (let i = 0; i < count; i++) {
+      const die = document.createElement("span");
+      die.className = "fx-tumble-die";
+      for (let k = 0; k < 9; k++) die.appendChild(document.createElement("i"));
+      wrap.appendChild(die);
+      dice.push(die);
+    }
+    const label = document.createElement("small");
+    label.textContent = "اضغط للرمي";
+    pad.appendChild(wrap);
+    pad.appendChild(label);
+    const randomFace = () => 1 + Math.floor(Math.random() * 6);
+    dice.forEach((die) => setTumbleFace(die, randomFace()));
+    /* تتبدّل أوجه النرد ببطء لجذب الانتباه، ويتوقف المؤقّت من تلقاء نفسه عند إزالة اللوحة */
+    const timer = setInterval(() => {
+      if (!pad.isConnected) {
+        clearInterval(timer);
+        return;
+      }
+      dice.forEach((die) => setTumbleFace(die, randomFace()));
+    }, 900);
+    pad._btn = button;
+    pad.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (pad.disabled) return;
+      pad.disabled = true;
+      if (button.isConnected && !button.disabled) button.click();
+    });
+    return pad;
+  }
+
+  function syncRollPads() {
+    ROLL_PADS.forEach((cfg, index) => {
+      const host = document.querySelector(cfg.host);
+      if (!host) return;
+      const btn = document.querySelector(cfg.btn);
+      const existing = host.querySelector(':scope > .fx-rollpad[data-pad="' + index + '"]');
+      const blocked = !!cfg.blockers && !!document.querySelector(cfg.blockers);
+      const wanted = !!btn && !btn.disabled && !blocked && btn.getClientRects().length > 0;
+      if (!wanted) {
+        if (existing) existing.remove();
+        return;
+      }
+      if (existing && existing._btn === btn) return;
+      if (existing) existing.remove();
+      if (window.getComputedStyle(host).position === "static") host.style.position = "relative";
+      const pad = makeRollPad(btn, cfg);
+      pad.setAttribute("data-pad", String(index));
+      host.appendChild(pad);
+    });
+  }
+
+  /**
+   * زر إجراء كبير في منتصف اللوحة (إنهاء الدور، سحب ورقة، تمرير...) تستدعيه اللعبة بنفسها بعد كل رسم.
+   * host: عنصر اللوحة. spec: { key, icon, label, onClick } أو null لإزالته.
+   * تكرار الاستدعاء بنفس key لا يُعيد بناء الزر (لا وميض، ولا تضيع نقرة).
+   */
+  function centerPad(host, spec) {
+    if (!host || !host.querySelector) return null;
+    const existing = host.querySelector(':scope > .fx-rollpad[data-pad="game"]');
+    if (!spec) {
+      if (existing) existing.remove();
+      return null;
+    }
+    if (existing && existing._key === spec.key) {
+      existing._onClick = spec.onClick;
+      return existing;
+    }
+    if (existing) existing.remove();
+    if (window.getComputedStyle(host).position === "static") host.style.position = "relative";
+    const pad = buildActionPad(spec.icon || "✅", spec.label || "");
+    pad.setAttribute("data-pad", "game");
+    pad._key = spec.key;
+    pad._onClick = spec.onClick;
+    pad.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (pad.disabled) return;
+      pad.disabled = true;
+      setTimeout(() => { if (pad.isConnected) pad.disabled = false; }, 800);
+      if (typeof pad._onClick === "function") pad._onClick();
+    });
+    host.appendChild(pad);
+    return pad;
+  }
+
+  let rollPadScheduled = false;
+  function scheduleRollPads() {
+    if (rollPadScheduled) return;
+    rollPadScheduled = true;
+    requestAnimationFrame(() => {
+      rollPadScheduled = false;
+      syncRollPads();
+    });
+  }
+  if (typeof MutationObserver === "function" && document.body) {
+    new MutationObserver(scheduleRollPads).observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["disabled"],
+    });
+  }
+
+  /* ------------------------------ وضع «اللوحة فقط» ------------------------------ */
+  /* يخفي اللوحات الجانبية لأي لعبة (يتعرّف على التخطيط وقت التشغيل)، يكبّر اللوحة،
+     ويعرض شريط أوامر أسفل الشاشة يعكس كل أزرار اللوحات المخفيّة المفعّلة (النقر عليها يضغط الزر الأصلي
+     فتبقى كل قواعد اللعبة). لا تُخفى أوراق اللاعب السرّية ولا أي لوحة فيها حقول إدخال. */
+  const BO_KEY = "bg-board-only";
+  const BO_SIDE = /(^|[\s_-])(side|aside|sidebar|rail)([\s_-]|$)/i;
+  let boOn = false;
+  let boApplying = false;
+  let boLayout = null;
+  let boTray = null;
+  let boObservers = [];
+
+  const boStage = () => document.getElementById("gameStage");
+  const boReal = (el) => el.nodeType === 1 && el.tagName !== "SCRIPT" && el.tagName !== "STYLE" && !el.classList.contains("bo-tray") && !el.hasAttribute("hidden");
+  function boArea(el) {
+    const r = el.getBoundingClientRect();
+    return (r.width || 0) * (r.height || 0);
+  }
+  const boClass = (el) => (el.className && el.className.baseVal != null ? el.className.baseVal : String(el.className || ""));
+  function boNeedsKeep(el) {
+    return el.matches(".secret-panel,[data-bo-keep]") || !!el.querySelector(".secret-panel,[data-bo-keep],input,select,textarea,canvas");
+  }
+
+  /* يحدّد عنصر التخطيط واللوحة الرئيسية: ننزل عبر الأغلفة المفردة ثم نختار الابن الأكبر مما ليس جانبيّاً بالاسم */
+  function boFind(stage) {
+    let node = stage;
+    for (let depth = 0; depth < 5; depth++) {
+      const kids = Array.from(node.children).filter(boReal);
+      if (!kids.length) break;
+      if (kids.length === 1) {
+        node = kids[0];
+        continue;
+      }
+      const sideLike = kids.filter((k) => BO_SIDE.test(boClass(k)));
+      const rest = kids.filter((k) => sideLike.indexOf(k) < 0);
+      const pool = rest.length ? rest : kids;
+      const areas = pool.map(boArea);
+      const max = Math.max.apply(null, areas);
+      const big = pool[areas.indexOf(max)];
+      const hasOther = sideLike.length > 0 || kids.some((k) => k !== big && boArea(k) >= (max || 1) * 0.12);
+      if (!hasOther && big.children.length > 1) {
+        node = big;
+        continue;
+      }
+      return { layout: node, board: big };
+    }
+    return { layout: node, board: null };
+  }
+
+  function boVisit(el, board, depth) {
+    Array.from(el.children).forEach((child) => {
+      if (child === board || child.contains(board) || board.contains(child)) return;
+      if (child.classList.contains("bo-tray")) return;
+      if (!boNeedsKeep(child)) {
+        child.classList.add("bo-hide");
+        return;
+      }
+      child.classList.remove("bo-hide");
+      if (depth < 3 && child.children.length > 1) boVisit(child, board, depth + 1);
+    });
+  }
+
+  /* لوحات مربّعة (نسبة 1:1) تُكبَّر حتى تملأ ارتفاع الشاشة بدل حد أقصى ثابت */
+  function boEnlarge(board) {
+    board.querySelectorAll("[class*='board']:not(.bo-square)").forEach((el) => {
+      if (el instanceof window.SVGElement) return;
+      const ratio = window.getComputedStyle(el).aspectRatio;
+      if (ratio && /^1(\.0+)?\s*(\/\s*1(\.0+)?)?$/.test(String(ratio).trim())) el.classList.add("bo-square");
+    });
+  }
+
+  function boCandidates(stage) {
+    const list = [];
+    stage.querySelectorAll(".bo-hide button, .bo-hide [role='button']").forEach((b) => {
+      if (b.disabled || b.getAttribute("aria-disabled") === "true" || b.hasAttribute("hidden")) return;
+      const text = (b.getAttribute("aria-label") || b.textContent || "").replace(/\s+/g, " ").trim();
+      if (!text || text.length > 40) return;
+      list.push({ el: b, text, primary: b.classList.contains("primary") });
+    });
+    list.sort((a, b) => Number(b.primary) - Number(a.primary));
+    return list.slice(0, 40);
+  }
+
+  function boTrayClick(event) {
+    const chip = event.target.closest(".bo-chip");
+    if (!chip || !boTray) return;
+    const item = boTray._items && boTray._items[Number(chip.getAttribute("data-i"))];
+    if (!item) return;
+    let el = item.el;
+    if (!el.isConnected || el.disabled) {
+      const stage = boStage();
+      const again = stage && boCandidates(stage).find((c) => c.text === item.text);
+      el = again ? again.el : null;
+    }
+    if (el) el.click();
+  }
+
+  function boTraySync() {
+    const stage = boStage();
+    const view = document.getElementById("gameView");
+    if (!boOn || !stage || !view || view.hidden) {
+      if (boTray) {
+        boTray.remove();
+        boTray = null;
+      }
+      return;
+    }
+    const items = boCandidates(stage);
+    const statusEl = document.getElementById("gameStatus");
+    const status = statusEl ? statusEl.textContent.trim() : "";
+    const sig = status + "||" + items.map((i) => i.text + (i.primary ? "*" : "")).join("|");
+    if (!boTray) {
+      boTray = document.createElement("div");
+      boTray.className = "bo-tray";
+      boTray.setAttribute("role", "toolbar");
+      boTray.addEventListener("click", boTrayClick);
+      document.body.appendChild(boTray);
+    }
+    boTray._items = items;
+    if (boTray._sig === sig) return;
+    boTray._sig = sig;
+    boTray.textContent = "";
+    if (status) {
+      const st = document.createElement("span");
+      st.className = "bo-status";
+      st.textContent = status;
+      boTray.appendChild(st);
+    }
+    items.forEach((item, i) => {
+      const chip = document.createElement("button");
+      chip.type = "button";
+      chip.className = "bo-chip" + (item.primary ? " is-primary" : "");
+      chip.setAttribute("data-i", String(i));
+      chip.textContent = item.text;
+      boTray.appendChild(chip);
+    });
+    boTray.classList.toggle("is-empty", !items.length && !status);
+  }
+
+  function boApply() {
+    const stage = boStage();
+    if (!boOn || !stage || boApplying) return;
+    boApplying = true;
+    try {
+      const found = boFind(stage);
+      if (found.board) {
+        if (boLayout && boLayout !== found.layout) boLayout.classList.remove("bo-layout", "is-flex");
+        boLayout = found.layout;
+        boLayout.classList.add("bo-layout");
+        boLayout.classList.toggle("is-flex", window.getComputedStyle(boLayout).display === "flex");
+        found.board.classList.add("bo-board");
+        boVisit(found.layout, found.board, 0);
+        boEnlarge(found.board);
+      }
+      boTraySync();
+    } finally {
+      boApplying = false;
+    }
+  }
+
+  function boClear() {
+    document.querySelectorAll(".bo-hide").forEach((el) => el.classList.remove("bo-hide"));
+    document.querySelectorAll(".bo-layout,.bo-board,.bo-square").forEach((el) => el.classList.remove("bo-layout", "is-flex", "bo-board", "bo-square"));
+    if (boTray) {
+      boTray.remove();
+      boTray = null;
+    }
+    boLayout = null;
+  }
+
+  function boStart() {
+    boStop();
+    const stage = boStage();
+    if (!stage || typeof MutationObserver !== "function") return;
+    /* المراقب يعمل كمهمّة دقيقة (microtask) قبل أن يرسم المتصفح، فلا تلمح لوحات جانبية تومض عند كل إعادة رسم */
+    const onStage = new MutationObserver(() => boApply());
+    onStage.observe(stage, { childList: true, subtree: true, attributes: true, attributeFilter: ["disabled"] });
+    boObservers.push(onStage);
+    const status = document.getElementById("gameStatus");
+    if (status) {
+      const onStatus = new MutationObserver(() => boTraySync());
+      onStatus.observe(status, { childList: true, characterData: true, subtree: true });
+      boObservers.push(onStatus);
+    }
+    const view = document.getElementById("gameView");
+    if (view) {
+      const onView = new MutationObserver(() => boTraySync());
+      onView.observe(view, { attributes: true, attributeFilter: ["hidden"] });
+      boObservers.push(onView);
+    }
+  }
+
+  function boStop() {
+    boObservers.forEach((o) => o.disconnect());
+    boObservers = [];
+  }
+
+  function setBoardOnly(on, persist) {
+    boOn = !!on;
+    document.body.classList.toggle("board-only", boOn);
+    ["btnGameBoardOnly", "btnFsBoardOnly"].forEach((id) => {
+      const btn = document.getElementById(id);
+      if (btn) btn.setAttribute("aria-pressed", String(boOn));
+    });
+    if (persist !== false) {
+      try { window.localStorage.setItem(BO_KEY, boOn ? "1" : "0"); } catch (error) { /* لا تهم */ }
+    }
+    if (boOn) {
+      boStart();
+      boApply();
+    } else {
+      boStop();
+      boClear();
+    }
+    /* التخطيط تغيّر: نبلّغ الألعاب التي تقيس نافذتها (مثل خريطة Risk) */
+    try { window.dispatchEvent(new Event("resize")); } catch (error) { /* لا تهم */ }
+  }
+
+  function initBoardOnly() {
+    const make = (id, cls, html) => {
+      if (document.getElementById(id)) return;
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.id = id;
+      btn.className = cls;
+      btn.setAttribute("aria-pressed", "false");
+      btn.setAttribute("title", "وضع «اللوحة فقط»: إخفاء اللوحات الجانبية وتكبير اللوحة");
+      btn.innerHTML = html;
+      btn.addEventListener("click", () => setBoardOnly(!boOn));
+      return btn;
+    };
+    const actions = document.querySelector(".game-toolbar-actions");
+    if (actions) {
+      const btn = make("btnGameBoardOnly", "bg-btn small", '<span aria-hidden="true">◱</span><span>اللوحة فقط</span>');
+      const anchor = document.getElementById("btnGameFullscreen");
+      if (btn) actions.insertBefore(btn, anchor || null);
+    }
+    const hud = document.getElementById("fsHud");
+    if (hud) {
+      const btn = make("btnFsBoardOnly", "fs-win-toggle", '<span aria-hidden="true">◱</span><span>اللوحة</span>');
+      const anchor = document.getElementById("btnExitFullscreen");
+      if (btn) hud.insertBefore(btn, anchor || null);
+    }
+    let saved = false;
+    try { saved = window.localStorage.getItem(BO_KEY) === "1"; } catch (error) { saved = false; }
+    if (saved) setBoardOnly(true, false);
+  }
+  initBoardOnly();
+
   function flyCard(fromEl, toEl, opts) {
     if (!motionEnabled() || !fromEl || !toEl) return null;
     const o = Object.assign({ color: "#e8dfc9", ink: "#27332e", label: "▮", duration: 460 }, opts || {});
@@ -2437,6 +2845,8 @@
     stagger,
     floatText,
     flyCard,
+    setBoardOnly,
+    centerPad,
     cardFlight,
     cancelFlights,
     revealCard,

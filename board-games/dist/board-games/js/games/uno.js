@@ -1022,6 +1022,33 @@
     });
   }
 
+  /* زر كبير في منتصف الطاولة عند الحاجة: اسحب إن لم تملك ورقة تُلعب، أنهِ الدور إن سحبت ولم تنفع،
+     والجولة التالية عند انتهاء الجولة. يضغط الزر الأصلي فتبقى كل القواعد كما هي. */
+  function syncCenterPad() {
+    if (!FX || !FX.centerPad || !rootRef || !state) return;
+    const table = rootRef.querySelector(".uno-table");
+    if (!table) return;
+    let spec = null;
+    const player = cur();
+    const mine = !state.over && player && !AI.isCpu(player) && (!isOnline() || viewerIndex() === state.current);
+    if (mine) {
+      const hasPlay = player.hand.some((card) => isPlayable(card, player.index));
+      if (state.phase === "roundover") spec = { key: "next", act: "next-round", icon: "🔄", label: "الجولة التالية" };
+      else if (state.phase === "play" && state.handRevealed && !hasPlay) {
+        spec = { key: "draw" + state.pendingDraw, act: "draw", icon: "🂠", label: state.pendingDraw > 0 ? "اسحب " + state.pendingDraw + " بطاقات" : "اسحب ورقة" };
+      } else if (state.phase === "drawn" && !hasPlay) spec = { key: "pass", act: "pass", icon: "⏭", label: "أنهِ الدور" };
+    }
+    FX.centerPad(table, spec && {
+      key: spec.key,
+      icon: spec.icon,
+      label: spec.label,
+      onClick: () => {
+        const btn = rootRef && rootRef.querySelector('[data-act="' + spec.act + '"]:not(:disabled)');
+        if (btn) btn.click();
+      },
+    });
+  }
+
   function render() {
     if (!rootRef || !state) return;
     const wrap = document.createElement("div");
@@ -1078,6 +1105,7 @@
     rootRef.appendChild(wrap);
     lastSnap = snap;
     runFlights(jobs);
+    syncCenterPad();
     syncCpu();
   }
 

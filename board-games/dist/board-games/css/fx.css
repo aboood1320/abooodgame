@@ -1212,6 +1212,146 @@
 .fx-reveal.is-chest .fx-reveal-face.back { background: repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.12) 0 8px, transparent 8px 16px), linear-gradient(145deg, #4d8fd6, #1f4f8f); }
 .fx-reveal.is-chest .fx-reveal-face.front small { color: #1f5aa6; }
 
+/* ------------------------------ نرد في منتصف اللوحة (يظهر عند الحاجة إلى الرمي) ------------------------------ */
+
+.fx-rollpad {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  padding: 11px 15px 9px;
+  transform: translate(-50%, -50%);
+  border: 2px solid rgba(255, 255, 255, 0.78);
+  border-radius: 22px;
+  background: linear-gradient(160deg, rgba(22, 42, 50, 0.94), rgba(8, 18, 22, 0.96));
+  color: #fff;
+  font: inherit;
+  cursor: pointer;
+  box-shadow: 0 14px 30px -8px rgba(0, 0, 0, 0.75);
+  animation: fx-rollpad-pulse 1.6s ease-in-out infinite;
+  -webkit-tap-highlight-color: transparent;
+}
+.fx-rollpad:hover,
+.fx-rollpad:focus-visible {
+  transform: translate(-50%, -50%) scale(1.07);
+  border-color: #f6c85f;
+  outline: none;
+}
+.fx-rollpad:active { transform: translate(-50%, -50%) scale(0.96); }
+.fx-rollpad:disabled { cursor: default; opacity: 0.7; animation: none; }
+.fx-rollpad small { font-size: 0.7rem; font-weight: 900; letter-spacing: 0.02em; color: #f6e2a8; }
+.fx-rollpad-dice { display: flex; align-items: center; gap: 9px; }
+.fx-rollpad.is-action { min-width: 96px; padding: 12px 18px 10px; }
+.fx-rollpad.is-action .fx-pad-icon { font-size: 2rem; line-height: 1; filter: drop-shadow(0 3px 4px rgba(0, 0, 0, 0.5)); animation: fx-rollpad-bob 1.2s ease-in-out infinite; }
+.fx-rollpad.is-action small { font-size: 0.82rem; color: #fff; }
+.fx-rollpad .fx-tumble-die {
+  width: 46px;
+  height: 46px;
+  padding: 7px;
+  gap: 2px;
+  border-radius: 12px;
+  animation: fx-rollpad-bob 1.2s ease-in-out infinite;
+}
+.fx-rollpad .fx-tumble-die:nth-child(2) { animation-delay: 0.3s; }
+@keyframes fx-rollpad-pulse {
+  0%, 100% { box-shadow: 0 14px 30px -8px rgba(0, 0, 0, 0.75), 0 0 0 0 rgba(246, 200, 95, 0.6); }
+  50% { box-shadow: 0 14px 30px -8px rgba(0, 0, 0, 0.75), 0 0 0 11px rgba(246, 200, 95, 0); }
+}
+@keyframes fx-rollpad-bob {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-4px) rotate(-7deg); }
+}
+@media (max-width: 640px) {
+  .fx-rollpad { padding: 8px 11px 7px; gap: 5px; }
+  .fx-rollpad .fx-tumble-die { width: 38px; height: 38px; padding: 6px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .fx-rollpad,
+  .fx-rollpad .fx-pad-icon,
+  .fx-rollpad .fx-tumble-die { animation: none; }
+}
+html.lite .fx-rollpad,
+html.lite .fx-rollpad .fx-pad-icon,
+html.lite .fx-rollpad .fx-tumble-die { animation: none; }
+
+/* ------------------------------ وضع «اللوحة فقط» ------------------------------ */
+
+.bo-hide { display: none !important; }
+body.board-only .bo-layout { grid-template-columns: minmax(0, 1fr) !important; }
+body.board-only .bo-layout.is-flex { flex-direction: column !important; }
+body.board-only .bo-board { width: 100% !important; max-width: none !important; justify-self: stretch; }
+body.board-only .bo-square {
+  width: min(100%, calc(100vh - 200px)) !important;
+  width: min(100%, calc(100dvh - 200px)) !important;
+  max-width: none !important;
+  margin-inline: auto !important;
+}
+body.board-only #gameLogCard { display: none !important; }
+body.board-only #gameView:not([hidden]) { padding-bottom: calc(86px + env(safe-area-inset-bottom, 0px)); }
+#btnGameBoardOnly[aria-pressed="true"],
+#btnFsBoardOnly[aria-pressed="true"] {
+  background: linear-gradient(135deg, rgba(246, 200, 95, 0.32), rgba(246, 200, 95, 0.12));
+  border-color: rgba(246, 200, 95, 0.7);
+  color: #ffe9b0;
+}
+.bo-tray {
+  position: fixed;
+  left: 50%;
+  bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+  z-index: 900;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: min(96vw, 820px);
+  padding: 8px 10px;
+  overflow-x: auto;
+  transform: translateX(-50%);
+  border: 1px solid rgba(246, 200, 95, 0.4);
+  border-radius: 18px;
+  background: linear-gradient(165deg, rgba(20, 38, 46, 0.97), rgba(8, 17, 21, 0.98));
+  box-shadow: 0 18px 38px -12px rgba(0, 0, 0, 0.9);
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.bo-tray::-webkit-scrollbar { display: none; }
+.bo-tray.is-empty { display: none; }
+.bo-status {
+  flex: 0 1 auto;
+  max-width: 38%;
+  overflow: hidden;
+  padding-inline: 4px 8px;
+  color: #f6e2a8;
+  font-size: 0.74rem;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.bo-chip {
+  flex: 0 0 auto;
+  min-height: 40px;
+  padding: 0 15px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 13px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 900;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.bo-chip:hover { background: rgba(255, 255, 255, 0.16); }
+.bo-chip.is-primary {
+  border-color: rgba(246, 200, 95, 0.85);
+  background: linear-gradient(135deg, #f6c85f, #d49a2a);
+  color: #2a1c05;
+}
+.bo-chip:active { transform: scale(0.96); }
+
 /* ------------------------------ احترام تقليل الحركة ------------------------------ */
 
 @media (prefers-reduced-motion: reduce) {

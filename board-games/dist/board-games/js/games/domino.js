@@ -255,6 +255,7 @@
   }
 
   function advance() {
+    state.awaiting = null;
     state.current = (state.current + 1) % state.players.length;
     state.phase = "play";
     state.busy = false;
@@ -275,6 +276,43 @@
   }
 
   function handleStuck(player) {
+    if (!state || state.over) return;
+    /* لاعب بشري على جهازه (دون أونلاين): لا حجر مطابق — ننتظر ضغطه على زر منتصف الطاولة
+       لسحب حجر من السوق، أو لتمرير الدور إن لم يبق في السوق شيء. */
+    if (!player.isCpu && !isOnline() && humanCanAct(player)) {
+      state.awaiting = state.boneyard.length ? "draw" : "pass";
+      state.notice = state.awaiting === "draw"
+        ? "لا يوجد حجر مطابق — اضغط «اسحب حجرًا» في منتصف الطاولة."
+        : "لا يوجد حجر مطابق ولا حجارة في السوق — اضغط «مرّر الدور» في منتصف الطاولة.";
+      render();
+      updateStatus();
+      return;
+    }
+    autoStuck(player);
+  }
+
+  /* ضغطة اللاعب على زر منتصف الطاولة: نفس مسار السحب/التمرير الذي يسلكه الكمبيوتر */
+  function humanStuckAction(kind) {
+    if (!state || state.over || state.roundOver || state.busy || state.awaiting !== kind) return;
+    const player = cur();
+    if (!player || !humanCanAct(player)) return;
+    state.awaiting = null;
+    autoStuck(player);
+  }
+
+  function syncCenterPad() {
+    if (!FX || !FX.centerPad || !rootRef) return;
+    const host = rootRef.querySelector(".dm-board");
+    let spec = null;
+    if (state && !state.over && !state.roundOver && state.awaiting && !state.busy && cur() && humanCanAct(cur())) {
+      spec = state.awaiting === "draw"
+        ? { key: "draw", icon: "🁣", label: "اسحب حجرًا", onClick: () => humanStuckAction("draw") }
+        : { key: "pass", icon: "⏭", label: "مرّر الدور", onClick: () => humanStuckAction("pass") };
+    }
+    FX.centerPad(host, spec);
+  }
+
+  function autoStuck(player) {
     if (!state || state.over) return;
     if (state.boneyard.length) {
       state.busy = true;
@@ -332,6 +370,7 @@
 
   function endRound(winner) {
     if (!state || state.roundOver) return;
+    state.awaiting = null;
     state.roundOver = true;
     state.phase = "roundEnd";
     state.busy = true;
@@ -582,7 +621,7 @@
       '<span class="dm-end is-left">الطرف الأيسر <b>' + (state.ends[0] == null ? "—" : ar(state.ends[0])) + "</b></span>" +
       '<span class="dm-end is-right">الطرف الأيمن <b>' + (state.ends[1] == null ? "—" : ar(state.ends[1])) + "</b></span>" +
       "</div>" +
-      '<p class="dm-rule-line">إذا لم يطابق أي حجر، يُسحب من السوق تلقائيًا. إن لم يوجد مطابق يُمرَّر الدور.</p>' +
+      '<p class="dm-rule-line">إذا لم يطابق أي حجر، اضغط «اسحب حجرًا» في منتصف الطاولة (وتلقائيًا في الأونلاين وللكمبيوتر). إن لم يوجد مطابق يُمرَّر الدور.</p>' +
       "</section>";
 
     const side =
@@ -603,6 +642,7 @@
       '<div class="dm-foot">' + handHTML() + "</div></div>";
 
     if (FX) FX.screenEnter(rootRef.firstElementChild);
+    syncCenterPad();
   }
 
   /* ------------------------------ الأحداث ------------------------------ */

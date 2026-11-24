@@ -109,7 +109,7 @@
     ["yakutsk", "irkutsk"], ["yakutsk", "kamchatka"],
     ["irkutsk", "mongolia"], ["irkutsk", "kamchatka"],
     ["kamchatka", "mongolia"], ["kamchatka", "japan"],
-    ["mongolia", "japan"], ["mongolia", "china"], ["japan", "china"],
+    ["mongolia", "japan"], ["mongolia", "china"],
     ["china", "siam"], ["china", "india"], ["china", "afghanistan"],
     ["afghanistan", "india"], ["india", "siam"], ["siam", "indonesia"],
     ["indonesia", "newguinea"], ["indonesia", "waustralia"],
@@ -334,7 +334,7 @@
   const CLASSIC_SEA_ROUTES = [
     ["alaska", "kamchatka"], ["brazil", "nafrica"], ["greenland", "iceland"],
     ["iceland", "britain"], ["iceland", "scandinavia"], ["britain", "neurope"],
-    ["britain", "weurope"], ["britain", "scandinavia"], ["japan", "china"],
+    ["britain", "weurope"], ["britain", "scandinavia"],
     ["japan", "mongolia"], ["indonesia", "waustralia"], ["newguinea", "waustralia"],
     ["newguinea", "eaustralia"], ["eafrica", "mideast"], ["madagascar", "eafrica"],
     ["madagascar", "safrica"],
@@ -1051,6 +1051,11 @@
     if (state.pendingMove) return;
     const player = cur();
     if (!player) return;
+    if (state.phase === "attack" && !state.forceTrade) {
+      BG.toast("تبديل البطاقات يكون في مرحلة التعزيز (أو إجباريًا بعد إقصاء قائد).", "warn");
+      if (FX) FX.sound("error");
+      return;
+    }
     const cards = player.cards || [];
     let picks = Array.isArray(indices) && indices.length ? indices.slice() : null;
     if (!picks || !isValidSet(picks, cards)) {
@@ -1077,11 +1082,15 @@
     if (state.phase === "attack") {
       state.phase = "reinforce";
       state.mode = "reinforce";
+      state.selected = null;
     }
+    /* القانون الرسمي: +2 كتيبة مرة واحدة لكل تبديل على إقليم تملكه من الأقاليم المرسومة على البطاقات */
     let territoryBonus = 0;
+    let bonusGiven = false;
     if (rule("cards") === "classic") {
       removed.forEach((card) => {
-        if (!card.terr || state.owner[card.terr] !== player.index) return;
+        if (bonusGiven || !card.terr || state.owner[card.terr] !== player.index) return;
+        bonusGiven = true;
         state.troops[card.terr] += 2;
         territoryBonus += 2;
         if (FX) {
@@ -1094,6 +1103,7 @@
     }
     tradeSel = [];
     tradeOwner = player.index;
+    if (state.forceTrade && (player.cards.length < 5 || !findSet(player.cards, player.index))) state.forceTrade = false;
     apiRef.log("بدّل <strong>" + U.escape(player.name) + "</strong> " + removed.map(cardLabel).join(" + ") + " مقابل " + bonus + " كتيبة" + (territoryBonus ? " + " + territoryBonus + " على الأراضي المطابقة" : "") + ".", "good");
     state.notice = "+" + bonus + " كتيبة من البطاقات" + (territoryBonus ? " + " + territoryBonus + " على أرضٍ مطابقة" : "") + " — بقيت " + state.toPlace + " للتعزيز.";
     if (FX) FX.sound("coin");
@@ -1118,9 +1128,13 @@
     return card;
   }
 
+  /* التبديل الإجباري: في بداية الدور إن كان في اليد 5 بطاقات أو أكثر،وأثناء الهجوم بعد إقصاء قائد
+     صار بيده 6 بطاقات أو أكثر (يستمر حتى يبقى أقل من 5). */
   function handLimitBlocked(player) {
-    if (!player || rule("cards") === "off") return false;
-    return player.cards.length >= 5 && !!findSet(player.cards);
+    if (!state || !player || rule("cards") === "off") return false;
+    if (player.cards.length < 5 || !findSet(player.cards, player.index)) return false;
+    if (state.phase === "reinforce") return true;
+    return state.phase === "attack" && !!state.forceTrade;
   }
 
   function assignMissions() {
@@ -1303,12 +1317,14 @@
     state.pendingMove = null;
     state.reinforceLog = [];
     state.attackDice = 3;
+    state.forceTrade = false;
     state.turn = (state.turn || 0) + 1;
     aiAttackCount = 0;
     tradeSel = [];
     tradeOwner = index;
     lastTradeTurn = state.turn;
     state.notice = "دور " + state.players[index].name + " — وزّع " + state.toPlace + " كتيبة تعزيز.";
+    if (handLimitBlocked(state.players[index])) state.notice += " لديك " + state.players[index].cards.length + " بطاقات — يجب تبديل مجموعة أولًا.";
     if (FX) FX.sound("turn");
     if (checkVictory()) return;
     render();
@@ -1335,7 +1351,9 @@
         if (el) { FX.pop(el); FX.floatText(el, "+1", "good"); }
       }, 30);
     }
-    if (state.toPlace <= 0) {
+    if (state.toPlace <= 0 && handLimitBlocked(cur())) {
+      state.notice = "وزّعت التعزيزات، لكن في يدك " + cur().cards.length + " بطاقات — يجب تبديل مجموعة قبل الهجوم.";
+    } else if (state.toPlace <= 0) {
       state.phase = "attack";
       state.mode = "attack";
       state.notice = "وزّعت كل التعزيزات. اختر إقليمًا للمهاجمة، أو حصّن ثم أنهِ الدور.";
@@ -1367,6 +1385,11 @@
 
   function selectForAttack(terrId) {
     if (!state || state.phase !== "attack" || state.over || state.pendingMove) return;
+    if (handLimitBlocked(cur())) {
+      BG.toast("بدّل مجموعة بطاقات أولًا (إجباري) قبل متابعة الهجوم.", "warn");
+      if (FX) FX.sound("error");
+      return;
+    }
     if (state.owner[terrId] !== state.current) {
       const owner = state.owner[terrId] >= 0 ? state.players[state.owner[terrId]] : null;
       BG.toast(owner ? "هذا الإقليم يملكه " + owner.name + "." : "هذا الإقليم غير مملوك.", "warn");
@@ -1393,10 +1416,12 @@
       : "لا توجد أقاليم معادية مجاورة لهذا الإقليم.";
     if (FX) FX.sound("select");
     render();
+    ensureVisible([terrId].concat(targets));
   }
 
   function attack(terrId) {
     if (!state || state.over || state.phase !== "attack" || state.pendingMove) return;
+    if (handLimitBlocked(cur())) return;
     if (!state.selected) {
       BG.toast("اختر إقليمًا تملكه أولًا.", "warn");
       return;
@@ -1451,6 +1476,7 @@
       rolling = false;
       if (!state || state.over || state.pendingMove) return;
       if (state.owner[attackerId] !== attacker || state.owner[defenderId] !== defender) return;
+      if (state.current !== attacker || state.phase !== "attack") return;
       applyBattle(attacker, defender, attackerId, defenderId, aDice, dDice);
     };
     if (FX && FX.tumble) {
@@ -1494,6 +1520,11 @@
       state.battle.conquered = true;
       const eliminated = eliminateDefender(defender, attacker);
       state.battle.eliminated = eliminated;
+      /* قانون ريسك: إن صار بيد المهاجم 6 بطاقات أو أكثر بعد إقصاء قائد فعليه تبديل مجموعات فورًا حتى يبقى أقل من 5 */
+      if (eliminated && rule("cards") !== "off") {
+        const victor = state.players[attacker];
+        if (victor && victor.cards.length >= 6 && findSet(victor.cards, attacker)) state.forceTrade = true;
+      }
       state.selected = null;
       apiRef.log(
         "<strong>" + U.escape(playerName(attacker)) + "</strong> هاجم " + U.escape(TERR_BY_ID[defenderId].name) +
@@ -1508,11 +1539,20 @@
         }, 60);
       }
       if (eliminated) {
-        state.notice = "سقط الإقليم! أُقصي " + playerName(defender) + " واستوليت على بطاقاته.";
+        state.notice = "سقط الإقليم! أُقصي " + playerName(defender) + " واستوليت على بطاقاته." + (state.forceTrade ? " صار بيدك بطاقات كثيرة: بدّل مجموعة بعد نقل الكتائب." : "");
       } else {
         state.notice = "سقط " + TERR_BY_ID[defenderId].name + "! اختر عدد الكتائب التي ستحتل بها الإقليم ثم أكّد.";
       }
-      if (checkVictory()) return;
+      if (checkVictory()) {
+        /* انتهت المباراة بهذا الاستيلاء: ننقل الحد الأدنى (عدد النرد) حتى لا يبقى الإقليم المحتل بلا كتائب */
+        if ((state.troops[defenderId] || 0) < 1 && available >= 1) {
+          const move = Math.min(aCount, available);
+          state.troops[defenderId] = move;
+          state.troops[attackerId] = Math.max(1, state.troops[attackerId] - move);
+          render();
+        }
+        return;
+      }
       if (available >= 1) {
         const min = Math.min(aCount, available);
         state.pendingMove = {
@@ -1529,6 +1569,7 @@
         state.selected = state.troops[attackerId] >= 2 ? attackerId : null;
       }
       render();
+      ensureVisible([attackerId, defenderId]);
       if (FX) FX.after(() => FX.shake(mapSvg && mapSvg.querySelector(".risk-battle-dice")), 35);
       return;
     }
@@ -1687,6 +1728,10 @@
   function startFortify() {
     if (!state || state.over || state.pendingMove) return;
     if (state.phase !== "attack") return;
+    if (handLimitBlocked(cur())) {
+      BG.toast("بدّل مجموعة بطاقات أولًا (إجباري).", "warn");
+      return;
+    }
     if (rule("fortify") === "none") {
       BG.toast("قانون التحصين معطّل في هذه المباراة.", "warn");
       return;
@@ -1836,20 +1881,20 @@
     const player = cur();
     if (!player) return;
     if (handLimitBlocked(player)) {
-      BG.toast("لديك 5 بطاقات ومجموعة صالحة — بدّلها قبل إنهاء الدور.", "warn");
-      state.notice = "يجب تبديل مجموعة بطاقات قبل إنهاء الدور (الحد 5 بطاقات).";
+      BG.toast("صار بيدك بطاقات كثيرة بعد إقصاء قائد — بدّل مجموعة قبل إنهاء الدور.", "warn");
+      state.notice = "يجب تبديل مجموعة بطاقات قبل إنهاء الدور.";
       if (FX) FX.sound("error");
       render();
       return;
     }
-    if (state.conquered && rule("cards") !== "off" && player.cards.length < 5) {
+    /* قانون ريسك: بطاقة واحدة عند نهاية الدور إن احتللت إقليمًا واحدًا على الأقل، دون حد أقصى لليد
+       (تُجبر على التبديل في بداية دورك التالي إن بلغت 5 أو أكثر). */
+    if (state.conquered && rule("cards") !== "off") {
       const card = drawCard(player);
       if (card) {
         apiRef.log("حصل <strong>" + U.escape(player.name) + "</strong> على بطاقة " + U.escape(cardLabel(card)) + ".", "accent");
         if (FX) FX.sound("card");
       }
-    } else if (state.conquered && rule("cards") !== "off" && player.cards.length >= 5) {
-      apiRef.log("يد <strong>" + U.escape(player.name) + "</strong> ممتلئة (5 بطاقات) — لا يسحب بطاقة جديدة.", "warn");
     }
     state.selected = null;
     state.fortifyFrom = null;
@@ -1936,11 +1981,11 @@
     if (!state || state.phase !== "reinforce") return false;
     const p = cur();
     if (!p) return false;
-    if (state.toPlace <= 0) return false;
-    if (canExchange(p)) {
+    if (canExchange(p) && (state.toPlace > 0 || handLimitBlocked(p))) {
       exchangeCards();
       return true;
     }
+    if (state.toPlace <= 0) return false;
     const list = territoriesOf(p.index);
     const id = cpuPickTerritory(list, p);
     if (id == null) {
@@ -2031,6 +2076,10 @@
     if (!state || state.over) return;
     const p = cur();
     if (!p) return;
+    if (handLimitBlocked(p)) {
+      exchangeCards();
+      return;
+    }
     if (rule("fortify") !== "none" && !state.fortifyUsed) {
       const move = cpuFortifyMove(p);
       if (move) {
@@ -2045,7 +2094,11 @@
     if (!state || state.over || state.phase !== "attack" || state.pendingMove || rolling) return;
     const p = cur();
     if (!p) return;
-    if (aiAttackCount >= 18) {
+    if (handLimitBlocked(p)) {
+      exchangeCards();
+      return;
+    }
+    if (aiAttackCount >= 40) {
       cpuFinishAttackPhase();
       return;
     }
@@ -2144,6 +2197,9 @@
   let boundRoot = null;
   let resizeHandler = null;
   let panState = null;
+  let pinchState = null;
+  const pointers = new Map();
+  let viewRatio = 0;
   let lastDragAt = 0;
 
   function svgEscape(text) {
@@ -2364,6 +2420,7 @@
     if (resizeHandler) return;
     resizeHandler = () => {
       if (!mapSvg) return;
+      viewRatio = measureRatio();
       applyCamera();
     };
     window.addEventListener("resize", resizeHandler);
@@ -2382,6 +2439,8 @@
     }
     boundRoot = null;
     panState = null;
+    pinchState = null;
+    pointers.clear();
   }
 
   function buildShell() {
@@ -2447,8 +2506,9 @@
     if (slot) slot.appendChild(secret.el);
 
     cacheMapRefs();
-    camera = { x: 0, y: 0, w: MAP_W, h: MAP_H };
+    viewRatio = measureRatio();
     focusedContinent = null;
+    camera = compactHomeCamera() || clampCamera({ x: 0, y: 0, w: MAP_W, h: MAP_H });
     applyCamera();
     bindRoot();
     bindMapPan();
@@ -2471,26 +2531,138 @@
     mapViewport.addEventListener("pointerdown", onPanStart);
   }
 
-  function onPanStart(event) {
-    if (!mapViewport || !camera || camera.w >= MAP_W - 1) return;
-    if (event.button != null && event.button !== 0) return;
-    panState = {
-      id: event.pointerId,
-      startX: event.clientX,
-      startY: event.clientY,
-      cam: { x: camera.x, y: camera.y, w: camera.w, h: camera.h },
-      moved: false,
+  /* نسبة عرض/ارتفاع نافذة الخريطة الفعلية: على سطح المكتب تساوي نسبة الخريطة،
+     وعلى الجوال تكون النافذة أطول فتتبعها الكاميرا لتملأ الشاشة. */
+  function measureRatio() {
+    if (!mapViewport) return MAP_RATIO;
+    const w = mapViewport.clientWidth;
+    const h = mapViewport.clientHeight;
+    if (!(w > 40) || !(h > 40)) return MAP_RATIO;
+    const r = w / h;
+    return Math.abs(r - MAP_RATIO) / MAP_RATIO < 0.06 ? MAP_RATIO : r;
+  }
+
+  function isCompactView() {
+    return !!mapViewport && mapViewport.clientWidth > 0 && mapViewport.clientWidth < 620;
+  }
+
+  /* على الجوال تبدأ الخريطة مكبّرة على القارة التي تملك فيها أكثر أقاليم، لأن عرض العالم كاملًا
+     على شاشة ضيّقة يجعل أرقام الكتائب والأسماء غير مقروءة. */
+  function compactHomeCamera() {
+    if (!isCompactView() || !state || !GEO || !GEO.continents) return null;
+    const seat = viewerSeat() >= 0 ? viewerSeat() : state.current;
+    let best = null;
+    let bestCount = -1;
+    Object.keys(CONTINENTS).forEach((code) => {
+      const info = GEO.continents[code];
+      if (!info || !info.focus) return;
+      const n = continentCount(code, seat);
+      if (n > bestCount) { best = code; bestCount = n; }
+    });
+    if (!best) return null;
+    focusedContinent = best;
+    return fitCamera(GEO.continents[best].focus, 16);
+  }
+
+  /* على الجوال: إن كانت إحدى الأقاليم المعنية خارج المشهد تنتقل الكاميرا لتشملها */
+  function ensureVisible(ids) {
+    if (!camera || !mapViewport || !isCompactView() || !GEO || !GEO.territories) return;
+    const pts = ids.map((id) => GEO.territories[id] && GEO.territories[id].label).filter(Boolean);
+    if (!pts.length) return;
+    const mx = camera.w * 0.1;
+    const my = camera.h * 0.1;
+    const inside = pts.every((p) => p[0] >= camera.x + mx && p[0] <= camera.x + camera.w - mx && p[1] >= camera.y + my && p[1] <= camera.y + camera.h - my);
+    if (inside) return;
+    const xs = pts.map((p) => p[0]);
+    const ys = pts.map((p) => p[1]);
+    const x0 = Math.min.apply(null, xs);
+    const x1 = Math.max.apply(null, xs);
+    const y0 = Math.min.apply(null, ys);
+    const y1 = Math.max.apply(null, ys);
+    const ratio = viewRatio || MAP_RATIO;
+    const w = Math.min(MAP_W, Math.max(340, x1 - x0 + 140, (y1 - y0 + 140) * ratio));
+    const h = w / ratio;
+    focusedContinent = null;
+    animateCamera({ x: (x0 + x1) / 2 - w / 2, y: (y0 + y1) / 2 - h / 2, w, h });
+  }
+
+  function pointerPair() {
+    const list = Array.from(pointers.values());
+    return list.length >= 2 ? [list[0], list[1]] : null;
+  }
+
+  function beginPan(id, x, y) {
+    pinchState = null;
+    panState = { id, startX: x, startY: y, cam: { x: camera.x, y: camera.y, w: camera.w, h: camera.h }, moved: false };
+  }
+
+  /* تكبير/تصغير بإصبعين: نثبّت النقطة التي تتوسط الإصبعين تحتهما */
+  function beginPinch() {
+    const pair = pointerPair();
+    if (!pair || !mapViewport) return;
+    const rect = mapViewport.getBoundingClientRect();
+    const mx = (pair[0].x + pair[1].x) / 2;
+    const my = (pair[0].y + pair[1].y) / 2;
+    pinchState = {
+      dist: Math.max(8, Math.hypot(pair[0].x - pair[1].x, pair[0].y - pair[1].y)),
+      w: camera.w,
+      fx: camera.x + ((mx - rect.left) / Math.max(1, rect.width)) * camera.w,
+      fy: camera.y + ((my - rect.top) / Math.max(1, rect.height)) * camera.h,
     };
+    panState = null;
+    lastDragAt = performance.now();
+  }
+
+  function onPanStart(event) {
+    if (!mapViewport || !camera) return;
+    if (event.pointerType === "mouse" && event.button !== 0) return;
+    pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
     window.addEventListener("pointermove", onPanMove);
     window.addEventListener("pointerup", onPanEnd);
     window.addEventListener("pointercancel", onPanEnd);
+    if (pointers.size === 1) {
+      if (camera.w < MAP_W - 1) beginPan(event.pointerId, event.clientX, event.clientY);
+    } else if (pointers.size === 2) beginPinch();
   }
 
   function onPanMove(event) {
-    if (!panState || event.pointerId !== panState.id || !mapViewport) return;
+    if (!mapViewport || !pointers.has(event.pointerId)) return;
+    pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    if (pinchState) {
+      const pair = pointerPair();
+      if (!pair) return;
+      const rect = mapViewport.getBoundingClientRect();
+      const mx = (pair[0].x + pair[1].x) / 2;
+      const my = (pair[0].y + pair[1].y) / 2;
+      const dist = Math.max(8, Math.hypot(pair[0].x - pair[1].x, pair[0].y - pair[1].y));
+      const ratio = viewRatio || MAP_RATIO;
+      const w = clamp(pinchState.w * (pinchState.dist / dist), 150, MAP_W);
+      const h = w / ratio;
+      focusedContinent = null;
+      if (cameraAnim) {
+        cancelAnimationFrame(cameraAnim);
+        cameraAnim = null;
+      }
+      camera = clampCamera({
+        x: pinchState.fx - ((mx - rect.left) / Math.max(1, rect.width)) * w,
+        y: pinchState.fy - ((my - rect.top) / Math.max(1, rect.height)) * h,
+        w,
+        h,
+      });
+      applyCamera();
+      lastDragAt = performance.now();
+      event.preventDefault();
+      return;
+    }
+    if (!panState || event.pointerId !== panState.id) return;
     const dx = event.clientX - panState.startX;
     const dy = event.clientY - panState.startY;
     if (!panState.moved && Math.hypot(dx, dy) < 6) return;
+    if (!panState.moved && cameraAnim) {
+      cancelAnimationFrame(cameraAnim);
+      cameraAnim = null;
+      panState.cam = { x: camera.x, y: camera.y, w: camera.w, h: camera.h };
+    }
     panState.moved = true;
     const width = mapViewport.clientWidth || 1;
     const unit = camera.w / width;
@@ -2505,38 +2677,49 @@
   }
 
   function onPanEnd(event) {
-    if (!panState || (event && event.pointerId !== panState.id)) return;
-    if (panState.moved) lastDragAt = performance.now();
-    panState = null;
-    window.removeEventListener("pointermove", onPanMove);
-    window.removeEventListener("pointerup", onPanEnd);
-    window.removeEventListener("pointercancel", onPanEnd);
+    if (!event || !pointers.has(event.pointerId)) return;
+    pointers.delete(event.pointerId);
+    if (pinchState) {
+      if (pointers.size < 2) {
+        pinchState = null;
+        lastDragAt = performance.now();
+        const rest = Array.from(pointers.entries())[0];
+        if (rest) beginPan(rest[0], rest[1].x, rest[1].y);
+      }
+    } else if (panState && event.pointerId === panState.id) {
+      if (panState.moved) lastDragAt = performance.now();
+      panState = null;
+    }
+    if (!pointers.size) {
+      window.removeEventListener("pointermove", onPanMove);
+      window.removeEventListener("pointerup", onPanEnd);
+      window.removeEventListener("pointercancel", onPanEnd);
+    }
   }
 
   function clampCamera(box) {
-    let w = clamp(Number(box.w) || MAP_W, 150, MAP_W);
-    let h = w / MAP_RATIO;
-    if (h > MAP_H) {
-      h = MAP_H;
-      w = h * MAP_RATIO;
-    }
-    const x = clamp(Number(box.x) || 0, 0, MAP_W - w);
-    const y = clamp(Number(box.y) || 0, 0, MAP_H - h);
+    const ratio = viewRatio || MAP_RATIO;
+    const w = clamp(Number(box.w) || MAP_W, 150, MAP_W);
+    const h = w / ratio;
+    /* إن كانت النافذة أطول من الخريطة (جوال عمودي) تُوسَّط الخريطة بدل أن يُقصَّر عرضها */
+    const x = w >= MAP_W ? (MAP_W - w) / 2 : clamp(Number(box.x) || 0, 0, MAP_W - w);
+    const y = h >= MAP_H ? (MAP_H - h) / 2 : clamp(Number(box.y) || 0, 0, MAP_H - h);
     return { x, y, w, h };
   }
 
   function fitCamera(box, pad) {
     const p = pad == null ? 18 : pad;
+    const ratio = viewRatio || MAP_RATIO;
     let x = Number(box[0]) - p;
     let y = Number(box[1]) - p;
     let w = Number(box[2]) + p * 2;
     let h = Number(box[3]) + p * 2;
-    if (w / h > MAP_RATIO) {
-      const nh = w / MAP_RATIO;
+    if (w / h > ratio) {
+      const nh = w / ratio;
       y -= (nh - h) / 2;
       h = nh;
     } else {
-      const nw = h * MAP_RATIO;
+      const nw = h * ratio;
       x -= (nw - w) / 2;
       w = nw;
     }
@@ -2612,7 +2795,7 @@
     mapSvg.setAttribute("viewBox", vb);
     const zoomed = camera.w < MAP_W * 0.82;
     mapSvg.classList.toggle("is-zoomed", zoomed);
-    if (mapViewport) mapViewport.style.touchAction = zoomed ? "none" : "pan-y";
+    if (mapViewport) mapViewport.style.touchAction = zoomed || isCompactView() ? "none" : "pan-y";
     const percent = Math.round((MAP_W / camera.w) * 100);
     if (zoomLabelEl) zoomLabelEl.textContent = percent + "%";
     const read = rootRef && rootRef.querySelector("[data-zoom-read]");
@@ -2641,7 +2824,7 @@
     const screen = mapViewport.clientWidth || 900;
     const px = screen / Math.max(1, camera.w);
     mapSvg.style.setProperty("--risk-inv", (1 / Math.max(0.001, px)).toFixed(4));
-    const target = screen < 560 ? 24 : 27;
+    const target = screen < 560 ? 28 : 27;
     nodeScaleValue = clamp(target / (26 * Math.max(0.001, px)), 0.22, 4.2);
     Object.keys(nodeRefs).forEach((id) => {
       const geo = GEO && GEO.territories ? GEO.territories[id] : null;
@@ -2856,12 +3039,14 @@
   function actionHint() {
     if (!state) return "";
     if (state.phase === "reinforce") {
+      if (handLimitBlocked(cur())) return "لديك 5 بطاقات أو أكثر — يجب تبديل مجموعة قبل الهجوم.";
       return canExchange(cur()) ? "بدّل مجموعة البطاقات الآن للحصول على تعزيزات إضافية قبل الهجوم." : "وزّع كل كتائب التعزيز بالنقر على أراضيك.";
     }
     if (state.phase === "fortify") {
       return state.fortifyFrom ? "اختر الوجهة ثم حدّد عدد الكتائب في لوحة النقل." : "اختر مصدرًا فيه كتيبتان على الأقل.";
     }
     if (state.phase === "attack") {
+      if (handLimitBlocked(cur())) return "بدّل مجموعة بطاقات (إجباري) قبل متابعة الهجوم.";
       if (state.selected) return "اختر إقليمًا معاديًا مجاورًا، أو غيّر عدد النرد قبل الضربة.";
       return "انقر إقليمًا تملكه لبدء الهجوم، أو استخدم زر التحصين.";
     }
@@ -2996,7 +3181,9 @@
         ? '<div class="risk-dice-pick"><span>نرد المهاجم</span>' + [1, 2, 3].map((n) =>
           '<button type="button" data-attack-dice="' + n + '"' + (state.attackDice === n ? ' class="active"' : "") + (n > maxDice ? " disabled" : "") + ">" + n + "</button>").join("") + "</div>"
         : "";
-      body = '<div class="risk-action-row">' +
+      const forcedTrade = act && handLimitBlocked(p);
+      body = (forcedTrade ? '<button type="button" class="bg-btn primary" data-act="exchange"><span>🃏 تبديل إجباري (+' + nextTradeValue() + ")</span></button>" : "") +
+        '<div class="risk-action-row">' +
         '<button type="button" class="bg-btn" data-act="fortify"' + (act && movable && !state.fortifyUsed ? "" : " disabled") + '><span>🛡️ تحصين</span></button>' +
         '<button type="button" class="bg-btn ghost" data-act="cancel"' + (state.selected ? "" : " disabled") + '><span>✖ إلغاء</span></button>' +
         "</div>" +
@@ -3086,7 +3273,7 @@
     }
 
     const cards = viewer.cards || [];
-    const canTrade = canControl() && (state.phase === "reinforce" || state.phase === "attack") && !state.pendingMove;
+    const canTrade = canControl() && (state.phase === "reinforce" || (state.phase === "attack" && state.forceTrade)) && !state.pendingMove;
     const hasSelection = tradeSel.length === 3;
     const cardsHTML = cards.length
       ? '<div class="risk-cards-grid">' + cards.map((card, index) => {
@@ -3111,6 +3298,25 @@
       (rule("cards") === "classic" ? " مكافأة الإقليم المطابق +2 كتيبة." : "") + "</p></div>";
   }
 
+  /* زر «إنهاء الدور» في منتصف الخريطة عندما لا يبقى للقائد أي هجوم ممكن (لا إقليم فيه كتيبتان مجاور لعدو) ولا تحصين متاح */
+  function syncEndPad() {
+    if (!FX || !FX.centerPad || !mapViewport) return;
+    let show = false;
+    if (state && !state.over && state.phase === "attack" && !state.pendingMove && !rolling && canControl() && state.toPlace <= 0 && !handLimitBlocked(cur())) {
+      const canAttack = territoriesOf(state.current).some((id) => state.troops[id] >= 2 && adjacentEnemies(id, state.current).length > 0);
+      show = !canAttack && !fortifyMovable();
+    }
+    FX.centerPad(mapViewport, show ? {
+      key: "end",
+      icon: "✅",
+      label: "إنهاء الدور",
+      onClick: () => {
+        const btn = rootRef && rootRef.querySelector('[data-act="end"]:not(:disabled)');
+        if (btn) btn.click();
+      },
+    } : null);
+  }
+
   function render() {
     if (!rootRef || !state || !ready) return;
     const viewer = viewerSeat();
@@ -3129,6 +3335,7 @@
       noticeEl.classList.toggle("is-over", !!state.over);
     }
     updateStatus();
+    syncEndPad();
     syncCpu();
   }
 
@@ -3243,7 +3450,7 @@
   }
 
   function handleAction(act) {
-    if (!state) return;
+    if (!state || rolling) return;
     if (act === "number-confirm") {
       if (!state.pendingMove || !canControl()) return;
       const pm = state.pendingMove;
@@ -3287,7 +3494,7 @@
 
   function toggleTrade(index) {
     if (!state || !canControl() || state.pendingMove) return;
-    if (state.phase !== "reinforce" && state.phase !== "attack") return;
+    if (state.phase !== "reinforce" && !(state.phase === "attack" && state.forceTrade)) return;
     const viewer = viewerPlayer();
     if (!viewer || !viewer.cards || !viewer.cards[index]) return;
     const pos = tradeSel.indexOf(index);
@@ -3301,7 +3508,7 @@
   }
 
   function handleTerritory(terrId) {
-    if (!state || state.over || !TERR_BY_ID[terrId]) return;
+    if (!state || state.over || rolling || !TERR_BY_ID[terrId]) return;
     if (state.pendingMove) {
       BG.toast("أكّد عدد الكتائب المنقولة أولًا.", "warn");
       return;

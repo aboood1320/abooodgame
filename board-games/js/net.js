@@ -42,6 +42,22 @@
   let cloudClosing = false;
   let cloudReconnectTimer = null;
   let peerJsPromise = null;
+  let cloudGuestTarget = "";
+  let cloudGuestName = "";
+  let cloudGuestConnecting = false;
+
+  /** حد أمان لرسائل الغرفة: لا نسمح لطرف واحد بإغراق الذاكرة أو تعطيل الواجهة. */
+  const MAX_PACKET_CHARS = 512 * 1024;
+
+  function parsePacket(raw) {
+    if (typeof raw !== "string" || !raw || raw.length > MAX_PACKET_CHARS) return null;
+    try {
+      const data = JSON.parse(raw);
+      return data && typeof data === "object" ? data : null;
+    } catch (err) {
+      return null;
+    }
+  }
 
   function readMode() {
     try {
@@ -607,6 +623,32 @@
       emit("peers", peers);
       return;
     }
+    if (msg.t === "host-away") {
+      /* خادم الشبكة المحلية يعلّق الغرفة عند انقطاع المضيف/إعادة تحميله. */
+      if (role !== "guest" || !roomStarted) return;
+      setStatus("reconnecting", { reason: msg.reason, hostAway: true });
+      emit("host-away", { reason: msg.reason || "انقطع اتصال المضيف.", graceMs: msg.graceMs || 0 });
+      return;
+    }
+    if (msg.t === "host-back") {
+      if (role !== "guest" || !roomStarted) return;
+      const previousHost = hostId;
+      if (msg.hostId) hostId = msg.hostId;
+      /* القناة تمرّ عبر الخادم؛ نوجّهها إلى معرّف المضيف الجديد بعد إعادة تحميله. */
+      if (hostConn) {
+        hostConn.peerId = hostId;
+        hostConn.dc = makeRelayChannel(hostId);
+      } else {
+        hostConn = { pc: null, dc: makeRelayChannel(hostId), peerId: hostId, relay: true };
+      }
+      if (Array.isArray(msg.peers)) peers = mergePeerProfiles(msg.peers);
+      resetLatencies();
+      setStatus("connected");
+      emit("peers", peers);
+      emit("host-back", { hostId, previousHostId: previousHost, peers });
+      emit("reconnect", { hostRestored: true, previousHostId: previousHost });
+      return;
+    }
     if (msg.t === "peer-joined") {
       /* نُنشئ قناة الضيف قبل إطلاق الحدث حتى يستطيع المستمع إرسال رسائل فورًا (مثل بدء اللعبة للعائد) */
       if (role === "host" && msg.peer && msg.peer.id) ensureGuest(msg.peer.id);
@@ -641,9 +683,10 @@
     if (msg.t === "room-closed") {
       const reason = msg.reason || "أُغلقت الغرفة.";
       const wasStarted = roomStarted;
+      const final = !!msg.final || /غادر أحد اللاعبين|أنهى المضيف|غادر المضيف/.test(reason);
       resetTransport(false);
       setStatus("closed", { reason, wasRoom: wasStarted });
-      emit("room-closed", { reason, wasRoom: wasStarted });
+      emit("room-closed", { reason, wasRoom: wasStarted, final });
       return;
     }
     if (msg.t === "left") {
@@ -705,9 +748,8 @@
     };
     channel.onclose = () => emit("peer-close", { id: peerId });
     channel.onmessage = (event) => {
-      let data;
-      try { data = JSON.parse(event.data); } catch (err) { return; }
-      if (!data || typeof data !== "object") return;
+      const data = parsePacket(event.data);
+      if (!data) return;
       if (handlePingMessage(conn, data)) return;
       emit("message", { from: peerId, data });
     };
@@ -986,9 +1028,8 @@
   }
 
   function onCloudHostData(peerId, raw) {
-    let data;
-    try { data = typeof raw === "string" ? JSON.parse(raw) : raw; } catch (err) { return; }
-    if (!data || typeof data !== "object") return;
+    const data = parsePacket(raw);
+    if (!data) return;
     if (handlePingMessage(guestConns.get(peerId), data)) return;
     if (data.t === "__hello") {
       const peer = peers.find((item) => item.id === peerId);
@@ -1007,11 +1048,13 @@
     emit("message", { from: peerId, data });
   }
 
-  function onCloudHostClose(peerId) {
-    if (!guestConns.has(peerId)) return;
-    const conn = guestConns.get(peerId);
+  function onCloudHostClose(peerId, conn) {
+    const current = guestConns.get(peerId);
+    if (!current) return;
+    /* اتصال قديم أُغلق بعد استبداله باتصال جديد: لا نحذف الاتصال الجديد. */
+    if (conn && current.dc !== conn) return;
     guestConns.delete(peerId);
-    if (conn) closeConn(conn);
+    if (current) closeConn(current);
     peers = peers.filter((item) => item.id !== peerId);
     broadcastCloudPeers();
     emit("peers", cloudPeers());
@@ -1020,15 +1063,18 @@
 
   function registerCloudGuest(conn, name) {
     const peerId = conn.peer;
-    if (guestConns.has(peerId)) return;
+    const existing = guestConns.get(peerId);
+    if (existing && existing.dc === conn) return;
     const wrapper = { dc: conn, peerId, cloud: true, name: name || "لاعب" };
+    /* عاد الضيف باتصال جديد قبل أن يكتشف الخادم إغلاق القديم: نستبدل القديم فورًا. */
     guestConns.set(peerId, wrapper);
+    if (existing && existing !== wrapper) closeConn(existing);
     if (!peers.some((item) => item.id === peerId)) {
       peers.push({ id: peerId, name: wrapper.name, host: false });
     }
     conn.on("data", (data) => onCloudHostData(peerId, data));
-    conn.on("close", () => onCloudHostClose(peerId));
-    conn.on("error", () => onCloudHostClose(peerId));
+    conn.on("close", () => onCloudHostClose(peerId, conn));
+    conn.on("error", () => onCloudHostClose(peerId, conn));
     if (conn.metadata && conn.metadata.name) {
       const peer = peers.find((item) => item.id === peerId);
       if (peer) peer.name = String(conn.metadata.name).slice(0, 24) || peer.name;
@@ -1051,18 +1097,26 @@
     await loadPeerJs();
     cloudClosing = false;
     cloudTeardown();
-    const candidates = forcedCode ? [String(forcedCode).toUpperCase()] : [randomCloudCode(), randomCloudCode(), randomCloudCode(), randomCloudCode(), randomCloudCode()];
+    const forced = forcedCode ? String(forcedCode).toUpperCase() : "";
+    const candidates = forced ? [forced] : [randomCloudCode(), randomCloudCode(), randomCloudCode(), randomCloudCode(), randomCloudCode()];
     let opened = null;
     let lastError = null;
     for (const code of candidates) {
-      try {
-        opened = await openCloudPeer(CLOUD_PREFIX + code);
-        roomCode = code;
-        break;
-      } catch (err) {
-        lastError = err;
-        if (err.code !== "unavailable-id") break;
+      /* بعد إعادة تحميل المضيف يبقى معرّفه محجوزًا لحظات على خادم الإشارات؛ نعيد المحاولة بدل الفشل فورًا. */
+      const attempts = forced ? 8 : 1;
+      for (let attempt = 0; attempt < attempts; attempt += 1) {
+        try {
+          opened = await openCloudPeer(CLOUD_PREFIX + code);
+          roomCode = code;
+          break;
+        } catch (err) {
+          lastError = err;
+          if (err.code !== "unavailable-id") break;
+          if (attempt < attempts - 1) await new Promise((resolve) => setTimeout(resolve, 900));
+        }
       }
+      if (opened) break;
+      if (lastError && lastError.code !== "unavailable-id") break;
     }
     if (!opened) throw lastError || new Error("تعذّر إنشاء الغرفة.");
 
@@ -1117,41 +1171,14 @@
     });
   }
 
-  async function cloudJoinRoom(code, name) {
-    await loadPeerJs();
-    cloudClosing = false;
-    cloudTeardown();
-    const upper = String(code || "").trim().toUpperCase();
-    if (upper.length < 4) throw new Error("أدخل رمز الغرفة المكوّن من أربعة أحرف.");
-    const opened = await openCloudPeer(null);
-    cloudPeer = opened.peer;
-    const target = CLOUD_PREFIX + upper;
-    let conn;
-    try {
-      conn = cloudPeer.connect(target, { reliable: true, metadata: { name: (name || "لاعب").slice(0, 24) } });
-      await waitDcOpen(conn, 14000, cloudPeer);
-    } catch (err) {
-      try { cloudPeer.destroy(); } catch (e) { /* ignore */ }
-      cloudPeer = null;
-      throw err;
-    }
+  const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-    role = "guest";
-    selfId = opened.id;
-    hostId = target;
-    roomCode = upper;
-    roomStarted = true;
-    cloudConn = conn;
-    hostConn = { dc: conn, peerId: target, cloud: true };
-    peers = mergePeerProfiles([
-      { id: target, name: "المضيف", host: true },
-      { id: selfId, name: (name || "لاعب").slice(0, 24), host: false },
-    ]);
-
+  /** يربط قناة الضيف بالمضيف. تُستدعى عند أول اتصال وعند كل إعادة اتصال. */
+  function bindCloudGuestConnection(conn, target, name) {
     conn.on("data", (raw) => {
-      let data;
-      try { data = typeof raw === "string" ? JSON.parse(raw) : raw; } catch (err) { return; }
-      if (!data || typeof data !== "object") return;
+      if (conn !== cloudConn) return;
+      const data = parsePacket(raw);
+      if (!data) return;
       if (handlePingMessage(hostConn, data)) return;
       if (data.t === "__room") {
         if (Array.isArray(data.peers)) {
@@ -1170,31 +1197,152 @@
         cloudTeardown();
         resetTransport(false);
         setStatus("closed", { reason, wasRoom: true });
-        emit("room-closed", { reason, wasRoom: true });
+        emit("room-closed", { reason, wasRoom: true, final: !!data.final });
         return;
       }
       emit("message", { from: target, data });
     });
     conn.on("close", () => {
+      if (conn !== cloudConn) return;
       if (cloudClosing || role !== "guest" || !roomStarted) return;
-      const reason = "انقطع الاتصال بالمضيف.";
+      cloudConn = null;
+      hostConn = null;
+      emit("peer-close", { id: target });
+      attemptGuestReconnect("انقطع الاتصال بالمضيف.");
+    });
+    conn.on("error", (err) => {
+      if (conn !== cloudConn || cloudClosing) return;
+      emit("error", cloudErrorMessage(err));
+    });
+  }
+
+  /** يعيد إنشاء كائن PeerJS إن انتهى، ويحافظ على الغرفة الحالية إن أمكن. */
+  async function ensureCloudPeerForGuest() {
+    if (cloudPeer && !cloudPeer.destroyed) {
+      if (cloudPeer.disconnected) {
+        try { cloudPeer.reconnect(); } catch (err) { /* ignore */ }
+        await sleep(700);
+      }
+      return cloudPeer;
+    }
+    const opened = await openCloudPeer(null);
+    cloudPeer = opened.peer;
+    selfId = opened.id;
+    cloudPeer.on("disconnected", () => {
+      if (role !== "guest" || !roomStarted) return;
+      setStatus("reconnecting", { guest: true });
+      scheduleCloudReconnect();
+    });
+    return cloudPeer;
+  }
+
+  /** الضيف يحاول العودة للمضيف قبل إعلان انتهاء الغرفة (شبكات الجوال تنقطع ثواني كثيرة). */
+  function attemptGuestReconnect(reason) {
+    if (cloudGuestConnecting || cloudClosing || role !== "guest" || !roomStarted) return;
+    cloudGuestConnecting = true;
+    const previousId = selfId;
+    const target = cloudGuestTarget || hostId;
+    const name = cloudGuestName || "لاعب";
+    setStatus("reconnecting", { reason, guest: true });
+    emit("peer-state", { id: target, state: "reconnecting" });
+
+    (async () => {
+      let lastError = null;
+      for (let attempt = 0; attempt < 9; attempt += 1) {
+        if (cloudClosing || role !== "guest" || !roomStarted) {
+          cloudGuestConnecting = false;
+          return;
+        }
+        try {
+          const peer = await ensureCloudPeerForGuest();
+          if (!peer || peer.destroyed) throw new Error("تعذّر تجهيز قناة الاتصال.");
+          if (peer.disconnected) {
+            try { peer.reconnect(); } catch (err) { /* ignore */ }
+            await sleep(800);
+          }
+          const conn = peer.connect(target, { reliable: true, metadata: { name } });
+          await waitDcOpen(conn, 8000, peer);
+          if (cloudClosing || role !== "guest" || !roomStarted) {
+            try { conn.close(); } catch (err) { /* ignore */ }
+            cloudGuestConnecting = false;
+            return;
+          }
+          const old = cloudConn;
+          cloudConn = conn;
+          hostConn = { dc: conn, peerId: target, cloud: true };
+          bindCloudGuestConnection(conn, target, name);
+          if (old && old !== conn) {
+            try { old.close(); } catch (err) { /* ignore */ }
+          }
+          try { conn.send(JSON.stringify({ t: "__hello", name })); } catch (err) { /* ignore */ }
+          startAppPing();
+          setStatus("connected", { reconnected: true });
+          emit("peer-open", { id: target });
+          emit("peer-state", { id: target, state: "connected" });
+          cloudGuestConnecting = false;
+          emit("reconnect", { id: selfId, previousId, target, attempt: attempt + 1 });
+          return;
+        } catch (err) {
+          lastError = err;
+          if (cloudPeer && cloudPeer.disconnected) {
+            try { cloudPeer.reconnect(); } catch (e) { /* ignore */ }
+          }
+          await sleep(Math.min(4500, 900 + attempt * 500));
+        }
+      }
+      cloudGuestConnecting = false;
+      if (cloudClosing || role !== "guest" || !roomStarted) return;
+      const message = "انقطع الاتصال بالمضيف. " + ((lastError && lastError.message) || "تعذّرت إعادة المحاولة.");
       cloudClosing = true;
       cloudTeardown();
       resetTransport(false);
-      setStatus("closed", { reason, wasRoom: true });
-      emit("room-closed", { reason, wasRoom: true });
-    });
-    conn.on("error", (err) => {
-      if (cloudClosing) return;
-      const message = cloudErrorMessage(err);
-      emit("error", message);
-    });
+      setStatus("closed", { reason: message, wasRoom: true });
+      emit("room-closed", { reason: message, wasRoom: true, final: false });
+    })();
+  }
+
+  async function cloudJoinRoom(code, name) {
+    await loadPeerJs();
+    cloudClosing = false;
+    cloudGuestConnecting = false;
+    cloudTeardown();
+    const upper = String(code || "").trim().toUpperCase();
+    if (upper.length < 4) throw new Error("أدخل رمز الغرفة المكوّن من أربعة أحرف.");
+    const opened = await openCloudPeer(null);
+    cloudPeer = opened.peer;
+    const target = CLOUD_PREFIX + upper;
+    cloudGuestTarget = target;
+    cloudGuestName = (name || "لاعب").slice(0, 24);
+    let conn;
+    try {
+      conn = cloudPeer.connect(target, { reliable: true, metadata: { name: cloudGuestName } });
+      await waitDcOpen(conn, 14000, cloudPeer);
+    } catch (err) {
+      try { cloudPeer.destroy(); } catch (e) { /* ignore */ }
+      cloudPeer = null;
+      throw err;
+    }
+
+    role = "guest";
+    selfId = opened.id;
+    hostId = target;
+    roomCode = upper;
+    roomStarted = true;
+    cloudConn = conn;
+    hostConn = { dc: conn, peerId: target, cloud: true };
+    peers = mergePeerProfiles([
+      { id: target, name: "المضيف", host: true },
+      { id: selfId, name: cloudGuestName, host: false },
+    ]);
+
+    bindCloudGuestConnection(conn, target, cloudGuestName);
     cloudPeer.on("disconnected", () => {
-      setStatus("reconnecting");
+      if (role !== "guest" || !roomStarted) return;
+      setStatus("reconnecting", { guest: true });
       scheduleCloudReconnect();
     });
 
-    try { conn.send(JSON.stringify({ t: "__hello", name: (name || "لاعب").slice(0, 24) })); } catch (err) { /* ignore */ }
+    try { conn.send(JSON.stringify({ t: "__hello", name: cloudGuestName })); } catch (err) { /* ignore */ }
     startAppPing();
     setStatus("connected");
     const msg = { t: "room", host: false, code: roomCode, selfId, hostId, peers: cloudPeers() };
@@ -1374,9 +1522,12 @@
 
   function leave() {
     cloudClosing = true;
+    cloudGuestConnecting = false;
+    cloudGuestTarget = "";
+    cloudGuestName = "";
     if (mode === "cloud") {
       if (role === "host" && cloudPeer) {
-        const notice = { t: "__closed", reason: "أغلق المضيف الغرفة." };
+        const notice = { t: "__closed", reason: "أنهى المضيف الغرفة.", final: true };
         guestConns.forEach((conn) => {
           if (!channelOpen(conn)) return;
           try { conn.dc.send(JSON.stringify(notice)); } catch (err) { /* ignore */ }
@@ -1533,12 +1684,15 @@
         if (role === "host" && cloudPeer) {
           guestConns.forEach((conn) => {
             if (!channelOpen(conn)) return;
-            try { conn.dc.send(JSON.stringify({ t: "__closed", reason: "أغلق المضيف الغرفة." })); } catch (err) { /* ignore */ }
+            try { conn.dc.send(JSON.stringify({ t: "__closed", reason: "انقطع اتصال المضيف.", final: false })); } catch (err) { /* ignore */ }
           });
         }
       } catch (err) { /* ignore */ }
       return;
     }
+    /* مضيف الشبكة المحلية: لا نرسل «مغادرة» كي يعلّق الخادم الغرفة بدل إغلاقها،
+       فيستطيع استعادتها بالرمز نفسه بعد إعادة تحميل الصفحة. */
+    if (role === "host") return;
     try { rawSend({ t: "leave" }); } catch (err) { /* ignore */ }
   });
 })();

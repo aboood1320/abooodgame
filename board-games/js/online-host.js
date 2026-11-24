@@ -16,8 +16,8 @@
 
   const BG = window.BG;
   const ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  const GRACE_MS = 6000;            // مهلة قبل استبدال لاعب منقطع بكمبيوتر
-  const MIGRATION_GRACE_MS = 14000; // مهلة أطول أثناء نقل الاستضافة (يحتاج الجميع لإعادة الانضمام)
+  const GRACE_MS = 15000;           // مهلة قبل استبدال لاعب منقطع بكمبيوتر (شبكات الجوال تنقطع طويلًا)
+  const MIGRATION_GRACE_MS = 30000; // مهلة أطول أثناء نقل الاستضافة (يحتاج الجميع لإعادة الانضمام)
   const JOIN_WINDOW_MS = 11000;
 
   const st = {
@@ -177,6 +177,7 @@
     broadcastSeats();
     core().updateHud();
     if (s.hostReady) core().hostTick();
+    if (core().saveHostSnapshot) core().saveHostSnapshot(true);
   }
 
   /* لاعب بشري ← كمبيوتر خبير */
@@ -907,7 +908,10 @@
     if (st.kicked || !s.inRoom) return false;
     if (st.migrating) return true;
     const reason = (info && info.reason) || "";
+    /* إغلاق متعمّد (أنهى المضيف/غادر) ليس انقطاعًا: لا نقل استضافة ولا غرف جديدة. */
+    if (info && info.final) return false;
     if (/طرد/.test(reason)) return false;
+    if (/أنهى المضيف|غادر المضيف|غادر أحد اللاعبين/.test(reason)) return false;
     if (BG.net.isHost) return false;
     if (!st.lastPeers.length || !st.code) return false;
     startMigration({ reason: reason || "أُغلقت الغرفة." });

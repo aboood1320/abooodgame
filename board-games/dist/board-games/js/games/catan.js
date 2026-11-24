@@ -602,6 +602,8 @@
     const d2 = U.roll(6);
     if (FX) FX.sound("dice");
     rolling = true;
+    const rollBtn = rootRef && rootRef.querySelector(".cat-roll");
+    if (rollBtn) rollBtn.disabled = true;
     const land = () => {
       cancelRoll = null;
       rolling = false;
@@ -1702,7 +1704,7 @@
         "</p></div>"
       );
     } else if (state.phase === "roll") {
-      actions.push('<button class="bg-btn primary big cat-roll" data-act="roll">🎲 ارمِ النرد</button>');
+      actions.push('<button class="bg-btn primary big cat-roll" data-act="roll"' + (AI.isCpu(cur()) || rolling ? " disabled" : "") + ">🎲 ارمِ النرد</button>");
       actions.push('<p class="cat-hint">الإنتاج يعتمد على مجموع النرد. الرقم 7 يفعّل قاطع الطريق.</p>');
     } else if (state.phase === "robber") {
       actions.push('<div class="cat-setup-note robber"><span>☠</span><p>اضغط على حقل مضيء لنقل قاطع الطريق.</p></div>');
@@ -1735,6 +1737,31 @@
       '<section class="cat-panel cat-players"><div class="cat-panel-head"><h2>اللاعبون</h2><span>نقاط ظاهرة</span></div>' + state.players.map(playerRow).join("") + "</section>" +
       '<div class="cat-legend"><div><span>🏠</span> مستوطنة = 1 نقطة</div><div><span>🏛️</span> مدينة = 2 نقطة</div><div><span>🛣️</span> أطول طريق = 2</div><div><span>⚔️</span> أكبر جيش = 2</div><div><span>⭐</span> بطاقة انتصار = 1</div></div>'
     );
+  }
+
+  /* هل بقي للاعب فعل مفيد: بناء يقدر عليه، بطاقة تطوّر يمكن لعبها، أو تبادل مع البنك/الموانئ؟ */
+  function hasUsefulAction(p) {
+    if (state.freeRoads || canPay(p, COSTS.road) || canPay(p, COSTS.settlement) || canPay(p, COSTS.city)) return true;
+    if (canPay(p, COSTS.dev) && state.deck.length) return true;
+    if (p.dev.some((card) => card.type !== "vp" && canPlayDev(p, card))) return true;
+    return RES_LIST.some((r) => (p.res[r] || 0) >= bestTradeRatio(p, r));
+  }
+
+  /* زر «إنهاء الدور» في منتصف الجزيرة عندما لا يبقى للاعب شيء يفعله */
+  function syncEndPad(host) {
+    if (!FX || !FX.centerPad || !rootRef) return;
+    const p = cur();
+    const mine = !!(state && !state.over && state.phase === "action" && p && !AI.isCpu(p) && (!isOnline() || viewerSeat() === state.current));
+    const show = mine && !state.mode && !hasUsefulAction(p);
+    FX.centerPad(host, show ? {
+      key: "end",
+      icon: "✅",
+      label: "إنهاء الدور",
+      onClick: () => {
+        const btn = rootRef && rootRef.querySelector('[data-act="end"]');
+        if (btn) btn.click();
+      },
+    } : null);
   }
 
   function render() {
@@ -1788,6 +1815,7 @@
 
     rootRef.innerHTML = "";
     rootRef.appendChild(wrap);
+    syncEndPad(boardWrap);
 
     // أحداث اللوحة
     const svg = boardWrap.querySelector(".cat-svg");

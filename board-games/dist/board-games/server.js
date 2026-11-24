@@ -18,6 +18,8 @@ const WS_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 const MAX_MESSAGE = 2 * 1024 * 1024;
 const MAX_PEERS = 8;
 const ROOM_TTL = 6 * 60 * 60 * 1000;
+/* إذا انقطع اتصال المضيف نُبقي الغرفة معلّقة فترة قصيرة كي يعود إليها بعد تحديث الصفحة. */
+const HOST_GRACE_MS = 30000;
 
 const MIME = {
   ".html": "text/html; charset=utf-8",
@@ -266,26 +268,68 @@ function roomBroadcast(room, payload, exceptId) {
   });
 }
 
-function removePeer(peer, reason) {
+function closeRoom(room, reason, final) {
+  if (!room) return;
+  if (room.hostTimer) {
+    clearTimeout(room.hostTimer);
+    room.hostTimer = null;
+  }
+  room.peers.forEach((other) => {
+    other.room = null;
+    sendJson(other.socket, { t: "room-closed", reason: reason || "أُغلقت الغرفة.", final: !!final });
+  });
+  rooms.delete(room.code);
+  log("أُغلقت الغرفة " + room.code + " (" + (reason || "انتهت") + ")");
+}
+
+/** انقطاع المضيف: نعلّق الغرفة ونبقي الضيوف فيها بانتظار عودته بالرمز نفسه. */
+function suspendRoom(room, peer, reason) {
+  if (!room || room.hostTimer) return;
+  room.suspended = true;
+  room.hostName = peer.name;
+  room.peers.delete(peer.id);
+  peer.room = null;
+  roomBroadcast(room, {
+    t: "host-away",
+    reason: reason || "انقطع اتصال المضيف — جارٍ إعادة الاتصال…",
+    graceMs: HOST_GRACE_MS,
+  });
+  roomBroadcast(room, { t: "peers", peers: peersList(room) });
+  log("عُلّقت الغرفة " + room.code + " بانتظار عودة المضيف");
+  room.hostTimer = setTimeout(() => {
+    room.hostTimer = null;
+    if (!room.suspended) return;
+    closeRoom(room, "لم يعد المضيف إلى الغرفة.", true);
+  }, HOST_GRACE_MS);
+}
+
+function removePeer(peer, reason, options) {
   const room = peer.room ? rooms.get(peer.room) : null;
   if (!room) return;
   const wasHost = room.hostId === peer.id;
+  if (wasHost && !(options && options.final)) {
+    suspendRoom(room, peer, reason);
+    return;
+  }
   room.peers.delete(peer.id);
   peer.room = null;
 
   if (wasHost) {
-    room.peers.forEach((other) => {
-      other.room = null;
-      sendJson(other.socket, { t: "room-closed", reason: reason || "غادر المضيف الغرفة." });
-    });
-    rooms.delete(room.code);
-    log("أُغلقت الغرفة " + room.code + " (غادر المضيف)");
+    closeRoom(room, reason || "غادر المضيف الغرفة.");
+    return;
+  }
+
+  if (room.suspended) {
+    roomBroadcast(room, { t: "peer-left", id: peer.id });
+    roomBroadcast(room, { t: "peers", peers: peersList(room) });
+    log("غادر " + peer.name + " الغرفة المعلّقة " + room.code);
+    /* الضيوف وحدهم في غرفة معلّقة: لا معنى لإبقائها إن لم يعد المضيف. */
+    if (!room.peers.size) closeRoom(room, "انتهت الغرفة.", true);
     return;
   }
 
   roomBroadcast(room, { t: "peer-left", id: peer.id });
   roomBroadcast(room, { t: "peers", peers: peersList(room) });
-
   log("غادر " + peer.name + " الغرفة " + room.code);
   if (!room.peers.size) rooms.delete(room.code);
 }
@@ -299,10 +343,40 @@ function handleSignalMessage(peer, msg) {
     }
     /* رمز مطلوب (يُستخدم عند نقل الاستضافة: المضيف الجديد يُنشئ نفس الرمز المتفق عليه) */
     const wanted = String(msg.code || "").trim().toUpperCase();
+    peer.name = normalizeName(msg.name, "المضيف");
+    const existing = /^[A-Z0-9]{4}$/.test(wanted) ? rooms.get(wanted) : null;
+    if (existing && existing.suspended) {
+      /* عودة المضيف بعد إعادة تحميل/انقطاع: يُسترد الرمز نفسه وتعود الغرفة للعمل. */
+      if (existing.hostTimer) {
+        clearTimeout(existing.hostTimer);
+        existing.hostTimer = null;
+      }
+      existing.suspended = false;
+      existing.hostId = peer.id;
+      existing.hostName = peer.name;
+      peer.room = wanted;
+      existing.peers.set(peer.id, peer);
+      sendJson(peer.socket, {
+        t: "room",
+        code: wanted,
+        selfId: peer.id,
+        hostId: peer.id,
+        host: true,
+        peers: peersList(existing),
+      });
+      roomBroadcast(existing, {
+        t: "host-back",
+        code: wanted,
+        hostId: peer.id,
+        peers: peersList(existing),
+      }, peer.id);
+      roomBroadcast(existing, { t: "peers", peers: peersList(existing) }, peer.id);
+      log("استعاد " + peer.name + " الغرفة " + wanted);
+      return;
+    }
     const validWanted = /^[A-Z0-9]{4}$/.test(wanted) && !rooms.has(wanted);
     const code = validWanted ? wanted : makeCode();
     const newRoom = { code, hostId: peer.id, peers: new Map(), createdAt: Date.now() };
-    peer.name = normalizeName(msg.name, "المضيف");
     peer.room = code;
     newRoom.peers.set(peer.id, peer);
     rooms.set(code, newRoom);
@@ -344,6 +418,13 @@ function handleSignalMessage(peer, msg) {
       host: false,
       peers: peersList(room),
     });
+    if (room.suspended) {
+      sendJson(peer.socket, {
+        t: "host-away",
+        reason: "انقطع اتصال المضيف — جارٍ إعادة الاتصال…",
+        graceMs: HOST_GRACE_MS,
+      });
+    }
     const host = room.peers.get(room.hostId);
     if (host) sendJson(host.socket, { t: "peer-joined", peer: { id: peer.id, name: peer.name, host: false } });
     roomBroadcast(room, { t: "peers", peers: peersList(room) });
@@ -393,7 +474,9 @@ function handleSignalMessage(peer, msg) {
   }
 
   if (msg.t === "leave") {
-    removePeer(peer, "غادر أحد اللاعبين.");
+    const room = peer.room ? rooms.get(peer.room) : null;
+    const hostLeaving = !!(room && room.hostId === peer.id);
+    removePeer(peer, hostLeaving ? "غادر المضيف الغرفة." : "غادر أحد اللاعبين.", { final: hostLeaving });
     sendJson(peer.socket, { t: "left" });
     return;
   }
@@ -597,9 +680,13 @@ const heartbeat = setInterval(() => {
   const now = Date.now();
   rooms.forEach((room) => {
     if (now - room.createdAt > ROOM_TTL) {
+      if (room.hostTimer) {
+        clearTimeout(room.hostTimer);
+        room.hostTimer = null;
+      }
       room.peers.forEach((peer) => {
         peer.room = null;
-        sendJson(peer.socket, { t: "room-closed", reason: "انتهت مدة الغرفة." });
+        sendJson(peer.socket, { t: "room-closed", reason: "انتهت مدة الغرفة.", final: true });
       });
       rooms.delete(room.code);
       log("حُذفت الغرفة المنتهية " + room.code);
