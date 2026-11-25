@@ -2056,6 +2056,7 @@
     else bell.addEventListener("click", toggleNotifications);
     view.appendChild(hud);
     state.hud = hud;
+    bindHudCompact(hud);
     if (state.isHost) {
       const panelBtn = BG.el("button", { type: "button", class: "net-hud-hostpanel", "aria-label": "لوحة المضيف", text: "👑" });
       panelBtn.addEventListener("click", openHostPanel);
@@ -2065,6 +2066,84 @@
     updateHudPing();
     updateHudConnection(state.connState);
     refreshNotifyButtons();
+    setHudCompact(true);
+  }
+
+  /* ------------------------------ شريط الجلسة المصغّر ------------------------------ */
+  /* الافتراضي: شريحة صغيرة بجانب زر القواعد تعرض رمز الغرفة وسرعة الشبكة فقط. الضغط عليها يُظهر الشريط
+     الكامل بحجمه ومكانه السابق، والضغط على الرمز أو السرعة فيه يعيده إلى جانب زر القواعد. */
+  function bindHudCompact(hud) {
+    hud.addEventListener("click", (event) => {
+      if (state.hudCompact) {
+        setHudCompact(false);
+        return;
+      }
+      if (event.target.closest && event.target.closest(".net-hud-dot, .net-hud-code, .net-hud-ping")) setHudCompact(true);
+    });
+    hud.addEventListener("keydown", (event) => {
+      if (!state.hudCompact || (event.key !== "Enter" && event.key !== " ")) return;
+      event.preventDefault();
+      setHudCompact(false);
+    });
+    /* عند دخول وضع ملء الشاشة تنتقل الشريحة إلى شريطه (شريط الأدوات مخفي هناك) وعند الخروج منه تعود */
+    if (!state.hudBodyObserver && typeof MutationObserver === "function") {
+      state.hudBodyObserver = new MutationObserver(() => {
+        if (state.hud && state.hudCompact) placeHud();
+      });
+      state.hudBodyObserver.observe(document.body, { attributes: true, attributeFilter: ["class"] });
+    }
+  }
+
+  function setHudCompact(compact) {
+    const hud = state.hud;
+    if (!hud) return;
+    state.hudCompact = !!compact;
+    hud.classList.toggle("is-compact", state.hudCompact);
+    const tray = hud.querySelector(".net-react-tray");
+    const reactBtn = hud.querySelector(".net-hud-react");
+    if (tray) tray.hidden = true;
+    if (reactBtn) reactBtn.setAttribute("aria-expanded", "false");
+    refreshHudA11y();
+    placeHud();
+  }
+
+  function refreshHudA11y() {
+    const hud = state.hud;
+    if (!hud) return;
+    const code = (BG.net && BG.net.roomCode) || "";
+    if (state.hudCompact) {
+      const label = "غرفة " + code + " — اضغط لإظهار شريط الجلسة";
+      hud.setAttribute("role", "button");
+      hud.tabIndex = 0;
+      hud.title = label;
+      hud.setAttribute("aria-label", label);
+    } else {
+      hud.removeAttribute("role");
+      hud.removeAttribute("tabindex");
+      hud.removeAttribute("aria-label");
+      hud.removeAttribute("title");
+    }
+  }
+
+  /* مكان الشريط: مصغّرًا → بجانب زر القواعد (أو شريط ملء الشاشة إن كان مفعّلًا)، كاملًا → مكانه القديم في صفحة اللعبة */
+  function placeHud() {
+    const hud = state.hud;
+    const view = document.getElementById("gameView");
+    if (!hud || !view) return;
+    if (!state.hudCompact) {
+      if (hud.parentNode !== view) view.appendChild(hud);
+      return;
+    }
+    const fsBar = document.getElementById("fsHud");
+    const rules = document.getElementById("btnGameRules");
+    if (document.body.classList.contains("fullscreen-game") && fsBar) {
+      const exit = document.getElementById("btnExitFullscreen");
+      if (hud.parentNode !== fsBar) fsBar.insertBefore(hud, exit && exit.parentNode === fsBar ? exit : null);
+    } else if (rules && rules.parentNode) {
+      if (hud.parentNode !== rules.parentNode || hud.previousElementSibling !== rules) rules.parentNode.insertBefore(hud, rules.nextSibling);
+    } else if (hud.parentNode !== view) {
+      view.appendChild(hud);
+    }
   }
 
   function updateHudConnection(next) {
@@ -2266,6 +2345,10 @@
   }
 
   function removeHud() {
+    if (state.hudBodyObserver) {
+      state.hudBodyObserver.disconnect();
+      state.hudBodyObserver = null;
+    }
     if (state.hud && state.hud.parentNode) state.hud.parentNode.removeChild(state.hud);
     state.hud = null;
     document.querySelectorAll(".net-react-pop").forEach((node) => node.remove());
