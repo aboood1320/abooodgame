@@ -143,7 +143,18 @@
   function isHiddenBox(el) {
     if (!el || !el.isConnected) return true;
     const style = window.getComputedStyle(el);
-    return style.display === "none" || style.visibility === "hidden";
+    if (style.display === "none") return true;
+    if (style.visibility !== "hidden") return false;
+    /* درج «اللوحة فقط» يخفي اللوحة الجانبية كلها بـvisibility. لو اعتبرنا
+       أبناءها مخفيين لتغيّرت مفاتيح النوافذ عند كل فتح/إغلاق، فيُفقد وضع
+       النافذة العائمة وتُزال أدواتها. نستثني الوراثة من الدرج فقط، ويبقى
+       أي إخفاء خاص بالعنصر نفسه محترماً. */
+    const side = el.closest(".bo-side");
+    if (side && side !== el) {
+      const sideStyle = window.getComputedStyle(side);
+      if (sideStyle.display !== "none" && sideStyle.visibility === "hidden") return false;
+    }
+    return true;
   }
 
   function hasContent(el) {
