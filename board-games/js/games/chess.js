@@ -29,6 +29,8 @@
   const PIECE_URL = "vendor/chess/pieces/";
   const ENGINE_URL = "vendor/stockfish/stockfish-17.1-lite-single.js";
   const REDUCED = "matchMedia" in window && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  /* مهلة الحركة الأولى: الساعة لا تبدأ قبلها، وإن انتهت دون حركة تُلغى المباراة. */
+  const FIRST_MOVE_GRACE = 15000;
 
 
   const LEVEL_CFG = {
@@ -89,6 +91,8 @@
   let clock = { w: 600000, b: 600000 };
   let increment = 0;
   let clockStartedAt = 0;
+  let clockRunning = false;
+  let openingDeadline = 0;
   let clockTimer = null;
   let currentEval = null;
   let lastCheckSound = false;
@@ -168,6 +172,36 @@
     return side === "w" ? "b" : "w";
   }
 
+  /* الاتجاه المحلي: في مباراة البشر يتجه دور كل لاعب إلى أسفله، وفي مباراة
+     الحاسوب يبقى اللاعب البشري في الأسفل دائماً. الأونلاين يبقى حسب المقعد. */
+  function orientOfflineBoard(anyTurn) {
+    if (online() || !state) return;
+    const whiteHuman = !isCpuSide("w");
+    const blackHuman = !isCpuSide("b");
+    if (whiteHuman && blackHuman) {
+      flip = anyTurn ? state.turn === "b" : false;
+      return;
+    }
+    if (whiteHuman && !blackHuman) flip = false;
+    else if (!whiteHuman && blackHuman) flip = true;
+  }
+
+  function openingLeftMs() {
+    if (!openingDeadline) return 0;
+    return Math.max(0, openingDeadline - Date.now());
+  }
+
+  function openingActive() {
+    return !over && !clockRunning && !history.length && openingDeadline > 0;
+  }
+
+  function startClockNow(now) {
+    clockRunning = true;
+    openingDeadline = 0;
+    clockStartedAt = now || Date.now();
+    if (el && el.opening) el.opening.hidden = true;
+  }
+
   function playerLabel(side) {
     const seat = seatOf(side);
     let name = seat.name || sideName(side);
@@ -231,7 +265,7 @@
 
   function remainingOf(side) {
     const base = Math.max(0, Number(clock[side]) || 0);
-    if (!base || over || side !== state.turn) return base;
+    if (!base || over || !clockRunning || side !== state.turn) return base;
     return Math.max(0, base - (Date.now() - clockStartedAt));
   }
 
@@ -281,6 +315,12 @@
           '</div>' +
           '<div class="chess-board-wrap">' +
             '<div class="chess-board" data-ch-board role="grid" aria-label="رقعة الشطرنج"></div>' +
+            '<div class="ch-opening" data-ch-opening role="timer" aria-live="off" hidden>' +
+              '<span class="ch-opening-icon" aria-hidden="true">⏳</span>' +
+              '<span>الحركة الأولى</span>' +
+              '<b data-ch-opening-count>15</b>' +
+              '<span>ث</span>' +
+            '</div>' +
             '<div class="ch-check-toast" data-ch-check-toast hidden>كش!</div>' +
             '<div class="ch-promo" data-ch-promo hidden>' +
               '<div class="ch-promo-card" role="dialog" aria-modal="true" aria-label="ترقية البيدق">' +
@@ -350,6 +390,8 @@
     el.moves = layout.querySelector("[data-ch-moves]");
     el.promo = layout.querySelector("[data-ch-promo]");
     el.promoRow = layout.querySelector("[data-ch-promo-row]");
+    el.opening = layout.querySelector("[data-ch-opening]");
+    el.openingCount = layout.querySelector("[data-ch-opening-count]");
     el.checkToast = layout.querySelector("[data-ch-check-toast]");
     el.engineBadge = layout.querySelector("[data-ch-engine]");
     el.level = layout.querySelector("[data-ch-level]");
@@ -393,6 +435,9 @@
         get over() { return over; },
         get thinking() { return thinking; },
         get clock() { return { w: remainingOf("w"), b: remainingOf("b") }; },
+        get clockRunning() { return clockRunning; },
+        get openingLeft() { return openingLeftMs(); },
+        get flip() { return flip; },
         get engineReady() { return !!engine && !engineFailed; },
         render,
         setFen(fen) {
@@ -413,6 +458,8 @@
           currentEval = null;
           positionCounts = new Map();
           positionCounts.set(C.positionKey(state), 1);
+          clockRunning = true;
+          openingDeadline = 0;
           clockStartedAt = Date.now();
           hidePromotion();
           render();
@@ -523,14 +570,17 @@
     clock = { w: spec.base, b: spec.base };
     increment = spec.inc;
     clockStartedAt = Date.now();
+    clockRunning = false;
+    openingDeadline = !isCpuSide("w") ? clockStartedAt + FIRST_MOVE_GRACE : 0;
 
     positionCounts = new Map();
     positionCounts.set(C.positionKey(state), 1);
 
-    if (!first) {
-      const hasCpu = isCpuSide("w") || isCpuSide("b");
-      if (!online() && !flip && hasCpu) flip = isCpuSide("w") && !isCpuSide("b");
-      if (APIhasCpuSeatW() && !APIhasCpuSeatB()) flip = true;
+    if (online()) {
+      const seat = apiRef && apiRef.net ? apiRef.net.seat : 0;
+      flip = seat === 1;
+    } else {
+      orientOfflineBoard(false);
     }
 
     if (apiRef) apiRef.finished = false;
@@ -538,13 +588,6 @@
     render();
     startClockLoop();
     maybeAi();
-  }
-
-  function APIhasCpuSeatW() {
-    return isCpuSide("w") && !isCpuSide("b");
-  }
-  function APIhasCpuSeatB() {
-    return isCpuSide("b") && !isCpuSide("w");
   }
 
   function render(opts) {
@@ -605,6 +648,7 @@
 
     paintPlayers();
     paintClocks();
+    paintOpening();
     updateStatus();
     updateEval();
     updateMoves();
@@ -730,6 +774,30 @@
     }
   }
 
+  function paintOpening() {
+    if (!el || !el.opening) return;
+    if (!openingActive()) {
+      if (!el.opening.hidden) el.opening.hidden = true;
+      el.opening.classList.remove("is-urgent");
+      return;
+    }
+
+    const secs = Math.max(0, Math.ceil(openingLeftMs() / 1000));
+    const label = String(secs);
+    let changed = false;
+    if (el.opening.hidden) {
+      el.opening.hidden = false;
+      changed = true;
+    }
+    if (el.openingCount && el.openingCount.textContent !== label) {
+      el.openingCount.textContent = label;
+      changed = true;
+    }
+    el.opening.classList.toggle("is-urgent", secs <= 5);
+    el.opening.setAttribute("aria-label", "الحركة الأولى: " + label + " ثانية");
+    if (changed && !over) updateStatus();
+  }
+
   function updateStatus() {
     if (!el) return;
     const side = state.turn;
@@ -748,6 +816,10 @@
     } else if (hintBusy) {
       title = "جاري البحث عن تلميح…";
       note = "لحظات من فضلك.";
+    } else if (openingActive()) {
+      const secs = Math.max(1, Math.ceil(openingLeftMs() / 1000));
+      title = "بانتظار الحركة الأولى";
+      note = "لديك " + secs + " ثانية لبدء المباراة قبل إلغائها.";
     } else if (online() && !canPlayLocal() && !over) {
       title = "دور " + sideName(side);
       note = isCpuSide(side) ? "الحاسوب يلعب الآن." : playerLabel(side) + " يفكّر…";
@@ -1120,7 +1192,11 @@
 
     const mover = state.turn;
     const now = Date.now();
-    const left = clock[mover] ? Math.max(0, clock[mover] - (now - clockStartedAt)) : 0;
+    const left = clock[mover]
+      ? clockRunning
+        ? Math.max(0, clock[mover] - (now - clockStartedAt))
+        : clock[mover]
+      : 0;
     const before = { w: clock.w, b: clock.b };
 
     if (clock[mover] && left <= 0) {
@@ -1133,6 +1209,7 @@
     const undo = C.makeMove(state, move);
     const key = C.positionKey(state);
 
+    if (!clockRunning) startClockNow(now);
     if (clock[mover]) clock[mover] = left + increment;
     clockStartedAt = Date.now();
 
@@ -1153,6 +1230,7 @@
     hintSquares = null;
     currentEval = null;
     hidePromotion();
+    if (!online()) orientOfflineBoard(true);
 
     if (FX) {
       if (move.promo) FX.sound("promote");
@@ -1190,14 +1268,17 @@
     stopHint();
 
     const finalTurn = state.turn;
-    if (clock[finalTurn]) {
+    if (clockRunning && clock[finalTurn]) {
       clock[finalTurn] = Math.max(0, clock[finalTurn] - (Date.now() - clockStartedAt));
     }
+    clockRunning = false;
+    openingDeadline = 0;
 
     let title = "انتهت المباراة";
     let note = "";
     let result = "½–½";
     let icon = "♚";
+    let tone = "";
 
     if (outcome.reason === "checkmate") {
       const winner = outcome.winner;
@@ -1240,9 +1321,15 @@
       result = winner === "w" ? "1–0" : "0–1";
       icon = "⚑";
       playEndSound(winner, "win");
+    } else if (outcome.reason === "opening") {
+      title = "أُلغيت المباراة";
+      note = "لم تُنفَّذ الحركة الأولى خلال 15 ثانية. ابدأ من جديد عندما تكون جاهزاً.";
+      result = "—";
+      icon = "⏳";
+      tone = "lose";
     }
 
-    endInfo = { title: title, note: note, result: result, icon: icon };
+    endInfo = { title: title, note: note, result: result, icon: icon, tone: tone };
     selected = -1;
     selectedMoves = [];
     pendingPromo = null;
@@ -1251,7 +1338,7 @@
 
     setTimeout(function () {
       if (!over || !apiRef) return;
-      apiRef.gameOver({ title: title, text: note, icon: icon });
+      apiRef.gameOver({ title: title, text: note, icon: icon, tone: tone || undefined });
     }, 480);
   }
 
@@ -1340,8 +1427,11 @@
 
     if (record && record.clockBefore) {
       clock = { w: record.clockBefore.w, b: record.clockBefore.b };
-      clockStartedAt = Date.now();
     }
+    clockStartedAt = Date.now();
+    clockRunning = history.length > 0;
+    openingDeadline = 0;
+    orientOfflineBoard(true);
 
     if (apiRef) apiRef.finished = false;
     if (FX) FX.sound("recall");
@@ -1547,7 +1637,21 @@
   function tickClock() {
     if (!state || !el) return;
     paintClocks();
+    paintOpening();
     if (over) return;
+
+    if (openingActive()) {
+      if (openingLeftMs() > 0) return;
+      if (!online() || (apiRef && apiRef.net && apiRef.net.isHost)) {
+        reportEnd({ reason: "opening", winner: null, result: "—" });
+      } else if (!flagWarned && apiRef && apiRef.toast) {
+        flagWarned = true;
+        apiRef.toast("انتهت مهلة الحركة الأولى — بانتظار إلغاء المباراة.", "warn");
+      }
+      return;
+    }
+
+    if (!clockRunning) return;
     if (!clock.w && !clock.b) return;
     const side = state.turn;
     if (remainingOf(side) > 0) return;
@@ -2027,6 +2131,8 @@
       clock: { w: clock.w, b: clock.b },
       increment: increment,
       startedAt: clockStartedAt,
+      running: clockRunning,
+      opening: openingDeadline ? Math.max(0, openingDeadline - Date.now()) : 0,
       over: over,
       endInfo: endInfo,
       eval: currentEval,
@@ -2124,7 +2230,30 @@
     if (!online() || clockStartedAt > Date.now() + 2000 || Math.abs(Date.now() - clockStartedAt) > 12 * 3600 * 1000) {
       clockStartedAt = Date.now();
     }
-    if (!online() && typeof snap.flip === "boolean") flip = snap.flip;
+
+    const hasMoves = history.length > 0;
+    if (over) {
+      clockRunning = false;
+      openingDeadline = 0;
+    } else if (snap.running === true || hasMoves) {
+      clockRunning = true;
+      openingDeadline = 0;
+    } else {
+      clockRunning = false;
+      const openingLeft = Number(snap.opening);
+      if (Number.isFinite(openingLeft) && openingLeft > 0) {
+        openingDeadline = Date.now() + Math.min(FIRST_MOVE_GRACE, openingLeft);
+      } else if (snap.running !== false && !isCpuSide("w")) {
+        openingDeadline = Date.now() + FIRST_MOVE_GRACE;
+      } else {
+        openingDeadline = 0;
+      }
+    }
+
+    if (!online()) {
+      if (typeof snap.flip === "boolean") flip = snap.flip;
+      else orientOfflineBoard(false);
+    }
 
     startClockLoop();
     render();
@@ -2185,6 +2314,8 @@
     state = null;
     rootRef = null;
     apiRef = null;
+    clockRunning = false;
+    openingDeadline = 0;
     history = [];
     positionCounts = new Map();
     pendingPromo = null;
