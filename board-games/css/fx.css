@@ -1312,7 +1312,52 @@
   filter: drop-shadow(0 3px 4px rgba(0, 0, 0, 0.55));
   animation: fx-pad-bob 1.7s ease-in-out infinite;
 }
+
 .fx-pad-icon svg { display: block; width: 100%; height: 100%; }
+
+/* شريحة صاحب الدور بجانب زر الرمي في منتصف اللوحة */
+.fx-pad-who {
+  position: absolute;
+  top: 50%;
+  inset-inline-end: calc(100% + 10px);
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  box-sizing: border-box;
+  max-width: min(38vw, 190px);
+  padding: 7px 11px;
+  transform: translateY(-50%);
+  border: 1px solid rgba(246, 200, 95, 0.58);
+  border-radius: 999px;
+  background:
+    linear-gradient(180deg, rgba(24, 52, 59, 0.96), rgba(7, 21, 25, 0.96));
+  box-shadow:
+    0 9px 18px -9px rgba(0, 0, 0, 0.85),
+    inset 0 1px 0 rgba(255, 255, 255, 0.14);
+  color: #ffe6a8;
+  font-size: 0.72rem;
+  font-weight: 900;
+  line-height: 1;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.fx-pad-who[hidden] { display: none; }
+.fx-pad-who-icon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 15px;
+  height: 15px;
+  color: #8fe6d2;
+}
+.fx-pad-who-icon svg { display: block; width: 100%; height: 100%; }
+.fx-pad-who-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
 .fx-rollpad-dice { display: flex; align-items: center; gap: 11px; }
 .fx-rollpad .fx-tumble-die {
@@ -1354,6 +1399,14 @@
   .fx-rollpad .fx-tumble-die { width: 40px; height: 40px; padding: 6px; border-radius: 11px; }
   .fx-rollpad-dice { gap: 8px; }
   .fx-rollpad small { margin-top: -12px; padding: 5px 13px 6px; font-size: 0.72rem; }
+  .fx-pad-who {
+    inset-inline-end: calc(100% + 7px);
+    max-width: 27vw;
+    padding: 6px 8px;
+    gap: 4px;
+    font-size: 0.64rem;
+  }
+  .fx-pad-who-icon { width: 13px; height: 13px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .fx-rollpad,
@@ -1917,6 +1970,19 @@ body.fullscreen-game.board-only .bo-drawer-bar {
   background: radial-gradient(closest-side, rgba(0, 0, 0, 0.62), rgba(0, 0, 0, 0));
   transform-origin: center;
   will-change: transform, opacity;
+}
+
+/* غلاف المكعب: زاوية الكاميرا ثابتة، والمكعب يدور داخله ثم يستقر على وجهه */
+.fx-cube-stage {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: var(--s);
+  height: var(--s);
+  transform-style: preserve-3d;
+  transform-origin: center;
+  will-change: transform;
+  pointer-events: none;
 }
 
 /* مكعّب نرد حقيقي: ستة أوجه، والوجه الأمامي يحمل القيمة النهائية */

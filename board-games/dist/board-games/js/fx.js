@@ -937,11 +937,17 @@
       const shadow = document.createElement("span");
       shadow.className = "fx-throw-shadow";
       shadow.style.width = size + "px";
-      shadow.style.height = size * 0.6 + "px";
+      shadow.style.height = size * 0.78 + "px";
       const tone = (o.tones && o.tones[i]) || o.tone;
       const el = buildCube(value, tone);
+      /* غلاف بزاوية كاميرا ثابتة: يدور المكعب داخله بحرية ثم يستقر على وجهه
+         بينما تبقى زاوية النظر نفسها من أول الرمية إلى آخرها. */
+      const stage = document.createElement("span");
+      stage.className = "fx-cube-stage";
+      stage.style.setProperty("--s", size + "px");
+      stage.appendChild(el);
       layer.appendChild(shadow);
-      layer.appendChild(el);
+      layer.appendChild(stage);
       const spread = 0.26 + (0.48 * (i + 0.5)) / n + (rnd() - 0.5) * 0.05;
       let x;
       let y;
@@ -955,7 +961,7 @@
       const speed = Math.min(W, H) * (1.6 + rnd() * 0.8);
       const sgn = () => (rnd() < 0.5 ? -1 : 1);
       const die = {
-        el, shadow, final: value,
+        el, stage, shadow, final: value,
         x, y, vx: ((tx - x) / len) * speed, vy: ((ty - y) / len) * speed,
         z: size * 1.4, vz: 240 + rnd() * 260,
         ang: rnd() * TAU, om: sgn() * (7 + rnd() * 9),
@@ -1001,10 +1007,13 @@
         if (!moved) break;
       }
     };
-    /* ميل ثابت عند الاستقرار يُظهر ثلاثة أوجه، مع الوجه الأمامي الذي يحمل
-       القيمة النهائية. نختار أقرب دورة كاملة حتى لا يدور النرد طويلاً. */
-    const BASE_X = -0.28;
-    const BASE_Y = 0.38;
+    /* زاوية الكاميرا ثابتة على الغلاف، أما المكعب فيستقر بوجهه العلوي موازيًا
+       للوحة: دوران أمامي 90° يجعل وجه القيمة النهائية (front) إلى الأعلى،
+       وتصفير الدوران الجانبي والالتفاف يمنع الميلان على الحرف. */
+    const CAM_X = -50 * Math.PI / 180;
+    const CAM_Y = -15 * Math.PI / 180;
+    const CAM_COS = Math.cos(CAM_X);
+    const REST_X = Math.PI / 2;
     const nearestTurn = (current, target) => target + Math.round((current - target) / TAU) * TAU;
     let justRested = false;
     const toRest = (d) => {
@@ -1014,9 +1023,9 @@
       d.ease = 0;
       d.vx = 0; d.vy = 0; d.vz = 0; d.z = 0;
       d.fromRx = d.rx; d.fromRy = d.ry; d.fromAng = d.ang;
-      d.toRx = nearestTurn(d.rx, BASE_X);
-      d.toRy = nearestTurn(d.ry, BASE_Y);
-      d.toAng = Math.round(d.ang / (Math.PI / 2)) * (Math.PI / 2) + (rnd() - 0.5) * 0.3;
+      d.toRx = nearestTurn(d.rx, REST_X);
+      d.toRy = nearestTurn(d.ry, 0);
+      d.toAng = nearestTurn(d.ang, 0);
     };
     const wake = (d) => {
       if (!d.rest) return;
@@ -1115,12 +1124,14 @@
       dice.forEach((d) => {
         const s = 1 + d.z / 320;
         const lift = d.z * 0.38;
-        d.el.style.transform =
+        d.stage.style.transform =
           "translate3d(" + (d.x - r) + "px," + (d.y - r - lift) + "px,0) scale(" + s + ") " +
+          "rotateX(" + CAM_X + "rad) rotateY(" + CAM_Y + "rad)";
+        d.el.style.transform =
           "rotateX(" + d.rx + "rad) rotateY(" + d.ry + "rad) rotateZ(" + d.ang + "rad)";
         const sh = 1 - Math.min(0.55, d.z / 380);
         d.shadow.style.opacity = String(0.5 * sh);
-        d.shadow.style.transform = "translate3d(" + (d.x - r + d.z * 0.05) + "px," + (d.y + r * 0.42) + "px,0) scale(" + (sh + 0.1) + ")";
+        d.shadow.style.transform = "translate3d(" + (d.x - r + d.z * 0.05) + "px," + (d.y + r * CAM_COS) + "px,0) scale(" + (sh + 0.1) + ")";
       });
     };
 
@@ -1161,7 +1172,7 @@
     /* احتياط: لو توقفت الإطارات (تبويب في الخلفية) نُنهي الرمي بالقيم النهائية ليستمر اللعب */
     hardTimer = setTimeout(() => {
       if (ended || cancelled) return;
-      dice.forEach((d) => { d.rest = true; d.ease = 1; d.rx = BASE_X; d.ry = BASE_Y; d.ang = 0; });
+      dice.forEach((d) => { d.rest = true; d.ease = 1; d.rx = REST_X; d.ry = 0; d.ang = 0; });
       render();
       settleAll();
     }, (maxT + 1.4) * 1000);
@@ -1581,6 +1592,39 @@
     return pad;
   }
 
+  /* اسم صاحب الدور بجانب زر الرمي: نأخذه من نص الحالة العام ونختصره
+     إلى اسم اللاعب حتى يبقى واضحًا بجانب الزر على الشاشات الضيقة. */
+  function rollWhoName() {
+    const el = document.getElementById("gameStatus");
+    if (!el) return "";
+    let text = el.textContent.replace(/\s+/g, " ").trim();
+    if (!text) return "";
+    const titleEl = document.getElementById("gameTitle");
+    const title = titleEl ? titleEl.textContent.replace(/\s+/g, " ").trim() : "";
+    if (title && text.indexOf(title) === 0) {
+      text = text.slice(title.length).replace(/^[\s—–\-·:|]+/, "").trim();
+    }
+    text = text.split(/\s+[—–-]\s+/)[0].trim();
+    text = text
+      .replace(/^(?:دور|الدور)\s+/, "")
+      .replace(/^(?:على|لـ|ل)\s+/, "")
+      .trim();
+    if (!text || /^(?:الإعداد|جارٍ اللعب|جارٍ الاستئناف|انتهت|غرفة)(?:\s|$)/.test(text)) return "";
+    return text;
+  }
+
+  function syncRollWho() {
+    const name = rollWhoName();
+    document.querySelectorAll(".fx-rollpad").forEach((pad) => {
+      if (!pad._whoChip) return;
+      const hide = !name;
+      if (pad._whoChip.hidden !== hide) pad._whoChip.hidden = hide;
+      if (pad._whoName && pad._whoName.textContent !== name) pad._whoName.textContent = name;
+      const aria = name ? "ارمِ النرد — دور " + name : "ارمِ النرد";
+      if (pad.getAttribute("aria-label") !== aria) pad.setAttribute("aria-label", aria);
+    });
+  }
+
   function makeRollPad(button, cfg) {
     if (cfg.label) {
       const action = buildActionPad(cfg.icon || "✅", cfg.label);
@@ -1616,6 +1660,20 @@
     label.textContent = "ارمِ النرد";
     pad.appendChild(disc);
     pad.appendChild(label);
+    /* شريحة صاحب الدور: تظهر ملتصقة بالزر في منتصف اللوحة وتتحدث مع الحالة. */
+    const who = document.createElement("span");
+    who.className = "fx-pad-who";
+    who.setAttribute("aria-hidden", "true");
+    const whoIcon = document.createElement("span");
+    whoIcon.className = "fx-pad-who-icon";
+    whoIcon.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="7.6" r="3.6" fill="none" stroke="currentColor" stroke-width="2"/><path d="M4.9 20c.6-4.2 3.6-6.5 7.1-6.5s6.5 2.3 7.1 6.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
+    const whoName = document.createElement("span");
+    whoName.className = "fx-pad-who-name";
+    who.appendChild(whoIcon);
+    who.appendChild(whoName);
+    pad.appendChild(who);
+    pad._whoChip = who;
+    pad._whoName = whoName;
     const randomFace = () => 1 + Math.floor(Math.random() * 6);
     dice.forEach((die) => setTumbleFace(die, randomFace()));
     /* تتبدّل أوجه النرد ببطء لجذب الانتباه، ويتوقف المؤقّت من تلقاء نفسه عند إزالة اللوحة */
@@ -1656,6 +1714,7 @@
       pad.setAttribute("data-pad", String(index));
       host.appendChild(pad);
     });
+    syncRollWho();
   }
 
   /**
@@ -1708,6 +1767,14 @@
       attributes: true,
       attributeFilter: ["disabled"],
     });
+    const statusEl = document.getElementById("gameStatus");
+    if (statusEl) {
+      new MutationObserver(syncRollWho).observe(statusEl, {
+        childList: true,
+        characterData: true,
+        subtree: true,
+      });
+    }
   }
 
   /* ------------------------------ وضع «اللوحة فقط» ------------------------------ */
