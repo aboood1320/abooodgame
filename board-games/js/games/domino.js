@@ -509,15 +509,59 @@
       handleStuck(player);
       return;
     }
-    const pick = AI.choose(
+    const ends = state.chain.length ? state.ends : null;
+    const myHand = player.hand || [];
+    const countByNumber = {};
+    for (let n = 0; n <= 6; n++) countByNumber[n] = 0;
+    myHand.forEach((t) => { countByNumber[t.a] += 1; countByNumber[t.b] += 1; });
+    const pick = AI.chooseMulti(
       tiles,
-      (tile) => {
-        let score = tile.a + tile.b;
-        if (tile.a === tile.b) score += 6;
-        if (!state.chain.length) score += 10;
-        if (tile.a === 6 || tile.b === 6) score += 3;
-        return score;
-      },
+      [
+        {
+          weight: 3,
+          scoreFn: (tile) => {
+            /* تخلص من النقاط العالية مبكراً لتقليل خسارتك إن خسرت الجولة. */
+            return tile.a + tile.b;
+          },
+        },
+        {
+          weight: 2.5,
+          scoreFn: (tile) => {
+            /* المزدوجة تمنحك دوراً إضافياً. */
+            return tile.a === tile.b ? 12 : 0;
+          },
+        },
+        {
+          weight: 2,
+          scoreFn: (tile) => {
+            /* حجريّن تنتهيان بنفس الرقم الذي في طرف السلسلة — يتحكم في السلسلة. */
+            let score = 0;
+            if (ends) {
+              if (tile.a === ends[0] || tile.b === ends[0]) score += 8;
+              if (tile.a === ends[1] || tile.b === ends[1]) score += 8;
+            }
+            return score;
+          },
+        },
+        {
+          weight: 1.5,
+          scoreFn: (tile) => {
+            /* أرقام نادرة في يدك — لعبها الآن يقلل خيارات الخصم لاحقاً. */
+            let score = 0;
+            [tile.a, tile.b].forEach((n) => {
+              if (countByNumber[n] <= 2) score += 6;
+            });
+            return score;
+          },
+        },
+        {
+          weight: 1,
+          scoreFn: (tile) => {
+            /* commencer بالحجر الأول: مكافأة لبدء السلسلة. */
+            return !state.chain.length ? 10 : 0;
+          },
+        },
+      ],
       player.level
     );
     state.busy = false;
