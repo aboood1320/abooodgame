@@ -665,15 +665,26 @@
 
   function pickCpuMove(moves, seat) {
     if (!moves.length) return null;
-    if (AI.level(seat && seat.level) === "hard") {
+    const level = seat && seat.level;
+    /* الصعوبات العالية: تقييم متعدد المعايير مع اختيار من أفضل الخيارات المتقاربة. */
+    if (level === "hard" || level === "expert") {
       const ranked = moves
         .map((move) => ({ move, score: cpuMoveScore(move, state.current) }))
         .sort((a, b) => b.score - a.score);
       const top = ranked[0].score;
-      const pool = ranked.filter((entry) => top - entry.score < 6).map((entry) => entry.move);
+      const pool = ranked.filter((entry) => top - entry.score < 8).map((entry) => entry.move);
       return U.pick(pool.length ? pool : [ranked[0].move]);
     }
-    return AI.choose(moves, (move) => cpuMoveScore(move, state.current), seat && seat.level) || moves[0];
+    /* السهل والمتوسط: chooseMulti مع أوزان على المعايير الأساسية. */
+    return AI.chooseMulti(
+      moves,
+      [
+        { weight: 3, scoreFn: (move) => cpuMoveScore(move, state.current) * 0.001 },
+        { weight: 1, scoreFn: (move) => (move.off ? 10 : 0) + (move.from === "bar" ? 5 : 0) },
+        { weight: 1, scoreFn: (move) => (24 - cpuRemaining(move.to, state.current)) * 0.1 },
+      ],
+      level
+    ) || moves[0];
   }
 
   function syncCpu() {
