@@ -301,7 +301,15 @@
     if (state.phase === "pick") {
       const options = aiOptions();
       if (!options.length) return;
-      const choice = AI.choose(options, (option) => option.score, cur().level);
+      const choice = AI.chooseMulti(
+        options,
+        [
+          { weight: 3, scoreFn: (option) => option.score },
+          { weight: 1, scoreFn: (option) => (option.colorScore || 0) * 2 },
+          { weight: 1, scoreFn: (option) => (option.wallProgress || 0) * 3 },
+        ],
+        cur().level
+      );
       take(choice.source, choice.index, choice.color);
       return;
     }
