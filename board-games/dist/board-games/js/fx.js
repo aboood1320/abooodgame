@@ -824,7 +824,7 @@
    * إن كانت الحركة معطّلة يُستدعى done فورًا دون تأخير. وإن غاب requestAnimationFrame تُستعمل الحركة القديمة.
    */
   function tumble(host, values, done, opts) {
-    const o = Object.assign({ hold: isLite() ? 600 : 820, tone: "", labels: null, random: null }, opts || {});
+    const o = Object.assign({ hold: isLite() ? 440 : 620, tone: "", labels: null, random: null }, opts || {});
     if (typeof window.requestAnimationFrame !== "function") return tumbleLegacy(host, values, done, opts);
     const rnd = typeof o.random === "function" ? o.random : Math.random;
     const labels = o.labels || null;
@@ -871,8 +871,10 @@
     /* هامش حركة يضمن بقاء جسم النرد وظله داخل اللوحة، لا مركزه فقط */
     const padX = Math.min(size * 0.72, W * 0.35);
     const padY = Math.min(size * 0.95, H * 0.35);
-    const G = 1900;
-    const maxT = (o.ms && o.ms >= 1000 ? o.ms : isLite() ? 1200 : 1700) / 1000;
+    const G = 2150;
+    /* إيقاع أقصر: القذفة تنطلق بقوة وتنتهي مرحلة الارتداد بسرعة بدل أن
+       يظل النرد يتدحرج ثانية كاملة قبل أن يهدأ. */
+    const maxT = (o.ms && o.ms >= 600 ? o.ms : isLite() ? 950 : 1250) / 1000;
 
     const layer = document.createElement("div");
     layer.className = "fx-throw";
@@ -969,15 +971,15 @@
       const len = Math.hypot(tx - x, ty - y) || 1;
       /* السرعة تُشتق من مسافة الرمية نفسها، لا من حجم اللوحة فقط،
          حتى تصل النردة إلى المنطقة العلوية نفسها على ٣٢٠ بكسل و١٢٨٠ بكسل. */
-      const speed = U.clamp(len * 1.9, Math.min(W, H) * 0.85, Math.min(W, H) * 2.6);
+      const speed = U.clamp(len * 2.4, Math.min(W, H) * 1.0, Math.min(W, H) * 3.0);
       const sgn = () => (rnd() < 0.5 ? -1 : 1);
       const die = {
         el, stage, view, shadow, final: value,
         x, y, vx: ((tx - x) / len) * speed, vy: ((ty - y) / len) * speed,
-        z: size * (0.85 + (i % 3) * 0.08), vz: 340 + rnd() * 120,
-        ang: rnd() * TAU, om: sgn() * (8 + rnd() * 9),
-        rx: rnd() * TAU, ry: rnd() * TAU, wx: sgn() * (8 + rnd() * 9), wy: sgn() * (8 + rnd() * 9),
-        rest: false, ease: 0, squash: 0,
+        z: size * (0.85 + (i % 3) * 0.08), vz: 300 + rnd() * 110,
+        ang: rnd() * TAU, om: sgn() * (4 + rnd() * 5),
+        rx: rnd() * TAU, ry: rnd() * TAU, wx: sgn() * (4 + rnd() * 5), wy: sgn() * (4 + rnd() * 5),
+        rest: false, ease: 0, squash: 0, impacted: false,
       };
       return die;
     });
@@ -991,8 +993,33 @@
     let releaseTimer = 0;
 
     const hit = (d, power) => {
-      d.wx += (rnd() - 0.5) * (power || 10);
-      d.wy += (rnd() - 0.5) * (power || 10);
+      d.wx += (rnd() - 0.5) * (power || 8);
+      d.wy += (rnd() - 0.5) * (power || 8);
+    };
+    /* أثر خفيف عند أول ارتطام قوي: حلقة ذهبية تتمدّد وتتلاشى تحت النرد،
+       فتُقرأ لحظة السقوط بوضوح دون أن تعترض رؤية اللوحة. */
+    const impact = (d, power) => {
+      if (isLite() || d.impacted || power < 220) return;
+      d.impacted = true;
+      const ring = document.createElement("span");
+      ring.className = "fx-impact";
+      const w = Math.min(size * 2.6, 150);
+      ring.style.width = w + "px";
+      ring.style.height = (w * 0.45) + "px";
+      ring.style.left = (d.x - w / 2) + "px";
+      ring.style.top = (d.y + size * 0.5 - w * 0.225) + "px";
+      layer.insertBefore(ring, layer.firstChild);
+      const remove = () => { if (ring.parentNode) ring.parentNode.removeChild(ring); };
+      if (typeof ring.animate === "function") {
+        const anim = ring.animate([
+          { opacity: 0.8, transform: "scale(.45)" },
+          { opacity: 0, transform: "scale(1.15)" },
+        ], { duration: 420, easing: "cubic-bezier(.2,.8,.3,1)", fill: "forwards" });
+        if (anim && anim.finished) anim.finished.then(remove).catch(remove);
+        else setTimeout(remove, 420);
+      } else {
+        setTimeout(remove, 420);
+      }
     };
     /* فصل نهائي للنرد المتلاصق مع إبقائه داخل اللوحة (يمنع التداخل عند الاستقرار) */
     const relax = () => {
@@ -1034,7 +1061,7 @@
       d.rest = true;
       d.ease = 0;
       d.vx = 0; d.vy = 0; d.vz = 0; d.z = 0;
-      d.squash = Math.max(d.squash || 0, 0.5);
+      d.squash = Math.max(d.squash || 0, 0.85);
       d.fromRx = d.rx; d.fromRy = d.ry; d.fromAng = d.ang;
       d.toRx = nearestTurn(d.rx, REST_X);
       d.toRy = nearestTurn(d.ry, REST_Y);
@@ -1047,11 +1074,14 @@
     };
 
     const step = (dt) => {
-      const late = Math.max(0, t - maxT * 0.6);
+      const late = Math.max(0, t - maxT * 0.45);
+      /* محاذاة الوجه تبدأ أبكر من إبطاء الحركة، فيتوزّع الدوران الأخير على
+         زمن أطول بدل أن يحدث دفعة واحدة قبل الثبات. */
+      const align = Math.max(0, t - maxT * 0.28);
       dice.forEach((d) => {
         if (d.squash) d.squash *= Math.exp(-14 * dt);
         if (d.rest) {
-          d.ease = Math.min(1, d.ease + dt / 0.38);
+          d.ease = Math.min(1, d.ease + dt / 0.26);
           const e = 1 - Math.pow(1 - d.ease, 3);
           d.rx = d.fromRx + (d.toRx - d.fromRx) * e;
           d.ry = d.fromRy + (d.toRy - d.fromRy) * e;
@@ -1063,34 +1093,48 @@
         if (d.z <= 0) {
           d.z = 0;
           if (d.vz < -100) {
-            d.vz = -d.vz * 0.56;
-            d.vx *= 0.72;
-            d.vy *= 0.72;
-            d.om *= 0.84;
-            d.squash = Math.min(1, Math.abs(d.vz) / 420);
-            hit(d, 11);
+            const force = Math.abs(d.vz);
+            d.vz = force * 0.5;
+            d.vx *= 0.68;
+            d.vy *= 0.68;
+            d.om *= 0.8;
+            d.squash = Math.min(1, force / 340);
+            hit(d, 9);
+            impact(d, force);
           } else {
             d.vz = 0;
           }
         }
         const grounded = d.z <= 0.5 && d.vz <= 1;
-        const k = Math.exp(-((grounded ? 2.4 : 0.3) + late * 10) * dt);
+        const k = Math.exp(-((grounded ? 3.2 : 0.3) + late * 14) * dt);
         d.vx *= k;
         d.vy *= k;
         d.x += d.vx * dt;
         d.y += d.vy * dt;
         d.ang += d.om * dt;
-        d.om *= Math.exp(-((grounded ? 4.0 : 0.15) + late * 8) * dt);
+        d.om *= Math.exp(-((grounded ? 5.2 : 0.15) + late * 10) * dt);
         d.rx += d.wx * dt;
         d.ry += d.wy * dt;
-        const kw = Math.exp(-((grounded ? 5.0 : 0.15) + late * 8) * dt);
+        const kw = Math.exp(-((grounded ? 6.5 : 0.15) + late * 10) * dt);
         d.wx *= kw;
         d.wy *= kw;
+        /* في الثلث الأخير نُوجّه الدوران بلطف نحو زاوية الثبات، فيصل النرد
+           إلى وضعه النهائي تدريجيًا بدل أن يلتفت بحدة في اللحظة الأخيرة. */
+        if (align > 0) {
+          const slow = Math.exp(-8 * align * dt);
+          d.om *= slow;
+          d.wx *= slow;
+          d.wy *= slow;
+          const pull = 1 - Math.exp(-18 * align * dt);
+          d.rx += (nearestTurn(d.rx, REST_X) - d.rx) * pull;
+          d.ry += (nearestTurn(d.ry, REST_Y) - d.ry) * pull;
+          d.ang += (nearestTurn(d.ang, 0) - d.ang) * pull;
+        }
         /* جدران اللوحة */
-        if (d.x < padX) { d.x = padX; d.vx = Math.abs(d.vx) * 0.72; d.om += (rnd() - 0.5) * 9; d.vz += 130; hit(d); }
-        if (d.x > W - padX) { d.x = W - padX; d.vx = -Math.abs(d.vx) * 0.72; d.om += (rnd() - 0.5) * 9; d.vz += 130; hit(d); }
-        if (d.y < padY) { d.y = padY; d.vy = Math.abs(d.vy) * 0.72; d.om += (rnd() - 0.5) * 9; d.vz += 130; hit(d); }
-        if (d.y > H - padY) { d.y = H - padY; d.vy = -Math.abs(d.vy) * 0.72; d.om += (rnd() - 0.5) * 9; d.vz += 130; hit(d); }
+        if (d.x < padX) { d.x = padX; d.vx = Math.abs(d.vx) * 0.62; d.om += (rnd() - 0.5) * 7; d.vz += 130; hit(d); }
+        if (d.x > W - padX) { d.x = W - padX; d.vx = -Math.abs(d.vx) * 0.62; d.om += (rnd() - 0.5) * 7; d.vz += 130; hit(d); }
+        if (d.y < padY) { d.y = padY; d.vy = Math.abs(d.vy) * 0.62; d.om += (rnd() - 0.5) * 7; d.vz += 130; hit(d); }
+        if (d.y > H - padY) { d.y = H - padY; d.vy = -Math.abs(d.vy) * 0.62; d.om += (rnd() - 0.5) * 7; d.vz += 130; hit(d); }
       });
       /* تصادم النرد ببعضه (تمريرتان عند كثرة النرد) */
       for (let pass = 0; pass < (n > 3 ? 2 : 1); pass++) for (let i = 0; i < n; i++) {
@@ -1115,9 +1159,9 @@
             const imp = ((1 + 0.78) * vn) / 2;
             a.vx -= imp * nx; a.vy -= imp * ny;
             b.vx += imp * nx; b.vy += imp * ny;
-            a.om += (rnd() - 0.5) * 12; b.om += (rnd() - 0.5) * 12;
+            a.om += (rnd() - 0.5) * 9; b.om += (rnd() - 0.5) * 9;
             a.vz += 170 + vn * 0.05; b.vz += 170 + vn * 0.05;
-            hit(a, 14); hit(b, 14);
+            hit(a, 10); hit(b, 10);
           }
         }
       }
@@ -1130,7 +1174,12 @@
         if (d.rest) return;
         const speed = Math.hypot(d.vx, d.vy);
         const calm = d.z <= 0 && d.vz === 0 && speed < 45 && Math.abs(d.om) < 1.2 && Math.abs(d.wx) < 1.6 && Math.abs(d.wy) < 1.6;
-        if ((calm && t > 0.9) || t >= maxT) toRest(d);
+        /* لا نُثبّت النرد إلا بعد أن تقترب زواياه من زاوية العرض النهائية،
+           فيظهر الوجه تدريجيًا بدل أن يلتفت فجأة لحظة اللمس الأخير. */
+        const aligned = Math.abs(nearestTurn(d.rx, REST_X) - d.rx) < 0.45 &&
+          Math.abs(nearestTurn(d.ry, REST_Y) - d.ry) < 0.45 &&
+          Math.abs(nearestTurn(d.ang, 0) - d.ang) < 0.45;
+        if ((calm && aligned && t > 0.5) || t >= maxT) toRest(d);
       });
       if (justRested) relax();
     };
@@ -1141,8 +1190,10 @@
         const lift = d.z * 0.38;
         /* ارتطام خفيف: انضغاط لحظي عند ملامسة اللوحة ثم يعود بسرعة */
         const sq = d.squash || 0;
-        const sx = s * (1 + sq * 0.045);
-        const sy = s * (1 - sq * 0.065);
+        /* انضغاط عند الارتطام، ثم نبضة قصيرة عند الثبات تُبرز استقرار القيمة */
+        const pop = d.rest ? Math.sin(d.ease * Math.PI) * 0.09 : 0;
+        const sx = s * (1 + sq * 0.075 + pop);
+        const sy = s * (1 - sq * 0.09 - pop * 0.55);
         d.view.style.transform =
           "translate3d(" + (d.x - r) + "px," + (d.y - r - lift) + "px,0) scale(" + sx + "," + sy + ")";
         d.stage.style.transform =
@@ -1167,6 +1218,7 @@
       ended = true;
       cancelAnimationFrame(raf);
       clearTimeout(hardTimer);
+      if (!isLite()) dice.forEach((d) => d.shadow.classList.add("is-settled"));
       releaseTimer = setTimeout(() => {
         remove();
         if (!cancelled) finish();
