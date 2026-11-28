@@ -852,7 +852,7 @@
       const it = Math.max(rect.top, 4);
       const ir = Math.min(rect.right, vw - 4);
       const ib = Math.min(rect.bottom, vh - 4);
-      if (ir - il >= 320 && ib - it >= 240) {
+      if (ir - il >= 240 && ib - it >= 220) {
         L = il; T = it; W = ir - il; H = ib - it;
       } else {
         const fw = Math.min(Math.max(rect.width, 440), vw - 8);
