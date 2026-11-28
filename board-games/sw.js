@@ -5,7 +5,7 @@
    ========================================================================== */
 "use strict";
 
-const VERSION = "1.9.52";
+const VERSION = "1.9.53";
 const CACHE = "bg-shell-v" + VERSION + "-r1";
 const OFFLINE_URL = "index.html";
 
@@ -75,6 +75,7 @@ const CORE = [
   "css/coop.css",
   "css/perf.css",
   "css/window-manager.css",
+  "css/motion.css",
   "js/avatars.js",
   "js/core.js",
   "js/fx.js",

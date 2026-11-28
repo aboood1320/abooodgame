@@ -104,6 +104,7 @@ const required = [
   "css/fx.css",
   "css/library.css",
   "css/site-refresh.css",
+  "css/motion.css",
   "css/kootbositta.css",
   "css/chess.css",
   "css/splendor.css",
