@@ -820,7 +820,7 @@
    * رمي نرد فيزيائي لكل الألعاب: يُقذف النرد من حافة اللوحة بسرعة ودوران ثلاثي الأبعاد، فيقفز ويرتدّ عن الحواف
    * ويرتطم بعضه ببعض (جاذبية، ارتداد، احتكاك، وظل يتبع الارتفاع)، ثم يستقر على القيم النهائية المحدَّدة سلفًا
    * ويُستدعى done. values: رقم أو مصفوفة (1–6). host: اللوحة التي يُرمى النرد داخل حدودها.
-   * opts: { tone, tones, hold, labels, ms (أقصى زمن للفيزياء), random (للاختبار), probe (للاختبار) }. يعيد دالة إلغاء.
+   * opts: { tone, tones, hold, labels, ms (أقصى زمن للفيزياء), power (خفيفة/متوسطة/قوية للاختبار), random (للاختبار), probe (للاختبار) }. يعيد دالة إلغاء.
    * إن كانت الحركة معطّلة يُستدعى done فورًا دون تأخير. وإن غاب requestAnimationFrame تُستعمل الحركة القديمة.
    */
   function tumble(host, values, done, opts) {
@@ -838,6 +838,24 @@
     }
     const n = list.length;
     const TAU = Math.PI * 2;
+
+    /* تنويع القوة: كل رمية تُختار خفيفة أو متوسطة أو قوية، مع تباين بسيط بين
+       نرد الرمية الواحدة، فتختلف المسافة والارتفاع والدوران وقوة الارتطام.
+       يمكن تثبيت النمط عبر opts.power للاختبار ("light"|"medium"|"strong"). */
+    const TIERS = [
+      { key: "light", speed: 0.72, lift: 0.78, spin: 0.72, impact: 0.72, minT: 0.42, time: 0.94 },
+      { key: "medium", speed: 1, lift: 1, spin: 1, impact: 1, minT: 0.5, time: 1 },
+      { key: "strong", speed: 1.28, lift: 1.22, spin: 1.24, impact: 1.3, minT: 0.54, time: 1.1 },
+    ];
+    let tier;
+    if (typeof o.power === "string") {
+      tier = TIERS.find((t) => t.key === o.power) || TIERS[1];
+    } else if (typeof o.power === "number") {
+      tier = Object.assign({}, TIERS[1], { speed: o.power, lift: o.power, spin: o.power, impact: o.power, minT: 0.5, time: 1 });
+    } else {
+      const pick = rnd();
+      tier = pick < 0.28 ? TIERS[0] : pick < 0.78 ? TIERS[1] : TIERS[2];
+    }
 
     /* ميدان الرمي: مستطيل اللوحة المرئي (أو منطقة مناسبة حول العنصر إن كان صغيرًا) */
     const vw = window.innerWidth;
@@ -874,11 +892,12 @@
     const G = 2150;
     /* إيقاع أقصر: القذفة تنطلق بقوة وتنتهي مرحلة الارتداد بسرعة بدل أن
        يظل النرد يتدحرج ثانية كاملة قبل أن يهدأ. */
-    const maxT = (o.ms && o.ms >= 600 ? o.ms : isLite() ? 950 : 1250) / 1000;
+    const maxT = (o.ms && o.ms >= 600 ? o.ms : (isLite() ? 950 : 1250) * tier.time) / 1000;
 
     const layer = document.createElement("div");
     layer.className = "fx-throw";
     layer.setAttribute("aria-hidden", "true");
+    layer.dataset.power = tier.key;
     layer.style.left = L + "px";
     layer.style.top = T + "px";
     layer.style.width = W + "px";
@@ -971,14 +990,16 @@
       const len = Math.hypot(tx - x, ty - y) || 1;
       /* السرعة تُشتق من مسافة الرمية نفسها، لا من حجم اللوحة فقط،
          حتى تصل النردة إلى المنطقة العلوية نفسها على ٣٢٠ بكسل و١٢٨٠ بكسل. */
-      const speed = U.clamp(len * 2.4, Math.min(W, H) * 1.0, Math.min(W, H) * 3.0);
+      const jitter = 0.94 + rnd() * 0.12;
+      const speed = U.clamp(len * 2.4, Math.min(W, H) * 1.0, Math.min(W, H) * 3.0) * tier.speed * jitter;
       const sgn = () => (rnd() < 0.5 ? -1 : 1);
+      const spin = () => sgn() * (4 + rnd() * 5) * tier.spin * jitter;
       const die = {
         el, stage, view, shadow, final: value,
         x, y, vx: ((tx - x) / len) * speed, vy: ((ty - y) / len) * speed,
-        z: size * (0.85 + (i % 3) * 0.08), vz: 300 + rnd() * 110,
-        ang: rnd() * TAU, om: sgn() * (4 + rnd() * 5),
-        rx: rnd() * TAU, ry: rnd() * TAU, wx: sgn() * (4 + rnd() * 5), wy: sgn() * (4 + rnd() * 5),
+        z: size * (0.85 + (i % 3) * 0.08), vz: (300 + rnd() * 110) * tier.lift * jitter,
+        ang: rnd() * TAU, om: spin(),
+        rx: rnd() * TAU, ry: rnd() * TAU, wx: spin(), wy: spin(),
         rest: false, ease: 0, squash: 0, impacted: false,
       };
       return die;
@@ -1010,10 +1031,11 @@
       ring.style.top = (d.y + size * 0.5 - w * 0.225) + "px";
       layer.insertBefore(ring, layer.firstChild);
       const remove = () => { if (ring.parentNode) ring.parentNode.removeChild(ring); };
+      const strength = U.clamp(power / 420, 0.5, 1.2);
       if (typeof ring.animate === "function") {
         const anim = ring.animate([
-          { opacity: 0.8, transform: "scale(.45)" },
-          { opacity: 0, transform: "scale(1.15)" },
+          { opacity: 0.8 * strength, transform: "scale(" + (0.45 * strength) + ")" },
+          { opacity: 0, transform: "scale(" + (1.15 * strength) + ")" },
         ], { duration: 420, easing: "cubic-bezier(.2,.8,.3,1)", fill: "forwards" });
         if (anim && anim.finished) anim.finished.then(remove).catch(remove);
         else setTimeout(remove, 420);
@@ -1099,8 +1121,8 @@
             d.vy *= 0.68;
             d.om *= 0.8;
             d.squash = Math.min(1, force / 340);
-            hit(d, 9);
-            impact(d, force);
+            hit(d, 9 * tier.impact);
+            impact(d, force * tier.impact);
           } else {
             d.vz = 0;
           }
@@ -1161,7 +1183,7 @@
             b.vx += imp * nx; b.vy += imp * ny;
             a.om += (rnd() - 0.5) * 9; b.om += (rnd() - 0.5) * 9;
             a.vz += 170 + vn * 0.05; b.vz += 170 + vn * 0.05;
-            hit(a, 10); hit(b, 10);
+            hit(a, 10 * tier.impact); hit(b, 10 * tier.impact);
           }
         }
       }
@@ -1179,7 +1201,7 @@
         const aligned = Math.abs(nearestTurn(d.rx, REST_X) - d.rx) < 0.45 &&
           Math.abs(nearestTurn(d.ry, REST_Y) - d.ry) < 0.45 &&
           Math.abs(nearestTurn(d.ang, 0) - d.ang) < 0.45;
-        if ((calm && aligned && t > 0.5) || t >= maxT) toRest(d);
+        if ((calm && aligned && t > tier.minT) || t >= maxT) toRest(d);
       });
       if (justRested) relax();
     };
