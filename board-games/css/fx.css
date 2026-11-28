@@ -1883,3 +1883,24 @@ body.fullscreen-game.board-only .bo-drawer-bar {
   .fx-audio-preview { min-height: 26px; padding: 0 8px; }
   .fx-preview { padding: 6px 10px; }
 }
+
+/* ------------------------------ رمي النرد الفيزيائي (FX.tumble) ------------------------------ */
+.fx-throw { position: fixed; z-index: 9000; overflow: visible; pointer-events: none; }
+.fx-throw .fx-tumble-die {
+  position: absolute;
+  left: 0;
+  top: 0;
+  margin: 0;
+  transform-origin: center;
+  will-change: transform;
+  box-shadow: inset 0 -4px 6px rgba(120, 90, 40, 0.25), inset 0 2px 3px #fff, 0 2px 4px rgba(0, 0, 0, 0.35);
+}
+.fx-throw-shadow {
+  position: absolute;
+  left: 0;
+  top: 0;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(0, 0, 0, 0.62), rgba(0, 0, 0, 0));
+  transform-origin: center;
+  will-change: transform, opacity;
+}
