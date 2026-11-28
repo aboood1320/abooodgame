@@ -869,10 +869,10 @@
     const size = U.clamp(Math.min(W, H) * (n > 3 ? 0.115 : 0.15), 38, 68);
     const r = size / 2;
     /* هامش حركة يضمن بقاء جسم النرد وظله داخل اللوحة، لا مركزه فقط */
-    const padX = Math.min(size * 0.62, W * 0.35);
-    const padY = Math.min(size * 0.78, H * 0.35);
-    const G = 2600;
-    const maxT = (o.ms && o.ms >= 1000 ? o.ms : isLite() ? 1100 : 1550) / 1000;
+    const padX = Math.min(size * 0.72, W * 0.35);
+    const padY = Math.min(size * 0.95, H * 0.35);
+    const G = 1900;
+    const maxT = (o.ms && o.ms >= 1000 ? o.ms : isLite() ? 1200 : 1700) / 1000;
 
     const layer = document.createElement("div");
     layer.className = "fx-throw";
@@ -934,13 +934,16 @@
       return cube;
     };
 
-    /* نقطة إطلاق على إحدى الحواف، والنرد متجاور حتى لا يتداخل لحظة الانطلاق */
-    const side = Math.floor(rnd() * 4);
+    /* نقطة إطلاق من جهة اللاعب أسفل اللوحة: قذفة واحدة إلى الأمام ثم
+       ارتدادات قصيرة، فيبدو الرمي طبيعيًا بدل أن ينطلق النرد من حافة عشوائية. */
+    const spanX = Math.max(1, W - padX * 2);
+    const spanY = Math.max(1, H - padY * 2);
+    const laneGap = Math.min(size * 1.35, spanX / Math.max(1, n));
     const dice = list.map((value, i) => {
       const shadow = document.createElement("span");
       shadow.className = "fx-throw-shadow";
-      shadow.style.width = size * 1.06 + "px";
-      shadow.style.height = size * 0.24 + "px";
+      shadow.style.width = size * 1.18 + "px";
+      shadow.style.height = size * 0.3 + "px";
       const tone = (o.tones && o.tones[i]) || o.tone;
       const el = buildCube(value, tone);
       /* غلاف لكل نرد على حدة: منظور الكاميرا يبقى متمركزًا حول النرد نفسه
@@ -957,26 +960,23 @@
       view.appendChild(stage);
       layer.appendChild(shadow);
       layer.appendChild(view);
-      const spread = 0.26 + (0.48 * (i + 0.5)) / n + (rnd() - 0.5) * 0.05;
-      const spanX = Math.max(1, W - padX * 2);
-      const spanY = Math.max(1, H - padY * 2);
-      let x;
-      let y;
-      if (side === 0) { x = padX + 2; y = padY + spanY * spread; }
-      else if (side === 1) { x = W - padX - 2; y = padY + spanY * spread; }
-      else if (side === 2) { x = padX + spanX * spread; y = padY + 2; }
-      else { x = padX + spanX * spread; y = H - padY - 2; }
-      const tx = padX + spanX * (0.3 + rnd() * 0.4);
-      const ty = padY + spanY * (0.3 + rnd() * 0.4);
+      /* النرد يبدأ قريبًا من منتصف جهة اللاعب، موزّعًا على مسارات صغيرة */
+      const lane = n > 1 ? (i - (n - 1) / 2) * laneGap : 0;
+      const x = U.clamp(W * 0.5 + lane + (rnd() - 0.5) * size * 0.25, padX, W - padX);
+      const y = H - padY - 2;
+      const tx = padX + spanX * (0.38 + rnd() * 0.24);
+      const ty = padY + spanY * (0.1 + rnd() * 0.18);
       const len = Math.hypot(tx - x, ty - y) || 1;
-      const speed = Math.min(W, H) * (1.5 + rnd() * 0.7);
+      /* السرعة تُشتق من مسافة الرمية نفسها، لا من حجم اللوحة فقط،
+         حتى تصل النردة إلى المنطقة العلوية نفسها على ٣٢٠ بكسل و١٢٨٠ بكسل. */
+      const speed = U.clamp(len * 1.9, Math.min(W, H) * 0.85, Math.min(W, H) * 2.6);
       const sgn = () => (rnd() < 0.5 ? -1 : 1);
       const die = {
         el, stage, view, shadow, final: value,
         x, y, vx: ((tx - x) / len) * speed, vy: ((ty - y) / len) * speed,
-        z: size * 1.15, vz: 200 + rnd() * 220,
-        ang: rnd() * TAU, om: sgn() * (7 + rnd() * 9),
-        rx: rnd() * TAU, ry: rnd() * TAU, wx: sgn() * (7 + rnd() * 8), wy: sgn() * (7 + rnd() * 8),
+        z: size * (0.85 + (i % 3) * 0.08), vz: 340 + rnd() * 120,
+        ang: rnd() * TAU, om: sgn() * (8 + rnd() * 9),
+        rx: rnd() * TAU, ry: rnd() * TAU, wx: sgn() * (8 + rnd() * 9), wy: sgn() * (8 + rnd() * 9),
         rest: false, ease: 0, squash: 0,
       };
       return die;
@@ -1018,13 +1018,13 @@
         if (!moved) break;
       }
     };
-    /* الكاميرا تنظر إلى النرد من الأمام مع ميل خفيف من أعلى:
-       يبقى وجه القيمة النهائية (front) هو الوجه الرئيسي المواجه للشاشة،
-       ويظهر شريط رفيع من الوجه العلوي والوجه الأيمن فقط، بينما يبقى
-       الوجه السفلي (وجه التلامس) مخفيًا تحت النرد. */
-    const CAM_X = -16 * Math.PI / 180;
-    const CAM_Y = -18 * Math.PI / 180;
-    const REST_X = 0;
+    /* الكاميرا تنظر إلى اللوحة من أعلى بميل قوي، والمكعب يستقر بدوران
+       +٩٠° حول X فيصبح وجه القيمة النهائية (front) هو الوجه العلوي
+       الموازي للوحة. يظهر الوجهان الجانبيان بمنظور طبيعي، ويبقى
+       وجه التلامس السفلي (back) مخفيًا تمامًا. */
+    const CAM_X = -62 * Math.PI / 180;
+    const CAM_Y = -16 * Math.PI / 180;
+    const REST_X = Math.PI / 2;
     const REST_Y = 0;
     const nearestTurn = (current, target) => target + Math.round((current - target) / TAU) * TAU;
     let justRested = false;
@@ -1034,7 +1034,7 @@
       d.rest = true;
       d.ease = 0;
       d.vx = 0; d.vy = 0; d.vz = 0; d.z = 0;
-      d.squash = Math.max(d.squash || 0, 0.35);
+      d.squash = Math.max(d.squash || 0, 0.5);
       d.fromRx = d.rx; d.fromRy = d.ry; d.fromAng = d.ang;
       d.toRx = nearestTurn(d.rx, REST_X);
       d.toRy = nearestTurn(d.ry, REST_Y);
@@ -1051,7 +1051,7 @@
       dice.forEach((d) => {
         if (d.squash) d.squash *= Math.exp(-14 * dt);
         if (d.rest) {
-          d.ease = Math.min(1, d.ease + dt / 0.34);
+          d.ease = Math.min(1, d.ease + dt / 0.38);
           const e = 1 - Math.pow(1 - d.ease, 3);
           d.rx = d.fromRx + (d.toRx - d.fromRx) * e;
           d.ry = d.fromRy + (d.toRy - d.fromRy) * e;
@@ -1063,10 +1063,10 @@
         if (d.z <= 0) {
           d.z = 0;
           if (d.vz < -100) {
-            d.vz = -d.vz * 0.5;
-            d.vx *= 0.68;
-            d.vy *= 0.68;
-            d.om *= 0.82;
+            d.vz = -d.vz * 0.56;
+            d.vx *= 0.72;
+            d.vy *= 0.72;
+            d.om *= 0.84;
             d.squash = Math.min(1, Math.abs(d.vz) / 420);
             hit(d, 11);
           } else {
@@ -1074,16 +1074,16 @@
           }
         }
         const grounded = d.z <= 0.5 && d.vz <= 1;
-        const k = Math.exp(-((grounded ? 3.2 : 0.3) + late * 10) * dt);
+        const k = Math.exp(-((grounded ? 2.4 : 0.3) + late * 10) * dt);
         d.vx *= k;
         d.vy *= k;
         d.x += d.vx * dt;
         d.y += d.vy * dt;
         d.ang += d.om * dt;
-        d.om *= Math.exp(-((grounded ? 5.4 : 0.15) + late * 8) * dt);
+        d.om *= Math.exp(-((grounded ? 4.0 : 0.15) + late * 8) * dt);
         d.rx += d.wx * dt;
         d.ry += d.wy * dt;
-        const kw = Math.exp(-((grounded ? 6.4 : 0.15) + late * 8) * dt);
+        const kw = Math.exp(-((grounded ? 5.0 : 0.15) + late * 8) * dt);
         d.wx *= kw;
         d.wy *= kw;
         /* جدران اللوحة */
@@ -1130,7 +1130,7 @@
         if (d.rest) return;
         const speed = Math.hypot(d.vx, d.vy);
         const calm = d.z <= 0 && d.vz === 0 && speed < 45 && Math.abs(d.om) < 1.2 && Math.abs(d.wx) < 1.6 && Math.abs(d.wy) < 1.6;
-        if ((calm && t > 0.25) || t >= maxT) toRest(d);
+        if ((calm && t > 0.9) || t >= maxT) toRest(d);
       });
       if (justRested) relax();
     };
@@ -1151,13 +1151,13 @@
           "rotateX(" + d.rx + "rad) rotateY(" + d.ry + "rad) rotateZ(" + d.ang + "rad)";
         /* الظل مسطح تحت وجه التلامس السفلي، لا تحت مركز المكعب، حتى يبدو
            النرد مستقرًا على اللوحة بدل الطفو فوق ظله. */
-        const sh = 1 - Math.min(0.55, d.z / 380);
-        const shadowW = size * 1.06;
-        const shadowH = size * 0.24;
-        const shadowX = d.x - shadowW / 2;
-        const shadowY = d.y + size * 0.64 - shadowH / 2;
-        d.shadow.style.opacity = String(0.62 * sh);
-        d.shadow.style.transform = "translate3d(" + shadowX + "px," + shadowY + "px,0) scale(" + (0.86 + sh * 0.14) + ")";
+        const sh = 1 - Math.min(0.6, d.z / 420);
+        const shadowW = size * 1.18;
+        const shadowH = size * 0.3;
+        const shadowX = d.x - shadowW / 2 + size * 0.04;
+        const shadowY = d.y + size * 0.55 - shadowH / 2;
+        d.shadow.style.opacity = String(0.55 * sh);
+        d.shadow.style.transform = "translate3d(" + shadowX + "px," + shadowY + "px,0) scale(" + (0.82 + sh * 0.18) + ")";
       });
     };
 

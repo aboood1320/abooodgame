@@ -1965,9 +1965,17 @@ body.fullscreen-game.board-only .bo-drawer-bar {
   left: 0;
   top: 0;
   border-radius: 50%;
-  background: radial-gradient(closest-side, rgba(0, 0, 0, 0.62), rgba(0, 0, 0, 0));
+  background: radial-gradient(closest-side, rgba(0, 0, 0, 0.58) 0%, rgba(0, 0, 0, 0.34) 46%, rgba(0, 0, 0, 0) 100%);
   transform-origin: center;
   will-change: transform, opacity;
+}
+/* هالة ناعمة أوسع تحت الظل الصلب تعطي إحساس تلامس حقيقي باللوحة */
+.fx-throw-shadow::after {
+  content: "";
+  position: absolute;
+  inset: -14% -7%;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(0, 0, 0, 0.22), rgba(0, 0, 0, 0) 82%);
 }
 
 /* منظور مستقل لكل نرد: يبقى مركز الكاميرا فوق النرد نفسه أينما استقر */
@@ -2027,8 +2035,9 @@ body.fullscreen-game.board-only .bo-drawer-bar {
   background: var(--face);
   box-shadow:
     inset 0 0 0 1px rgba(255, 255, 255, 0.24),
-    inset 0 -4px 6px rgba(120, 90, 40, 0.25),
-    inset 0 2px 3px #fff;
+    inset 0 -6px 8px rgba(120, 90, 40, 0.22),
+    inset 0 3px 4px #fff,
+    inset 0 0 12px rgba(255, 255, 255, 0.08);
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
 }
@@ -2071,6 +2080,9 @@ body.fullscreen-game.board-only .bo-drawer-bar {
 }
 .fx-cube-face i.is-on {
   background: radial-gradient(circle at 35% 30%, #4a4a52, #14141a);
+  box-shadow:
+    inset 0 2px 2px rgba(0, 0, 0, 0.55),
+    inset 0 -1px 1px rgba(255, 255, 255, 0.16);
 }
 .fx-cube[data-tone="red"] .fx-cube-face {
   border-color: rgba(70, 10, 8, 0.5);
