@@ -421,42 +421,67 @@
   function cpuChoose(player, moves) {
     if (!state || state.over || state.current !== player.index) return;
     const outCount = player.tokens.filter((token) => token.pos >= 0 && token.pos < FINISH).length;
-    const pick = AI.choose(
+    const myHome = homeCount(player);
+    const pick = AI.chooseMulti(
       moves,
-      (move) => {
-        let score = 0;
-        if (move.exit) score += 36 + (outCount === 0 ? 14 : 0);
-        if (move.target >= FINISH) score += 90;
-        else if (move.target > 50) score += 32 + move.target * 0.5;
-
-        const fromCell = move.from >= 0 && move.from <= 50 ? absCell(player.slot, move.from) : null;
-        const targetCell = move.target <= 50 ? absCell(player.slot, move.target) : null;
-
-        if (targetCell != null) {
-          if (SAFE.has(targetCell)) score += 14;
-          /* أسر */
-          state.players.forEach((other) => {
-            if (other === player) return;
-            other.tokens.forEach((enemy) => {
-              if (enemy.pos < 0 || enemy.pos > 50) return;
-              if (absCell(other.slot, enemy.pos) === targetCell && !SAFE.has(targetCell)) {
-                score += 58 + enemy.pos * 0.7;
-              }
-            });
-          });
-          /* خطر البقاء في الخانة الجديدة */
-          const risk = threatsAt(player, targetCell);
-          if (risk) score -= (14 + move.target * 0.3) * risk;
-        }
-        /* الهروب من خانة مهدَّدة */
-        if (fromCell != null) {
-          const riskNow = threatsAt(player, fromCell);
-          if (riskNow) score += 20 + move.from * 0.25;
-        }
-        /* لا نترك القطع الخلفية دائمًا: قليل من الأفضلية للمتقدمة */
-        score += move.target * 0.14;
-        return score;
-      },
+      [
+        {
+          weight: 3,
+          scoreFn: (move) => {
+            let score = 0;
+            if (move.exit) score += 40 + (outCount === 0 ? 18 : 0);
+            if (move.target >= FINISH) score += 100;
+            else if (move.target > 50) score += 36 + move.target * 0.6;
+            return score;
+          },
+        },
+        {
+          weight: 2,
+          scoreFn: (move) => {
+            /* تفضيل الأسر على الخصوم غير المحميين. */
+            let score = 0;
+            const targetCell = move.target <= 50 ? absCell(player.slot, move.target) : null;
+            if (targetCell != null && !SAFE.has(targetCell)) {
+              state.players.forEach((other) => {
+                if (other === player) return;
+                other.tokens.forEach((enemy) => {
+                  if (enemy.pos < 0 || enemy.pos > 50) return;
+                  if (absCell(other.slot, enemy.pos) === targetCell) {
+                    score += 60 + enemy.pos * 0.8;
+                  }
+                });
+              });
+            }
+            return score;
+          },
+        },
+        {
+          weight: 1.5,
+          scoreFn: (move) => {
+            /* تفضيل الخانات الآمنة والهروب من الخطر. */
+            let score = 0;
+            const targetCell = move.target <= 50 ? absCell(player.slot, move.target) : null;
+            if (targetCell != null) {
+              if (SAFE.has(targetCell)) score += 18;
+              const risk = threatsAt(player, targetCell);
+              if (risk) score -= (18 + move.target * 0.4) * risk;
+            }
+            const fromCell = move.from >= 0 && move.from <= 50 ? absCell(player.slot, move.from) : null;
+            if (fromCell != null) {
+              const riskNow = threatsAt(player, fromCell);
+              if (riskNow) score += 24 + move.from * 0.3;
+            }
+            return score;
+          },
+        },
+        {
+          weight: 1,
+          scoreFn: (move) => {
+            /* تقدم عام للقطعة المختارة، مع أولوية للقطع القريبة من البيت. */
+            return move.target * 0.16 + (move.target >= 50 ? 10 : 0);
+          },
+        },
+      ],
       player.level
     );
     performMove((pick || moves[0]).token);

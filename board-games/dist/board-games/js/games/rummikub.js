@@ -451,15 +451,24 @@
 
   /* أفضل قطعة يمكن إضافتها لمجموعة على الطاولة. */
   function bestLayoff(player) {
-    let best = null;
+    const candidates = [];
     state.table.forEach((set) => {
       player.hand.forEach((tile) => {
         if (!validSet(set.tiles.concat(tile))) return;
-        const value = tileValue(tile) - (tile.joker ? JOKER_KEEP : 0);
-        if (!best || value > best.value) best = { set, tile, value };
+        candidates.push({ set, tile, value: tileValue(tile) - (tile.joker ? JOKER_KEEP : 0) });
       });
     });
-    return best;
+    if (!candidates.length) return null;
+    const pick = AI.chooseMulti(
+      candidates,
+      [
+        { weight: 3, scoreFn: (c) => c.value },
+        { weight: 1, scoreFn: (c) => (c.tile.joker ? -5 : 0) }, /* تجنب استخدام الجوكر إن أمكن */
+        { weight: 1, scoreFn: (c) => c.set.tiles.length * 2 }, /* تفضيل المجموعات الكبيرة (قرب الانتهاء) */
+      ],
+      AI.level(cur().level)
+    );
+    return pick || null;
   }
 
   function levelLimits(level) {

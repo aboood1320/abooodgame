@@ -538,9 +538,13 @@
     const level = AI.level(player.level);
     const affordable = options.filter(({ card }) => !!canPay(player, card));
     if (affordable.length) {
-      const pick = AI.choose(
+      const pick = AI.chooseMulti(
         affordable,
-        (entry) => cardBuyScore(player, entry.card),
+        [
+          { weight: 3, scoreFn: (entry) => cardBuyScore(player, entry.card) },
+          { weight: 1, scoreFn: (entry) => (Number(entry.card.points) || 0) * 4 }, /* نقاط الانتصار أولوية */
+          { weight: 1, scoreFn: (entry) => (Number(entry.card.tier) || 1) * 3 }, /* بطاقات أعلى مستوى */
+        ],
         level
       ) || affordable[0];
       return { type: "buy", card: pick.card, source: pick.source };

@@ -296,7 +296,15 @@
     if (!XG.cpuTurn(apiRef, state, state.current)) return;
     const moves = legalMoves();
     if (!moves.length) { endTurn(); return; }
-    const best = AI.choose(moves, scoreMove, cur().level);
+    const best = AI.chooseMulti(
+      moves,
+      [
+        { weight: 3, scoreFn: (move) => scoreMove(move) },
+        { weight: 1.5, scoreFn: (move) => move.type === "enter" ? 40 : 0 }, /* تفضيل الخروج من القاعدة */
+        { weight: 1, scoreFn: (move) => move.to === HOME ? 60 : move.to >= TRACK ? 30 : move.to * 0.2 }, /* التقدم نحو البيت */
+      ],
+      cur().level
+    );
     if (!best) return;
     applyMove(best.die, best.token);
     if (state && !state.over && state.phase === "move") {

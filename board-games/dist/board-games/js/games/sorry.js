@@ -321,7 +321,15 @@
       }
       return { move, score };
     });
-    const pick = AI.choose(scored, (entry) => entry.score, cur().level) || scored.sort((a, b) => b.score - a.score)[0];
+    const pick = AI.chooseMulti(
+      scored,
+      [
+        { weight: 3, scoreFn: (entry) => entry.score },
+        { weight: 1.5, scoreFn: (entry) => entry.move.type === "enter" ? 40 : 0 },
+        { weight: 1, scoreFn: (entry) => entry.move.to === HOME ? 50 : entry.move.to >= TRACK ? 20 : entry.move.to * 0.1 },
+      ],
+      cur().level
+    ) || scored.sort((a, b) => b.score - a.score)[0];
     applyMove(pick.move.token);
   }
 

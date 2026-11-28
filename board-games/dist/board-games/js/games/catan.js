@@ -1129,7 +1129,23 @@
       if (city ? validCity(vi, pi) : validSettlement(vi, pi, !!setup)) spots.push(vi);
     }
     if (!spots.length) return null;
-    return AI.choose(spots, (vi) => vertexPotential(vi), player.level);
+    return AI.chooseMulti(
+      spots,
+      [
+        { weight: 3, scoreFn: (vi) => vertexPotential(vi) },
+        { weight: 1, scoreFn: (vi) => {
+            const v = geometry.vertices[vi];
+            /* تفضيل المسارات القريبة من الموانئ (تسهيل التبادل). */
+            return v.ports ? v.ports.length * 5 : 0;
+        } },
+        { weight: 1, scoreFn: (vi) => {
+            const v = geometry.vertices[vi];
+            /* تفضيل التقاطعات التي لها مساحة للتوسع (أطراف أقل اشغالاً). */
+            return v.adj.filter((n) => !geometry.vertices[n].building).length * 2;
+        } },
+      ],
+      player.level
+    );
   }
 
   function cpuBestRoad(player, setupVertex) {

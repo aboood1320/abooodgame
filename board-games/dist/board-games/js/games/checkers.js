@@ -220,7 +220,19 @@
   }
 
   function ordered(moves) {
-    return moves.slice().sort((a, b) => b.captured.length - a.captured.length || (b.king ? 1 : 0) - (a.king ? 1 : 0));
+    return moves.slice().sort((a, b) => {
+      /* الأسر أولاً، ثم الترقية، ثم القطع القريبة من خط الترقية، ثم الوسط. */
+      const capDiff = b.captured.length - a.captured.length;
+      if (capDiff !== 0) return capDiff;
+      const promoB = b.king ? 1 : 0;
+      const promoA = a.king ? 1 : 0;
+      if (promoB !== promoA) return promoB - promoA;
+      const rowB = rowOf(b.to);
+      const rowA = rowOf(a.to);
+      const advanceB = Math.abs(3.5 - rowB);
+      const advanceA = Math.abs(3.5 - rowA);
+      return advanceA - advanceB;
+    });
   }
 
   function negamax(board, seat, depth, alpha, beta, mustCapture, qdepth) {
@@ -257,12 +269,12 @@
     const level = cur().level;
     if (level === "easy") {
       const captures = moves.filter((move) => move.captured.length);
-      if (captures.length && Math.random() < 0.7) return U.pick(captures);
-      if (Math.random() < 0.55) return U.pick(moves);
+      if (captures.length && Math.random() < 0.75) return U.pick(captures);
+      if (Math.random() < 0.6) return U.pick(moves);
     }
-    if (level === "normal" && Math.random() < 0.1) return U.pick(moves);
+    if (level === "normal" && Math.random() < 0.12) return U.pick(moves);
 
-    const depth = level === "easy" ? 1 : level === "normal" ? 2 : level === "hard" ? 4 : 6;
+    const depth = level === "easy" ? 2 : level === "normal" ? 3 : level === "hard" ? 5 : 7;
     let best = null;
     let bestScore = -Infinity;
     ordered(moves).forEach((move) => {

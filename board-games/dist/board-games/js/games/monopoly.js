@@ -2485,6 +2485,8 @@
         groupSpaces(space.group).filter(({ idx: i }) => state.props[i] && state.props[i].owner === x.index).length === total - 1
       );
       if (rival && level !== "easy") return after >= Math.min(reserve, 60);
+      /* favor شراء عقار في مجموعة يملك فيها اللاعب عقاراً واحداً على الأقل (بناء 그룹 مستقبلي). */
+      if (mine >= 1 && level !== "easy") return after >= reserve * 0.85;
     }
 
     if (space.type === "rail" && countType(p, "rail") >= 1 && level !== "easy") {

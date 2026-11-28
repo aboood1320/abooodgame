@@ -1934,7 +1934,26 @@
   function cpuPickTerritory(list, p) {
     if (!list.length) return null;
     if (AI.level(p.level) === "easy") return U.pick(list);
-    return AI.choose(list, (id) => cpuTerritoryScore(id, p), p.level);
+    return AI.chooseMulti(
+      list,
+      [
+        { weight: 3, scoreFn: (id) => cpuTerritoryScore(id, p) },
+        { weight: 1.5, scoreFn: (id) => {
+            const terr = TERR_BY_ID[id];
+            if (!terr) return 0;
+            const all = CONTINENT_TERRITORIES[terr.c] || [];
+            const own = all.filter((tid) => state.owner[tid] === p.index).length;
+            return own * 3; /* تفضيل القارات التي يملك اللاعب فيها أراضٍ بالفعل */
+        } },
+        { weight: 1, scoreFn: (id) => {
+            const terr = TERR_BY_ID[id];
+            if (!terr) return 0;
+            const neighbours = ADJ[id] || [];
+            return neighbours.filter((n) => state.owner[n] === p.index).length * 1.5; /* القرب من أراضٍ مملوكة */
+        } },
+      ],
+      p.level
+    );
   }
 
   function cpuClaimScore(id, p) {

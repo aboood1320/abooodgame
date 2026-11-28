@@ -242,13 +242,13 @@
 
     /* اسدّ تهديد الخصم الفوري (السهل قد يفوّته أحيانًا). */
     const blocks = cols.filter((col) => wouldWin(board, col, opp));
-    if (blocks.length && (level !== "easy" || Math.random() < 0.65)) {
+    if (blocks.length && (level !== "easy" || Math.random() < 0.7)) {
       return blocks.slice().sort((a, b) => Math.abs(3 - a) - Math.abs(3 - b))[0];
     }
 
     if (level === "easy" && Math.random() < 0.55) return U.pick(cols);
 
-    const depth = level === "easy" ? 1 : level === "normal" ? 4 : level === "hard" ? 5 : 6;
+    const depth = level === "easy" ? 2 : level === "normal" ? 5 : level === "hard" ? 6 : 7;
     const noise = level === "easy" ? 45 : level === "normal" ? 10 : 0;
     const scored = cols.map((col) => {
       const row = dropRow(board, col);

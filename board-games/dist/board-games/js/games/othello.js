@@ -281,10 +281,10 @@
 
     if (level === "easy" && Math.random() < 0.45) return U.pick(moves);
 
-    let depth = level === "easy" ? 1 : level === "normal" ? 3 : level === "hard" ? 4 : 6;
+    let depth = level === "easy" ? 2 : level === "normal" ? 4 : level === "hard" ? 5 : 8;
     if (moves.length <= 4) depth += 1;
     /* نهاية اللعب: ابحث حتى النتيجة النهائية إن أمكن. */
-    if (empties <= 10) depth = Math.max(depth, Math.min(10, empties + 2));
+    if (empties <= 10) depth = Math.max(depth, Math.min(12, empties + 2));
 
     const noise = level === "easy" ? 25 : level === "normal" ? 6 : 0;
     let best = moves[0];

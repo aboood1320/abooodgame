@@ -248,7 +248,15 @@
         return { cat, value, adjusted };
       });
     if (!scored.length) return null;
-    return AI.choose(scored, (entry) => entry.adjusted, level) || scored[0];
+    return AI.chooseMulti(
+      scored,
+      [
+        { weight: 3, scoreFn: (entry) => entry.adjusted },
+        { weight: 1, scoreFn: (entry) => entry.cat.upper && entry.value > 0 ? entry.value : 0 },
+        { weight: 1, scoreFn: (entry) => entry.cat.key === "yahtzee" && entry.value > 0 ? 40 : 0 },
+      ],
+      level
+    ) || scored[0];
   }
 
   function holdsFor(key, dice) {
