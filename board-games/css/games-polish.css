@@ -1,0 +1,410 @@
+/* ==========================================================================
+   ألعاب الطاولة — ترقية رسومية لكل لعبة على حدة (games-polish)
+   طبقة إضافية تُحمَّل أخيرًا. تحسينات محافظة (ظلال/عمق/انتقال) لا تكسر التخطيط،
+   مطبّقة لكل لعبة منفردة عبر .game-view[data-game="..."].
+   ========================================================================== */
+
+/* ===================== ترقية رسومية — azul ===================== */
+.game-view[data-game="azul"] .game-panel,
+.game-view[data-game="azul"] [class*="board-wrap"],
+.game-view[data-game="azul"] [class*="-wrap"],
+.game-view[data-game="azul"] [class*="-panel"] {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 24px 48px -24px rgba(0, 0, 0, 0.85);
+  transition: box-shadow 0.18s ease;
+}
+
+/* ===================== ترقية رسومية — battleship ===================== */
+.game-view[data-game="battleship"] .game-panel,
+.game-view[data-game="battleship"] [class*="board-wrap"],
+.game-view[data-game="battleship"] [class*="-wrap"],
+.game-view[data-game="battleship"] [class*="-panel"] {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 24px 48px -24px rgba(0, 0, 0, 0.85);
+  transition: box-shadow 0.18s ease;
+}
+
+/* ===================== ترقية رسومية — carcassonne ===================== */
+.game-view[data-game="carcassonne"] .game-panel,
+.game-view[data-game="carcassonne"] [class*="board-wrap"],
+.game-view[data-game="carcassonne"] [class*="-wrap"],
+.game-view[data-game="carcassonne"] [class*="-panel"] {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 24px 48px -24px rgba(0, 0, 0, 0.85);
+  transition: box-shadow 0.18s ease;
+}
+
+/* ===================== ترقية رسومية — catan ===================== */
+.game-view[data-game="catan"] .game-panel,
+.game-view[data-game="catan"] [class*="board-wrap"],
+.game-view[data-game="catan"] [class*="-wrap"],
+.game-view[data-game="catan"] [class*="-panel"] {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 24px 48px -24px rgba(0, 0, 0, 0.85);
+  transition: box-shadow 0.18s ease;
+}
+
+/* ===================== ترقية رسومية — checkers ===================== */
+.game-view[data-game="checkers"] .game-panel,
+.game-view[data-game="checkers"] [class*="board-wrap"],
+.game-view[data-game="checkers"] [class*="-wrap"],
+.game-view[data-game="checkers"] [class*="-panel"] {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 24px 48px -24px rgba(0, 0, 0, 0.85);
+  transition: box-shadow 0.18s ease;
+}
+
+/* ===================== ترقية رسومية — chess ===================== */
+.game-view[data-game="chess"] .game-panel,
+.game-view[data-game="chess"] [class*="board-wrap"],
+.game-view[data-game="chess"] [class*="-wrap"],
+.game-view[data-game="chess"] [class*="-panel"] {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 24px 48px -24px rgba(0, 0, 0, 0.85);
+  transition: box-shadow 0.18s ease;
+}
+
+/* ===================== ترقية رسومية — cluedo ===================== */
+.game-view[data-game="cluedo"] .game-panel,
+.game-view[data-game="cluedo"] [class*="board-wrap"],
+.game-view[data-game="cluedo"] [class*="-wrap"],
+.game-view[data-game="cluedo"] [class*="-panel"] {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 24px 48px -24px rgba(0, 0, 0, 0.85);
+  transition: box-shadow 0.18s ease;
+}
+
+/* ===================== ترقية رسومية — codenames ===================== */
+.game-view[data-game="codenames"] .game-panel,
+.game-view[data-game="codenames"] [class*="board-wrap"],
+.game-view[data-game="codenames"] [class*="-wrap"],
+.game-view[data-game="codenames"] [class*="-panel"] {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 24px 48px -24px rgba(0, 0, 0, 0.85);
+  transition: box-shadow 0.18s ease;
+}
+
+/* ===================== ترقية رسومية — connect-four ===================== */
+.game-view[data-game="connect-four"] .game-panel,
+.game-view[data-game="connect-four"] [class*="board-wrap"],
+.game-view[data-game="connect-four"] [class*="-wrap"],
+.game-view[data-game="connect-four"] [class*="-panel"] {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 24px 48px -24px rgba(0, 0, 0, 0.85);
+  transition: box-shadow 0.18s ease;
+}
+
+/* ===================== ترقية رسومية — coup ===================== */
+.game-view[data-game="coup"] .game-panel,
+.game-view[data-game="coup"] [class*="board-wrap"],
+.game-view[data-game="coup"] [class*="-wrap"],
+.game-view[data-game="coup"] [class*="-panel"] {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 24px 48px -24px rgba(0, 0, 0, 0.85);
+  transition: box-shadow 0.18s ease;
+}
+
+/* ===================== ترقية رسومية — dominion ===================== */
+.game-view[data-game="dominion"] .game-panel,
+.game-view[data-game="dominion"] [class*="board-wrap"],
+.game-view[data-game="dominion"] [class*="-wrap"],
+.game-view[data-game="dominion"] [class*="-panel"] {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 24px 48px -24px rgba(0, 0, 0, 0.85);
+  transition: box-shadow 0.18s ease;
+}
+
+/* ===================== ترقية رسومية — domino ===================== */
+.game-view[data-game="domino"] .game-panel,
+.game-view[data-game="domino"] [class*="board-wrap"],
+.game-view[data-game="domino"] [class*="-wrap"],
+.game-view[data-game="domino"] [class*="-panel"] {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 24px 48px -24px rgba(0, 0, 0, 0.85);
+  transition: box-shadow 0.18s ease;
+}
+
+/* ===================== ترقية رسومية — for-sale ===================== */
+.game-view[data-game="for-sale"] .game-panel,
+.game-view[data-game="for-sale"] [class*="board-wrap"],
+.game-view[data-game="for-sale"] [class*="-wrap"],
+.game-view[data-game="for-sale"] [class*="-panel"] {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 24px 48px -24px rgba(0, 0, 0, 0.85);
+  transition: box-shadow 0.18s ease;
+}
+
+/* ===================== ترقية رسومية — forbidden-island ===================== */
+.game-view[data-game="forbidden-island"] .game-panel,
+.game-view[data-game="forbidden-island"] [class*="board-wrap"],
+.game-view[data-game="forbidden-island"] [class*="-wrap"],
+.game-view[data-game="forbidden-island"] [class*="-panel"] {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 24px 48px -24px rgba(0, 0, 0, 0.85);
+  transition: box-shadow 0.18s ease;
+}
+
+/* ===================== ترقية رسومية — hanabi ===================== */
+.game-view[data-game="hanabi"] .game-panel,
+.game-view[data-game="hanabi"] [class*="board-wrap"],
+.game-view[data-game="hanabi"] [class*="-wrap"],
+.game-view[data-game="hanabi"] [class*="-panel"] {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 24px 48px -24px rgba(0, 0, 0, 0.85);
+  transition: box-shadow 0.18s ease;
+}
+
+/* ===================== ترقية رسومية — king-of-tokyo ===================== */
+.game-view[data-game="king-of-tokyo"] .game-panel,
+.game-view[data-game="king-of-tokyo"] [class*="board-wrap"],
+.game-view[data-game="king-of-tokyo"] [class*="-wrap"],
+.game-view[data-game="king-of-tokyo"] [class*="-panel"] {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 24px 48px -24px rgba(0, 0, 0, 0.85);
+  transition: box-shadow 0.18s ease;
+}
+
+/* ===================== ترقية رسومية — kootbositta ===================== */
+.game-view[data-game="kootbositta"] .game-panel,
+.game-view[data-game="kootbositta"] [class*="board-wrap"],
+.game-view[data-game="kootbositta"] [class*="-wrap"],
+.game-view[data-game="kootbositta"] [class*="-panel"] {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 24px 48px -24px rgba(0, 0, 0, 0.85);
+  transition: box-shadow 0.18s ease;
+}
+
+/* ===================== ترقية رسومية — love-letter ===================== */
+.game-view[data-game="love-letter"] .game-panel,
+.game-view[data-game="love-letter"] [class*="board-wrap"],
+.game-view[data-game="love-letter"] [class*="-wrap"],
+.game-view[data-game="love-letter"] [class*="-panel"] {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 24px 48px -24px rgba(0, 0, 0, 0.85);
+  transition: box-shadow 0.18s ease;
+}
+
+/* ===================== ترقية رسومية — ludo ===================== */
+.game-view[data-game="ludo"] .game-panel,
+.game-view[data-game="ludo"] [class*="board-wrap"],
+.game-view[data-game="ludo"] [class*="-wrap"],
+.game-view[data-game="ludo"] [class*="-panel"] {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 24px 48px -24px rgba(0, 0, 0, 0.85);
+  transition: box-shadow 0.18s ease;
+}
+
+/* ===================== ترقية رسومية — mancala ===================== */
+.game-view[data-game="mancala"] .game-panel,
+.game-view[data-game="mancala"] [class*="board-wrap"],
+.game-view[data-game="mancala"] [class*="-wrap"],
+.game-view[data-game="mancala"] [class*="-panel"] {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 24px 48px -24px rgba(0, 0, 0, 0.85);
+  transition: box-shadow 0.18s ease;
+}
+
+/* ===================== ترقية رسومية — monopoly ===================== */
+.game-view[data-game="monopoly"] .game-panel,
+.game-view[data-game="monopoly"] [class*="board-wrap"],
+.game-view[data-game="monopoly"] [class*="-wrap"],
+.game-view[data-game="monopoly"] [class*="-panel"] {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 24px 48px -24px rgba(0, 0, 0, 0.85);
+  transition: box-shadow 0.18s ease;
+}
+
+/* ===================== ترقية رسومية — mysterium ===================== */
+.game-view[data-game="mysterium"] .game-panel,
+.game-view[data-game="mysterium"] [class*="board-wrap"],
+.game-view[data-game="mysterium"] [class*="-wrap"],
+.game-view[data-game="mysterium"] [class*="-panel"] {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 24px 48px -24px rgba(0, 0, 0, 0.85);
+  transition: box-shadow 0.18s ease;
+}
+
+/* ===================== ترقية رسومية — no-thanks ===================== */
+.game-view[data-game="no-thanks"] .game-panel,
+.game-view[data-game="no-thanks"] [class*="board-wrap"],
+.game-view[data-game="no-thanks"] [class*="-wrap"],
+.game-view[data-game="no-thanks"] [class*="-panel"] {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 24px 48px -24px rgba(0, 0, 0, 0.85);
+  transition: box-shadow 0.18s ease;
+}
+
+/* ===================== ترقية رسومية — othello ===================== */
+.game-view[data-game="othello"] .game-panel,
+.game-view[data-game="othello"] [class*="board-wrap"],
+.game-view[data-game="othello"] [class*="-wrap"],
+.game-view[data-game="othello"] [class*="-panel"] {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 24px 48px -24px rgba(0, 0, 0, 0.85);
+  transition: box-shadow 0.18s ease;
+}
+
+/* ===================== ترقية رسومية — pandemic ===================== */
+.game-view[data-game="pandemic"] .game-panel,
+.game-view[data-game="pandemic"] [class*="board-wrap"],
+.game-view[data-game="pandemic"] [class*="-wrap"],
+.game-view[data-game="pandemic"] [class*="-panel"] {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 24px 48px -24px rgba(0, 0, 0, 0.85);
+  transition: box-shadow 0.18s ease;
+}
+
+/* ===================== ترقية رسومية — parcheesi ===================== */
+.game-view[data-game="parcheesi"] .game-panel,
+.game-view[data-game="parcheesi"] [class*="board-wrap"],
+.game-view[data-game="parcheesi"] [class*="-wrap"],
+.game-view[data-game="parcheesi"] [class*="-panel"] {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 24px 48px -24px rgba(0, 0, 0, 0.85);
+  transition: box-shadow 0.18s ease;
+}
+
+/* ===================== ترقية رسومية — risk ===================== */
+.game-view[data-game="risk"] .game-panel,
+.game-view[data-game="risk"] [class*="board-wrap"],
+.game-view[data-game="risk"] [class*="-wrap"],
+.game-view[data-game="risk"] [class*="-panel"] {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 24px 48px -24px rgba(0, 0, 0, 0.85);
+  transition: box-shadow 0.18s ease;
+}
+
+/* ===================== ترقية رسومية — rummikub ===================== */
+.game-view[data-game="rummikub"] .game-panel,
+.game-view[data-game="rummikub"] [class*="board-wrap"],
+.game-view[data-game="rummikub"] [class*="-wrap"],
+.game-view[data-game="rummikub"] [class*="-panel"] {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 24px 48px -24px rgba(0, 0, 0, 0.85);
+  transition: box-shadow 0.18s ease;
+}
+
+/* ===================== ترقية رسومية — scrabble ===================== */
+.game-view[data-game="scrabble"] .game-panel,
+.game-view[data-game="scrabble"] [class*="board-wrap"],
+.game-view[data-game="scrabble"] [class*="-wrap"],
+.game-view[data-game="scrabble"] [class*="-panel"] {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 24px 48px -24px rgba(0, 0, 0, 0.85);
+  transition: box-shadow 0.18s ease;
+}
+
+/* ===================== ترقية رسومية — seven-wonders ===================== */
+.game-view[data-game="seven-wonders"] .game-panel,
+.game-view[data-game="seven-wonders"] [class*="board-wrap"],
+.game-view[data-game="seven-wonders"] [class*="-wrap"],
+.game-view[data-game="seven-wonders"] [class*="-panel"] {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 24px 48px -24px rgba(0, 0, 0, 0.85);
+  transition: box-shadow 0.18s ease;
+}
+
+/* ===================== ترقية رسومية — skull ===================== */
+.game-view[data-game="skull"] .game-panel,
+.game-view[data-game="skull"] [class*="board-wrap"],
+.game-view[data-game="skull"] [class*="-wrap"],
+.game-view[data-game="skull"] [class*="-panel"] {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 24px 48px -24px rgba(0, 0, 0, 0.85);
+  transition: box-shadow 0.18s ease;
+}
+
+/* ===================== ترقية رسومية — snakes ===================== */
+.game-view[data-game="snakes"] .game-panel,
+.game-view[data-game="snakes"] [class*="board-wrap"],
+.game-view[data-game="snakes"] [class*="-wrap"],
+.game-view[data-game="snakes"] [class*="-panel"] {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 24px 48px -24px rgba(0, 0, 0, 0.85);
+  transition: box-shadow 0.18s ease;
+}
+
+/* ===================== ترقية رسومية — sorry ===================== */
+.game-view[data-game="sorry"] .game-panel,
+.game-view[data-game="sorry"] [class*="board-wrap"],
+.game-view[data-game="sorry"] [class*="-wrap"],
+.game-view[data-game="sorry"] [class*="-panel"] {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 24px 48px -24px rgba(0, 0, 0, 0.85);
+  transition: box-shadow 0.18s ease;
+}
+
+/* ===================== ترقية رسومية — splendor ===================== */
+.game-view[data-game="splendor"] .game-panel,
+.game-view[data-game="splendor"] [class*="board-wrap"],
+.game-view[data-game="splendor"] [class*="-wrap"],
+.game-view[data-game="splendor"] [class*="-panel"] {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 24px 48px -24px rgba(0, 0, 0, 0.85);
+  transition: box-shadow 0.18s ease;
+}
+
+/* ===================== ترقية رسومية — stratego ===================== */
+.game-view[data-game="stratego"] .game-panel,
+.game-view[data-game="stratego"] [class*="board-wrap"],
+.game-view[data-game="stratego"] [class*="-wrap"],
+.game-view[data-game="stratego"] [class*="-panel"] {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 24px 48px -24px rgba(0, 0, 0, 0.85);
+  transition: box-shadow 0.18s ease;
+}
+
+/* ===================== ترقية رسومية — takenoko ===================== */
+.game-view[data-game="takenoko"] .game-panel,
+.game-view[data-game="takenoko"] [class*="board-wrap"],
+.game-view[data-game="takenoko"] [class*="-wrap"],
+.game-view[data-game="takenoko"] [class*="-panel"] {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 24px 48px -24px rgba(0, 0, 0, 0.85);
+  transition: box-shadow 0.18s ease;
+}
+
+/* ===================== ترقية رسومية — tavla ===================== */
+.game-view[data-game="tavla"] .game-panel,
+.game-view[data-game="tavla"] [class*="board-wrap"],
+.game-view[data-game="tavla"] [class*="-wrap"],
+.game-view[data-game="tavla"] [class*="-panel"] {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 24px 48px -24px rgba(0, 0, 0, 0.85);
+  transition: box-shadow 0.18s ease;
+}
+
+/* ===================== ترقية رسومية — terraforming-mars ===================== */
+.game-view[data-game="terraforming-mars"] .game-panel,
+.game-view[data-game="terraforming-mars"] [class*="board-wrap"],
+.game-view[data-game="terraforming-mars"] [class*="-wrap"],
+.game-view[data-game="terraforming-mars"] [class*="-panel"] {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 24px 48px -24px rgba(0, 0, 0, 0.85);
+  transition: box-shadow 0.18s ease;
+}
+
+/* ===================== ترقية رسومية — the-crew ===================== */
+.game-view[data-game="the-crew"] .game-panel,
+.game-view[data-game="the-crew"] [class*="board-wrap"],
+.game-view[data-game="the-crew"] [class*="-wrap"],
+.game-view[data-game="the-crew"] [class*="-panel"] {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 24px 48px -24px rgba(0, 0, 0, 0.85);
+  transition: box-shadow 0.18s ease;
+}
+
+/* ===================== ترقية رسومية — the-mind ===================== */
+.game-view[data-game="the-mind"] .game-panel,
+.game-view[data-game="the-mind"] [class*="board-wrap"],
+.game-view[data-game="the-mind"] [class*="-wrap"],
+.game-view[data-game="the-mind"] [class*="-panel"] {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 24px 48px -24px rgba(0, 0, 0, 0.85);
+  transition: box-shadow 0.18s ease;
+}
+
+/* ===================== ترقية رسومية — ticket-to-ride ===================== */
+.game-view[data-game="ticket-to-ride"] .game-panel,
+.game-view[data-game="ticket-to-ride"] [class*="board-wrap"],
+.game-view[data-game="ticket-to-ride"] [class*="-wrap"],
+.game-view[data-game="ticket-to-ride"] [class*="-panel"] {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 24px 48px -24px rgba(0, 0, 0, 0.85);
+  transition: box-shadow 0.18s ease;
+}
+
+/* ===================== ترقية رسومية — uno ===================== */
+.game-view[data-game="uno"] .game-panel,
+.game-view[data-game="uno"] [class*="board-wrap"],
+.game-view[data-game="uno"] [class*="-wrap"],
+.game-view[data-game="uno"] [class*="-panel"] {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 24px 48px -24px rgba(0, 0, 0, 0.85);
+  transition: box-shadow 0.18s ease;
+}
+
+/* ===================== ترقية رسومية — waraq ===================== */
+.game-view[data-game="waraq"] .game-panel,
+.game-view[data-game="waraq"] [class*="board-wrap"],
+.game-view[data-game="waraq"] [class*="-wrap"],
+.game-view[data-game="waraq"] [class*="-panel"] {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 24px 48px -24px rgba(0, 0, 0, 0.85);
+  transition: box-shadow 0.18s ease;
+}
+
+/* ===================== ترقية رسومية — wingspan ===================== */
+.game-view[data-game="wingspan"] .game-panel,
+.game-view[data-game="wingspan"] [class*="board-wrap"],
+.game-view[data-game="wingspan"] [class*="-wrap"],
+.game-view[data-game="wingspan"] [class*="-panel"] {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 24px 48px -24px rgba(0, 0, 0, 0.85);
+  transition: box-shadow 0.18s ease;
+}
+
+/* ===================== ترقية رسومية — yahtzee ===================== */
+.game-view[data-game="yahtzee"] .game-panel,
+.game-view[data-game="yahtzee"] [class*="board-wrap"],
+.game-view[data-game="yahtzee"] [class*="-wrap"],
+.game-view[data-game="yahtzee"] [class*="-panel"] {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 24px 48px -24px rgba(0, 0, 0, 0.85);
+  transition: box-shadow 0.18s ease;
+}
