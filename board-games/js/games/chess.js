@@ -172,18 +172,10 @@
     return side === "w" ? "b" : "w";
   }
 
-  /* الاتجاه المحلي: في مباراة البشر يتجه دور كل لاعب إلى أسفله، وفي مباراة
-     الحاسوب يبقى اللاعب البشري في الأسفل دائماً. الأونلاين يبقى حسب المقعد. */
-  function orientOfflineBoard(anyTurn) {
-    if (online() || !state) return;
-    const whiteHuman = !isCpuSide("w");
-    const blackHuman = !isCpuSide("b");
-    if (whiteHuman && blackHuman) {
-      flip = anyTurn ? state.turn === "b" : false;
-      return;
-    }
-    if (whiteHuman && !blackHuman) flip = false;
-    else if (!whiteHuman && blackHuman) flip = true;
+  /* في مباراة لاعبين بشريين على جهاز واحد يبقى اللوح ثابتاً باتجاه الأبيض،
+     وتُدار القطع السوداء ١٨٠ درجة لتواجه اللاعب الأسود الجالس في الأعلى. */
+  function piecesFaceOwners() {
+    return !online() && !isCpuSide("w") && !isCpuSide("b");
   }
 
   function openingLeftMs() {
@@ -363,7 +355,6 @@
         '<section class="ch-panel ch-controls">' +
           '<button type="button" class="bg-btn small" data-ch-undo><span aria-hidden="true">↶</span> تراجع</button>' +
           '<button type="button" class="bg-btn small" data-ch-hint><span aria-hidden="true">✦</span> تلميح</button>' +
-          '<button type="button" class="bg-btn small" data-ch-flip><span aria-hidden="true">⇅</span> عكس</button>' +
           '<button type="button" class="bg-btn small danger" data-ch-resign><span aria-hidden="true">⚑</span> استسلام</button>' +
           '<button type="button" class="bg-btn small primary ch-wide" data-ch-new><span aria-hidden="true">↻</span> إعادة اللعبة</button>' +
         '</section>' +
@@ -409,11 +400,6 @@
 
     layout.querySelector("[data-ch-undo]").addEventListener("click", undoMove);
     layout.querySelector("[data-ch-hint]").addEventListener("click", showHint);
-    layout.querySelector("[data-ch-flip]").addEventListener("click", function () {
-      flip = !flip;
-      if (FX) FX.sound("flip");
-      render();
-    });
     layout.querySelector("[data-ch-resign]").addEventListener("click", resign);
     layout.querySelector("[data-ch-new]").addEventListener("click", restartGame);
     layout.querySelector("[data-ch-promo-cancel]").addEventListener("click", function () {
@@ -580,7 +566,9 @@
       const seat = apiRef && apiRef.net ? apiRef.net.seat : 0;
       flip = seat === 1;
     } else {
-      orientOfflineBoard(false);
+      /* اللوح ثابت باتجاه الأبيض في مباراة البشر؛ وفي مباراة الحاسوب يبقى
+         اللاعب البشري في الأسفل (نقلب اللوح فقط إذا كان الحاسوب بالأبيض). */
+      flip = isCpuSide("w") && !isCpuSide("b");
     }
 
     if (apiRef) apiRef.finished = false;
@@ -599,6 +587,7 @@
     const targets = new Set();
     for (let i = 0; i < selectedMoves.length; i++) targets.add(selectedMoves[i].to);
     const active = canPlayLocal();
+    const faceOwners = piecesFaceOwners();
 
     for (let vis = 0; vis < 64; vis++) {
       const r = vis >> 3;
@@ -627,7 +616,7 @@
         const src = pieceSrc(color, type);
         if (piece.getAttribute("src") !== src) piece.setAttribute("src", src);
         piece.hidden = false;
-        piece.className = "ch-piece is-" + color;
+        piece.className = "ch-piece is-" + color + (faceOwners && color === "b" ? " is-facing" : "");
         cell.setAttribute(
           "aria-label",
           squareLabel(i) + " " + (color === "w" ? "أبيض " : "أسود ") + PIECE_NAME[type]
@@ -1071,7 +1060,7 @@
     const rect = el.board.getBoundingClientRect();
     const size = rect.width / 8;
     const img = document.createElement("img");
-    img.className = "ch-ghost";
+    img.className = "ch-ghost" + (piecesFaceOwners() && C.colorOf(p) === "b" ? " is-facing" : "");
     img.src = pieceSrc(C.colorOf(p), C.typeOf(p));
     img.alt = "";
     img.draggable = false;
@@ -1230,7 +1219,6 @@
     hintSquares = null;
     currentEval = null;
     hidePromotion();
-    if (!online()) orientOfflineBoard(true);
 
     if (FX) {
       if (move.promo) FX.sound("promote");
@@ -1431,7 +1419,6 @@
     clockStartedAt = Date.now();
     clockRunning = history.length > 0;
     openingDeadline = 0;
-    orientOfflineBoard(true);
 
     if (apiRef) apiRef.finished = false;
     if (FX) FX.sound("recall");
@@ -1564,7 +1551,6 @@
       return;
     }
     const reset = function () {
-      flip = isCpuSide("w") && !isCpuSide("b") ? true : flip;
       newGame();
       if (FX) FX.sound("shuffle");
     };
@@ -2077,7 +2063,7 @@
     const a = viewOf(from);
     const b = viewOf(to);
     const img = document.createElement("img");
-    img.className = "ch-ghost is-fly";
+    img.className = "ch-ghost is-fly" + (piecesFaceOwners() && color === "b" ? " is-facing" : "");
     img.src = pieceSrc(color, type);
     img.alt = "";
     img.draggable = false;
@@ -2251,8 +2237,7 @@
     }
 
     if (!online()) {
-      if (typeof snap.flip === "boolean") flip = snap.flip;
-      else orientOfflineBoard(false);
+      flip = isCpuSide("w") && !isCpuSide("b");
     }
 
     startClockLoop();
