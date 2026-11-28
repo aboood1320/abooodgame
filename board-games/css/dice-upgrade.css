@@ -1,0 +1,133 @@
+/* ==========================================================================
+   ألعاب الطاولة — ترقية رسومات النرد (Dice Upgrade)
+   --------------------------------------------------------------------------
+   طبقة إضافية تُحمَّل أخيرًا (بعد visual-upgrade.css).
+   تحسّن النرد ثنائي الأبعاد (.die / .ld-die) وثلاثي الأبعاد (.fx-cube)
+   دون استبدال خلفيات الوجوه، ودون مساس بمنطق اللعب أو الفيزياء.
+   تحترم prefers-reduced-motion و prefers-reduced-transparency و html.lite.
+   ========================================================================== */
+
+/* ------------------------------ النرد ثنائي الأبعاد (.die) ------------------------------ */
+
+.die { position: relative; isolation: isolate; }
+
+/* طبقة لمعان زجاجي فوق الوجه دون إخفاء النقاط */
+.die::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  z-index: 2;
+  pointer-events: none;
+  background: linear-gradient(122deg,
+    rgba(255, 255, 255, 0.42) 0%,
+    rgba(255, 255, 255, 0.12) 17%,
+    rgba(255, 255, 255, 0) 42%);
+}
+.die-cell { position: relative; z-index: 1; }
+
+/* ظل أعمق للوجه + حافة سفلية منحوتة */
+.die,
+.mdice .die,
+.cat-dice .die {
+  box-shadow:
+    0 9px 16px -6px rgba(0, 0, 0, 0.88),
+    0 2px 3px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    inset 0 -2px 4px rgba(120, 96, 56, 0.26),
+    inset 0 0 0 1px rgba(90, 66, 30, 0.22),
+    0 0 0 1px rgba(255, 255, 255, 0.07);
+}
+
+/* نقاط أكثر عمقًا: تدرّج + لمعان علوي + ظل داخلي + ظل أسفل */
+.die-cell.on {
+  background: radial-gradient(circle at 36% 28%, #413423 0%, #171210 68%, #08070a 100%);
+  box-shadow:
+    inset 0 1px 1.5px rgba(255, 255, 255, 0.32),
+    inset 0 -1.5px 1.5px rgba(0, 0, 0, 0.45),
+    0 1px 1px rgba(255, 255, 255, 0.5);
+}
+.die.red .die-cell.on {
+  background: radial-gradient(circle at 36% 28%, #8c2c26 0%, #5c1512 68%, #320a09 100%);
+  box-shadow:
+    inset 0 1px 1.5px rgba(255, 255, 255, 0.34),
+    inset 0 -1.5px 1.5px rgba(0, 0, 0, 0.45),
+    0 1px 1px rgba(255, 255, 255, 0.3);
+}
+
+/* ------------------------------ النرد (لودو/أفعى .ld-die) ------------------------------ */
+
+.ld-die { position: relative; isolation: isolate; }
+.ld-die::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  z-index: 2;
+  pointer-events: none;
+  background: linear-gradient(122deg,
+    rgba(255, 255, 255, 0.4) 0%,
+    rgba(255, 255, 255, 0.12) 17%,
+    rgba(255, 255, 255, 0) 42%);
+}
+.ld-pip { position: relative; z-index: 1; }
+
+.ld-die {
+  box-shadow:
+    0 9px 15px -6px rgba(0, 0, 0, 0.92),
+    0 2px 3px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 #fff,
+    inset 0 -2px 4px rgba(120, 96, 56, 0.26),
+    inset 0 0 0 1px rgba(90, 66, 30, 0.24),
+    0 0 0 1px rgba(255, 255, 255, 0.07),
+    0 0 0 2px rgba(255, 255, 255, 0.05);
+}
+.ld-pip.is-on {
+  background: radial-gradient(circle at 36% 28%, #4a3b28 0%, #241a0d 68%, #0e0906 100%);
+  box-shadow:
+    inset 0 1px 1.5px rgba(255, 255, 255, 0.34),
+    inset 0 -1.5px 1.5px rgba(0, 0, 0, 0.45),
+    0 1px 1px rgba(255, 255, 255, 0.45);
+}
+
+/* ------------------------------ النرد ثلاثي الأبعاد (.fx-cube) ------------------------------ */
+
+/* ظل تلامس أغنى تحت النرد المُرمى */
+.fx-throw-shadow {
+  background: radial-gradient(50% 50% at 50% 50%, rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0) 72%);
+  filter: blur(3px);
+}
+
+/* وجوه ثلاثية الأبعاد: حواف أنعم + عمق + لمعان + ظلال جانبية أغنى */
+.fx-cube-face {
+  border-radius: calc(var(--s, 60px) * 0.18);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.3),
+    inset 0 -8px 10px rgba(120, 90, 40, 0.26),
+    inset 0 3px 5px #fff,
+    inset 0 0 16px rgba(255, 255, 255, 0.1);
+}
+.fx-cube-face i.is-on {
+  background: radial-gradient(circle at 35% 30%, #4a4a52 0%, #14141a 72%, #0a0a0e 100%);
+  box-shadow:
+    inset 0 2px 2px rgba(0, 0, 0, 0.55),
+    inset 0 -1.5px 1.5px rgba(255, 255, 255, 0.22),
+    0 1px 1px rgba(255, 255, 255, 0.3);
+}
+.fx-cube[data-tone="red"] .fx-cube-face i.is-on {
+  background: radial-gradient(circle at 35% 30%, #fff 0%, #f3dcd8 72%, #d9a9a4 100%);
+}
+
+/* ظلال جانبية أوضح تُعطي انطباع العمق (إن لم تحددها الطبقة الأصلية) */
+.fx-cube-face[data-face="left"]   { background: linear-gradient(rgba(0, 0, 0, 0.17), rgba(0, 0, 0, 0.17)), var(--face); }
+.fx-cube-face[data-face="right"]  { background: linear-gradient(rgba(0, 0, 0, 0.09), rgba(0, 0, 0, 0.09)), var(--face); }
+.fx-cube-face[data-face="back"]   { background: linear-gradient(rgba(0, 0, 0, 0.13), rgba(0, 0, 0, 0.13)), var(--face); }
+.fx-cube-face[data-face="bottom"] { background: linear-gradient(rgba(0, 0, 0, 0.23), rgba(0, 0, 0, 0.23)), var(--face); }
+.fx-cube-face[data-face="top"]    { background: linear-gradient(rgba(255, 255, 255, 0.13), rgba(255, 255, 255, 0.13)), var(--face); }
+
+/* ------------------------------ إمكانية الوصول / الأداء ------------------------------ */
+
+@media (prefers-reduced-transparency: reduce) {
+  .die::after, .ld-die::after { display: none; }
+}
+html.lite .die::after, html.lite .ld-die::after { display: none; }
