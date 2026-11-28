@@ -820,7 +820,7 @@
    * رمي نرد فيزيائي لكل الألعاب: يُقذف النرد من حافة اللوحة بسرعة ودوران ثلاثي الأبعاد، فيقفز ويرتدّ عن الحواف
    * ويرتطم بعضه ببعض (جاذبية، ارتداد، احتكاك، وظل يتبع الارتفاع)، ثم يستقر على القيم النهائية المحدَّدة سلفًا
    * ويُستدعى done. values: رقم أو مصفوفة (1–6). host: اللوحة التي يُرمى النرد داخل حدودها.
-   * opts: { tone, tones, hold, labels, ms (أقصى زمن للفيزياء), power (خفيفة/متوسطة/قوية للاختبار), random (للاختبار), probe (للاختبار) }. يعيد دالة إلغاء.
+   * opts: { tone, tones, hold, labels, ms (أقصى زمن للفيزياء), power (خفيفة/متوسطة/قوية/قوية جداً للاختبار), random (للاختبار), probe (للاختبار) }. يعيد دالة إلغاء.
    * إن كانت الحركة معطّلة يُستدعى done فورًا دون تأخير. وإن غاب requestAnimationFrame تُستعمل الحركة القديمة.
    */
   function tumble(host, values, done, opts) {
@@ -839,22 +839,23 @@
     const n = list.length;
     const TAU = Math.PI * 2;
 
-    /* تنويع القوة: كل رمية تُختار خفيفة أو متوسطة أو قوية، مع تباين بسيط بين
-       نرد الرمية الواحدة، فتختلف المسافة والارتفاع والدوران وقوة الارتطام.
-       يمكن تثبيت النمط عبر opts.power للاختبار ("light"|"medium"|"strong"). */
+    /* تنويع القوة: كل رمية تُختار خفيفة أو متوسطة أو قوية أو قوية جداً، مع
+       تباين بسيط بين نرد الرمية الواحدة، فتختلف المسافة والارتفاع والدوران
+       وقوة الارتطام. يمكن تثبيت النمط عبر opts.power للاختبار. */
     const TIERS = [
       { key: "light", speed: 0.72, lift: 0.78, spin: 0.72, impact: 0.72, minT: 0.42, time: 0.94 },
       { key: "medium", speed: 1, lift: 1, spin: 1, impact: 1, minT: 0.5, time: 1 },
       { key: "strong", speed: 1.28, lift: 1.22, spin: 1.24, impact: 1.3, minT: 0.54, time: 1.1 },
+      { key: "extreme", alias: "very-strong", speed: 1.55, lift: 1.5, spin: 1.5, impact: 1.6, minT: 0.58, time: 1.2 },
     ];
     let tier;
     if (typeof o.power === "string") {
-      tier = TIERS.find((t) => t.key === o.power) || TIERS[1];
+      tier = TIERS.find((t) => t.key === o.power || t.alias === o.power) || TIERS[1];
     } else if (typeof o.power === "number") {
       tier = Object.assign({}, TIERS[1], { speed: o.power, lift: o.power, spin: o.power, impact: o.power, minT: 0.5, time: 1 });
     } else {
       const pick = rnd();
-      tier = pick < 0.28 ? TIERS[0] : pick < 0.78 ? TIERS[1] : TIERS[2];
+      tier = pick < 0.25 ? TIERS[0] : pick < 0.7 ? TIERS[1] : pick < 0.92 ? TIERS[2] : TIERS[3];
     }
 
     /* ميدان الرمي: مستطيل اللوحة المرئي (أو منطقة مناسبة حول العنصر إن كان صغيرًا) */
