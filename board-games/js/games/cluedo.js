@@ -1168,20 +1168,34 @@
     if (currentRoom) options.push({ id: currentRoom.id, room: currentRoom, steps: 0 });
     if (!options.length) return null;
     const useful = cpuSuggestionUseful(player);
-    return AI.choose(options, (option) => {
-      const roomId = "r:" + option.id;
-      const own = player.hand.indexOf(roomId) !== -1;
-      const seen = player.seenBy.some((list) => list.indexOf(roomId) !== -1);
-      const env = player.envelopeKnown.indexOf(roomId) !== -1;
-      let value = 0;
-      if (!own && !seen && !env) value = 9;
-      else if (own) value = useful ? 6.5 : 4;
-      else if (seen) value = 4.5;
-      else value = 0.5;
-      if (option.id === currentRoom.id) value += 0.8;
-      value -= option.steps * 0.16;
-      return value;
-    }, player.level) || options[0];
+    return AI.chooseMulti(
+      options,
+      [
+        { weight: 3, scoreFn: (option) => {
+            const roomId = "r:" + option.id;
+            const own = player.hand.indexOf(roomId) !== -1;
+            const seen = player.seenBy.some((list) => list.indexOf(roomId) !== -1);
+            const env = player.envelopeKnown.indexOf(roomId) !== -1;
+            let value = 0;
+            if (!own && !seen && !env) value = 9;
+            else if (own) value = useful ? 6.5 : 4;
+            else if (seen) value = 4.5;
+            else value = 0.5;
+            if (option.id === currentRoom.id) value += 0.8;
+            value -= option.steps * 0.16;
+            return value;
+        } },
+        { weight: 1, scoreFn: (option) => {
+            /* تفضيل الغرف غير المعروفة أكثر. */
+            const roomId = "r:" + option.id;
+            const known = player.hand.indexOf(roomId) !== -1 ||
+              player.seenBy.some((list) => list.indexOf(roomId) !== -1) ||
+              player.envelopeKnown.indexOf(roomId) !== -1;
+            return known ? 0 : 5;
+        } },
+      ],
+      player.level
+    ) || options[0];
   }
 
   function cpuDoSuggestion(player) {
