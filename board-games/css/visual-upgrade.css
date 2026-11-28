@@ -1,0 +1,362 @@
+/* ==========================================================================
+   ألعاب الطاولة — ترقية بصرية شاملة (Visual Upgrade)
+   --------------------------------------------------------------------------
+   طبقة إضافية تُحمَّل أخيرًا فوق كل ملفات الأنماط الحالية.
+   الهدف: رفع جودة الرسومات عبر الموقع بالكامل دون تغيير أي منطق لعب
+   ودون كسر التخطيطات القائمة. كل التحسينات هنا تراكمية (additive)،
+   وتحترم prefers-reduced-motion و prefers-reduced-transparency
+   ووضع الأداء الخفيف (html.lite).
+   ========================================================================== */
+
+/* ------------------------------ رموز إضافية ------------------------------ */
+
+:root {
+  --vu-glow-1: rgba(232, 192, 122, 0.16);
+  --vu-glow-2: rgba(88, 211, 168, 0.12);
+  --vu-edge-hi: rgba(255, 255, 255, 0.14);
+  --vu-lift: 0 24px 48px -24px rgba(0, 0, 0, 0.85);
+  --vu-lift-accent: 0 28px 60px -26px var(--accent, #e8c07a);
+  --vu-dur: 0.18s;
+  --vu-ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+/* ------------------------------ أساس الخطوط ------------------------------ */
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+body { font-feature-settings: "kern" 1, "liga" 1, "calt" 1; font-kerning: normal; }
+
+/* لفّ النصوص بأناقة */
+h1, h2, h3, h4, h5, h6,
+.game-card-title h3,
+.setup-hero h2,
+.bg-dialog-head h2,
+.hero-copy h1,
+.library-head h2 { text-wrap: balance; }
+
+p, li, .game-tagline, .bg-dialog-body, .muted-note, .setup-note p,
+.hero-copy p, .rules-sec p { text-wrap: pretty; }
+
+/* أرقام جدولية متناسقة */
+.game-meta, .cbadge, .cres b, .mrow-net, .library-count, .net-hud-ping,
+.gameover-list, .rules-facts dd, .hero-count, .game-num { font-variant-numeric: tabular-nums; }
+
+/* ------------------------------ خلفية محيطة حيّة ------------------------------ */
+
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+  background:
+    radial-gradient(46% 42% at 14% 10%, var(--vu-glow-1), transparent 70%),
+    radial-gradient(44% 40% at 88% 92%, var(--vu-glow-2), transparent 70%);
+  opacity: 0.85;
+}
+
+/* المحتوى فوق الطبقة المحيطة */
+.bg-app { position: relative; z-index: 1; }
+
+/* ------------------------------ تركيز لوحة المفاتيح ------------------------------ */
+
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--accent, #e8c07a);
+  outline-offset: 2px;
+}
+
+/* ------------------------------ الأزرار ------------------------------ */
+
+.bg-btn,
+.hero-btn,
+.seg-btn,
+.mini-btn,
+.bg-x,
+.setup-chip,
+.library-quick-chip,
+.library-filter-toggle,
+.library-filter-reset,
+.library-favorites-toggle,
+.library-coop-toggle,
+.fx-tab,
+.net-hud-react {
+  transition:
+    background var(--vu-dur) var(--vu-ease),
+    border-color var(--vu-dur) var(--vu-ease),
+    box-shadow var(--vu-dur) var(--vu-ease),
+    color var(--vu-dur) var(--vu-ease),
+    filter var(--vu-dur) var(--vu-ease),
+    transform 0.09s var(--vu-ease);
+}
+
+/* أزرار أساسية: توهّج أقوى + ظل أغنى + حافة علوية */
+.bg-btn.primary {
+  background: linear-gradient(150deg,
+    color-mix(in srgb, var(--accent, #e8c07a) 88%, #fff) 0%,
+    var(--accent, #e8c07a) 55%,
+    color-mix(in srgb, var(--accent, #e8c07a) 72%, #000) 100%);
+  box-shadow:
+    0 14px 30px -16px color-mix(in srgb, var(--accent, #e8c07a) 85%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.45),
+    inset 0 -1px 2px rgba(0, 0, 0, 0.25);
+}
+.bg-btn.danger {
+  box-shadow: 0 12px 26px -16px color-mix(in srgb, var(--danger, #f07d72) 90%, transparent), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+
+/* الأزرار الشريطية */
+.seg-btn.active {
+  box-shadow: 0 10px 22px -14px color-mix(in srgb, var(--accent, #e8c07a) 90%, transparent), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+.library-quick-chip[aria-pressed="true"], .setup-chip.active {
+  box-shadow: 0 10px 22px -16px color-mix(in srgb, var(--accent, #e8c07a) 90%, transparent);
+}
+
+/* ------------------------------ البطاقات والألعاب ------------------------------ */
+
+.game-card {
+  transition:
+    transform 0.22s var(--vu-ease),
+    border-color 0.22s var(--vu-ease),
+    box-shadow 0.22s var(--vu-ease),
+    background 0.22s var(--vu-ease);
+}
+.game-card .game-icon { filter: drop-shadow(0 12px 20px rgba(0, 0, 0, 0.5)); }
+.game-art { transition: filter var(--vu-dur) var(--vu-ease); }
+.game-card:hover .game-art { filter: brightness(1.08) saturate(1.05); }
+
+/* ------------------------------ اللوحات والأقسام ------------------------------ */
+
+.game-panel,
+.mpanel,
+.cat-panel,
+.ttr-panel,
+.setup-panel,
+.secret-panel,
+.log-card,
+.library-note,
+.board-head,
+.turn-banner,
+.rules-sec,
+.setup-fact,
+.setup-note {
+  box-shadow:
+    inset 0 1px 0 var(--vu-edge-hi),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.22),
+    var(--vu-lift);
+}
+
+.game-toolbar { box-shadow: 0 22px 44px -30px rgba(0, 0, 0, 0.95), inset 0 1px 0 rgba(255, 255, 255, 0.06); }
+
+/* ------------------------------ النوافذ ------------------------------ */
+
+dialog.bg-dialog {
+  box-shadow:
+    0 60px 120px -40px rgba(0, 0, 0, 0.98),
+    0 0 0 1px rgba(255, 255, 255, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    inset 0 0 60px -20px rgba(0, 0, 0, 0.5);
+}
+dialog.bg-dialog::backdrop { background: rgba(2, 7, 9, 0.78); }
+
+/* ------------------------------ الحقول ------------------------------ */
+
+input, select, textarea {
+  transition: border-color var(--vu-dur) var(--vu-ease), box-shadow var(--vu-dur) var(--vu-ease), background var(--vu-dur) var(--vu-ease);
+}
+input::placeholder, textarea::placeholder { color: var(--dim, #8a9a9e); opacity: 0.85; }
+input:focus, select:focus, textarea:focus {
+  border-color: var(--accent, #e8c07a);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent, #e8c07a) 22%, transparent);
+}
+select option { background: var(--panel-solid, #16262b); color: var(--text, #f5f1e7); }
+.name-row { transition: border-color var(--vu-dur) var(--vu-ease), background var(--vu-dur) var(--vu-ease), box-shadow var(--vu-dur) var(--vu-ease); }
+
+/* ------------------------------ الشرائح والشارات ------------------------------ */
+
+.library-quick-chip, .setup-chip, .pstrip, .cbadge, .game-meta span, .game-local, .game-num, .game-en-badge {
+  transition: background var(--vu-dur) var(--vu-ease), border-color var(--vu-dur) var(--vu-ease), color var(--vu-dur) var(--vu-ease), transform var(--vu-dur) var(--vu-ease), box-shadow var(--vu-dur) var(--vu-ease);
+}
+.pstrip.active {
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--p, var(--accent-2, #58d3a8)) 35%, transparent),
+    0 8px 18px -14px var(--p, var(--accent-2, #58d3a8));
+}
+
+/* ------------------------------ رسائل منبثقة ------------------------------ */
+
+.bg-toast {
+  border-radius: 14px;
+  box-shadow: 0 24px 50px -22px rgba(0, 0, 0, 0.95), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+/* ------------------------------ نهاية اللعبة ------------------------------ */
+
+.gameover-wrap { animation: fade-in 0.3s var(--vu-ease) both; }
+.gameover-winner { box-shadow: 0 10px 24px -14px color-mix(in srgb, var(--accent, #e8c07a) 90%, transparent); }
+
+/* ------------------------------ شريط علوي وتذييل ------------------------------ */
+
+.bg-topbar { transition: box-shadow var(--vu-dur) var(--vu-ease), background var(--vu-dur) var(--vu-ease); }
+.bg-foot a { transition: color var(--vu-dur) var(--vu-ease); }
+
+/* ============================ حركة (Motion) ============================ */
+
+@media (prefers-reduced-motion: no-preference) {
+
+  /* خلفية محيطة تتنفّس ببطء */
+  body::after { animation: vu-ambient 18s ease-in-out infinite alternate; }
+  @keyframes vu-ambient { from { opacity: 0.6; } to { opacity: 1; } }
+
+  .bg-btn:hover:not(:disabled):not([disabled]) { box-shadow: var(--vu-lift); }
+  .bg-btn:active:not(:disabled):not([disabled]) { transform: translateY(1px) scale(0.985); }
+  .bg-btn.primary:hover:not(:disabled):not([disabled]) {
+    filter: brightness(1.06) saturate(1.04);
+    box-shadow:
+      0 18px 40px -16px color-mix(in srgb, var(--accent, #e8c07a) 95%, transparent),
+      inset 0 1px 0 rgba(255, 255, 255, 0.5),
+      inset 0 -1px 2px rgba(0, 0, 0, 0.2);
+  }
+
+  .hero-btn.primary:hover { filter: brightness(1.05); transform: translateY(-1px); }
+  .hero-btn.ghost:hover { transform: translateY(-1px); }
+
+  .seg-btn:hover:not(.active):not(:disabled) { border-color: var(--stroke-2, rgba(255,255,255,.2)); transform: translateY(-1px); }
+  .mini-btn:active { transform: scale(0.92); }
+  .bg-x:hover { transform: rotate(90deg); }
+
+  .game-card:hover { transform: translateY(-6px); box-shadow: var(--vu-lift), var(--vu-lift-accent); }
+  .game-card:active { transform: translateY(-2px) scale(0.995); }
+
+  .library-quick-chip:hover { transform: translateY(-1px); }
+
+  dialog.bg-dialog[open] { animation: vu-dialog-in 0.24s var(--vu-ease) both; }
+  @keyframes vu-dialog-in {
+    from { opacity: 0; transform: translateY(14px) scale(0.97); }
+    to   { opacity: 1; transform: none; }
+  }
+}
+
+@media (max-width: 620px) and (prefers-reduced-motion: no-preference) {
+  .game-card:hover { transform: translateY(-3px); }
+}
+
+/* ------------------------------ الوضع الخفيف (أداء منخفض) ------------------------------ */
+
+html.lite body::after { display: none; }
+html.lite .bg-toast { backdrop-filter: none; }
+
+/* ------------------------------ تقليل الشفافية ------------------------------ */
+
+@media (prefers-reduced-transparency: reduce) {
+  body::after { display: none; }
+  dialog.bg-dialog::backdrop { backdrop-filter: none; }
+  .bg-toast { backdrop-filter: none; }
+}
+
+/* ------------------------------ تقليل الحركة ------------------------------ */
+
+@media (prefers-reduced-motion: reduce) {
+  body::after { animation: none !important; }
+  .game-card, .game-art, .bg-btn, .hero-btn, .seg-btn, .mini-btn, .bg-x,
+  .library-quick-chip, .pstrip { transition: none !important; }
+  .game-card:hover, .game-card:active { transform: none; }
+  .gameover-wrap { animation: none; }
+  dialog.bg-dialog[open] { animation: none; }
+}
+
+/* ============================ النرد (Dice) ============================ */
+
+/* وجه النرد: تدرّج أغنى + لمعان + ظلال داخلية لمظهر ثلاثي الأبعاد */
+.die,
+.mdice .die,
+.cat-dice .die {
+  border-radius: 11px;
+  background:
+    radial-gradient(82% 82% at 30% 16%, rgba(255, 255, 255, 0.95), transparent 55%),
+    linear-gradient(150deg, #fdfaf2 0%, #efe6d2 55%, #d8cdb0 100%);
+  border: 1px solid rgba(90, 66, 30, 0.32);
+  box-shadow:
+    0 8px 15px -6px rgba(0, 0, 0, 0.85),
+    inset 0 1px 0 #fff,
+    inset 0 -2px 4px rgba(120, 96, 56, 0.24),
+    0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+.mono-roll-btn .die {
+  border-radius: 7px;
+  border: 0;
+  background:
+    radial-gradient(82% 82% at 30% 16%, rgba(255, 255, 255, 0.95), transparent 55%),
+    linear-gradient(150deg, #fdfaf2 0%, #efe6d2 55%, #d8cdb0 100%);
+  box-shadow:
+    0 4px 8px -4px rgba(0, 0, 0, 0.7),
+    inset 0 1px 0 #fff,
+    inset 0 -1px 2px rgba(120, 96, 56, 0.22),
+    inset 0 0 0 1px rgba(0, 0, 0, 0.12);
+}
+
+/* النقاط (pips): أعمق + لمعان خفيف */
+.die-cell { border-radius: 50%; }
+.die-cell.on {
+  background: radial-gradient(circle at 38% 30%, #3a2f22 0%, #171210 70%, #0a0807 100%);
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.28),
+    inset 0 -1px 1px rgba(0, 0, 0, 0.4),
+    0 1px 1px rgba(255, 255, 255, 0.45);
+}
+.die.red { background:
+    radial-gradient(82% 82% at 30% 16%, rgba(255, 255, 255, 0.55), transparent 55%),
+    linear-gradient(150deg, #ffd9d5 0%, #e08c84 55%, #c8736a 100%); }
+.die.red .die-cell.on {
+  background: radial-gradient(circle at 38% 30%, #7a2420 0%, #5c1512 70%, #3a0e0c 100%);
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.3),
+    inset 0 -1px 1px rgba(0, 0, 0, 0.4),
+    0 1px 1px rgba(255, 255, 255, 0.25);
+}
+
+/* نرد لودو/الأفعى والسلالم (.ld-die) */
+.ld-die {
+  border-radius: 11px;
+  background:
+    radial-gradient(82% 82% at 30% 16%, #ffffff, transparent 55%),
+    linear-gradient(150deg, #fdfaf2 0%, #e9e0cc 60%, #d8cdb2 100%);
+  box-shadow:
+    0 8px 14px -6px rgba(0, 0, 0, 0.9),
+    inset 0 1px 0 #fff,
+    inset 0 -2px 4px rgba(120, 96, 56, 0.24),
+    0 0 0 1px rgba(255, 255, 255, 0.08),
+    0 0 0 2px rgba(255, 255, 255, 0.05);
+}
+.ld-pip.is-on {
+  background: radial-gradient(circle at 38% 30%, #4a3b28 0%, #241a0d 70%, #100b06 100%);
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.3),
+    inset 0 -1px 1px rgba(0, 0, 0, 0.4),
+    0 1px 1px rgba(255, 255, 255, 0.4);
+}
+
+/* نرد ثلاثي الأبعاد (.fx-cube): تحسين الحواف واللمعان */
+.fx-cube-face {
+  border-radius: calc(var(--s, 60px) * 0.18);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.28),
+    inset 0 -7px 9px rgba(120, 90, 40, 0.24),
+    inset 0 3px 4px #fff,
+    inset 0 0 14px rgba(255, 255, 255, 0.1);
+}
+.fx-cube-face i.is-on {
+  background: radial-gradient(circle at 35% 30%, #4a4a52 0%, #14141a 75%, #0a0a0e 100%);
+  box-shadow:
+    inset 0 2px 2px rgba(0, 0, 0, 0.55),
+    inset 0 -1px 1px rgba(255, 255, 255, 0.18),
+    0 1px 1px rgba(255, 255, 255, 0.25);
+}
