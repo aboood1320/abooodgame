@@ -72,16 +72,18 @@
   box-shadow: 0 0 24px -12px var(--p);
 }
 .uno-seat-avatar {
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  height: 28px;
   flex: 0 0 auto;
   display: grid;
   place-items: center;
-  border-radius: 8px;
-  font-size: 0.64rem;
-  font-weight: 900;
-  color: #08120f;
-  background: var(--p);
+  border-radius: 50%;
+  background: transparent;
+}
+.uno-seat-avatar .player-avatar {
+  width: 28px;
+  height: 28px;
+  border-width: 1px;
 }
 .uno-seat-copy { display: flex; flex-direction: column; min-width: 0; line-height: 1.2; }
 .uno-seat-copy strong { max-width: 92px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.66rem; }
@@ -659,7 +661,8 @@
   }
   .game-mount.is-mono-mobile .uno-seats { gap: 5px; padding-bottom: 10px; }
   .game-mount.is-mono-mobile .uno-seat { padding: 4px 6px; gap: 5px; border-radius: 10px; }
-  .game-mount.is-mono-mobile .uno-seat-avatar { width: 20px; height: 20px; font-size: 0.56rem; }
+  .game-mount.is-mono-mobile .uno-seat-avatar,
+  .game-mount.is-mono-mobile .uno-seat-avatar .player-avatar { width: 20px; height: 20px; }
   .game-mount.is-mono-mobile .uno-seat-copy strong { max-width: 64px; font-size: 0.58rem; }
   .game-mount.is-mono-mobile .uno-seat-copy small { font-size: 0.44rem; }
   .game-mount.is-mono-mobile .uno-seat-cards { display: none; }

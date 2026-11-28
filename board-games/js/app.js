@@ -250,6 +250,7 @@
         ? Number(currentApi.net.seat)
         : currentApi.players.findIndex((player) => !player.isCpu);
       if (Number.isInteger(index) && index >= 0) updatePlayerProfile(index, detail);
+      if (BG.cardTable) BG.cardTable.render();
     });
     document.addEventListener("bgprefschange", () => {
       if (!isOnlineGame() || !instance) return;
@@ -1210,6 +1211,7 @@
     }
     instance = null;
     if (BG.windows) BG.windows.detach();
+    if (BG.cardTable) BG.cardTable.destroy();
     if (gameMount) {
       gameMount.hidden = true;
       gameMount = null;
@@ -1678,7 +1680,11 @@
     els.gameLogCard.hidden = false;
 
     gameMount = BG.el("div", { class: "game-mount", hidden: !!opts.skipCreate });
-    els.stage.appendChild(gameMount);
+    if (BG.cardTable && BG.cardTable.enabled(game)) {
+      els.stage.appendChild(BG.cardTable.build(game, gameMount, roster, opts.net || null));
+    } else {
+      els.stage.appendChild(gameMount);
+    }
     if (BG.fx) BG.fx.screenEnter(gameMount);
     applyGameScale();
 
@@ -1735,6 +1741,7 @@
     };
     api.net = netCtx ? makeNetApi(netCtx) : null;
     currentApi = api;
+    if (BG.cardTable && BG.cardTable.active) BG.cardTable.setRoster(api.players);
 
     if (!opts.skipCreate) {
       if (opts.importState) instanceLog = false;
@@ -1937,6 +1944,7 @@
       } else {
         gameMount.classList.remove("is-mono-mobile");
       }
+      if (BG.cardTable) BG.cardTable.syncLayout();
     } catch (e) {}
   }
 
@@ -1947,6 +1955,7 @@
     if (!currentGame || !currentNet) return false;
     if (!state) return false;
     if (currentNet) currentNet.spectate = false;
+    if (BG.cardTable) BG.cardTable.setLocalSeat(currentNet.seat);
     if (gameMount) gameMount.removeAttribute("data-spectate");
     if (!instance) {
       const created = createInstance(currentGame, currentNet, state);
@@ -1970,6 +1979,7 @@
     if (!currentGame || !currentNet) return false;
     if (!state) return false;
     currentNet.spectate = true;
+    if (BG.cardTable) BG.cardTable.setLocalSeat(-1);
     BG.closeDialogs({ keep: "[data-sync-keep]" });
     if (!instance) {
       const created = createInstance(currentGame, currentNet, state);
@@ -1989,6 +1999,7 @@
   function netSetSpectate(on) {
     if (!currentNet) return;
     currentNet.spectate = !!on;
+    if (BG.cardTable) BG.cardTable.setLocalSeat(on ? -1 : currentNet.seat);
     if (gameMount) {
       if (on) gameMount.setAttribute("data-spectate", "1");
       else gameMount.removeAttribute("data-spectate");
@@ -2126,6 +2137,7 @@
       currentApi.net.isHost = !!isHost;
       if (Number.isInteger(seat)) currentApi.net.seat = seat;
     }
+    if (BG.cardTable && Number.isInteger(seat)) BG.cardTable.setLocalSeat(seat);
   }
 
   BG.app = {

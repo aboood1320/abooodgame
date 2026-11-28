@@ -1,0 +1,312 @@
+/* ==========================================================================
+   طاولة ألعاب الورق — إطار مشترك ومقاعد أفاتار حول الطاولة
+   ========================================================================== */
+
+.card-table {
+  --ct-accent: var(--accent, #d8a85a);
+  --ct-seat-color: #4f86f7;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  padding: 11px;
+  border-radius: 28px;
+  border: 1px solid rgba(246, 242, 232, 0.14);
+  background:
+    radial-gradient(90% 70% at 50% 0%, color-mix(in srgb, var(--ct-accent) 10%, transparent), transparent 64%),
+    radial-gradient(60% 80% at 50% 50%, rgba(255, 255, 255, 0.05), transparent 72%),
+    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.016) 0 2px, transparent 2px 10px),
+    linear-gradient(160deg, #173b35, #0a211f 78%);
+  box-shadow:
+    0 38px 82px -50px rgba(0, 0, 0, 0.98),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    inset 0 0 0 5px rgba(3, 12, 11, 0.26),
+    inset 0 0 0 6px rgba(246, 242, 232, 0.035);
+  box-sizing: border-box;
+}
+
+.ct-middle {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: stretch;
+  gap: 9px;
+  min-width: 0;
+}
+
+.ct-core {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.ct-core > .game-mount {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+/* ------------------------------ حواجز المقاعد ------------------------------ */
+
+.ct-rail {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  gap: 6px;
+  min-width: 0;
+}
+
+.ct-rail[hidden] {
+  display: none !important;
+}
+
+.ct-rail-top,
+.ct-rail-bottom {
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+}
+
+.ct-rail-left,
+.ct-rail-right {
+  flex: 0 0 auto;
+  width: 76px;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: center;
+}
+
+/* ------------------------------ مقعد اللاعب ------------------------------ */
+
+.ct-seat {
+  --ct-seat-color: #4f86f7;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  max-width: 138px;
+  padding: 4px 9px 4px 5px;
+  border-radius: 999px 14px 14px 999px;
+  border: 1px solid color-mix(in srgb, var(--ct-seat-color) 34%, rgba(246, 242, 232, 0.12));
+  background:
+    linear-gradient(120deg, color-mix(in srgb, var(--ct-seat-color) 20%, transparent), transparent 64%),
+    rgba(4, 16, 15, 0.78);
+  box-shadow:
+    0 12px 24px -18px rgba(0, 0, 0, 0.95),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  color: #f6f2e8;
+  pointer-events: none;
+  user-select: none;
+}
+
+.ct-seat.is-you {
+  border-color: color-mix(in srgb, var(--ct-seat-color) 68%, #f6f2e8 8%);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--ct-seat-color) 34%, transparent),
+    0 14px 28px -18px rgba(0, 0, 0, 0.98),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.ct-seat.is-cpu {
+  opacity: 0.94;
+}
+
+.ct-seat-avatar {
+  display: inline-grid;
+  flex: 0 0 auto;
+  place-items: center;
+}
+
+.ct-seat-avatar .player-avatar {
+  width: 30px;
+  height: 30px;
+  border-width: 1px;
+}
+
+.ct-seat-copy {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.15;
+}
+
+.ct-seat-copy strong {
+  max-width: 90px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.64rem;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+}
+
+.ct-seat-copy small {
+  font-size: 0.5rem;
+  font-weight: 700;
+  color: rgba(246, 242, 232, 0.56);
+}
+
+.ct-seat.is-you .ct-seat-copy small {
+  color: color-mix(in srgb, var(--ct-seat-color) 72%, #f6f2e8);
+}
+
+/* المقاعد الجانبية أكثر رأسية لتوفير المساحة. */
+.ct-rail-left .ct-seat,
+.ct-rail-right .ct-seat {
+  flex-direction: column;
+  gap: 3px;
+  max-width: none;
+  padding: 6px 4px;
+  border-radius: 13px;
+  text-align: center;
+}
+
+.ct-rail-left .ct-seat-copy strong,
+.ct-rail-right .ct-seat-copy strong {
+  max-width: 66px;
+  font-size: 0.56rem;
+}
+
+.ct-rail-left .ct-seat-copy small,
+.ct-rail-right .ct-seat-copy small {
+  display: none;
+}
+
+/* ------------------------------ الشاشات الضيقة ------------------------------ */
+
+.card-table.is-compact {
+  gap: 6px;
+  padding: 7px;
+  border-radius: 21px;
+}
+
+.card-table.is-compact .ct-middle {
+  gap: 6px;
+}
+
+.card-table.is-compact .ct-rail-top,
+.card-table.is-compact .ct-rail-bottom {
+  gap: 4px;
+}
+
+.card-table.is-compact .ct-seat {
+  flex-direction: column;
+  gap: 2px;
+  max-width: 58px;
+  padding: 4px 3px;
+  border-radius: 11px;
+  text-align: center;
+}
+
+.card-table.is-compact .ct-seat-avatar .player-avatar {
+  width: 28px;
+  height: 28px;
+}
+
+.card-table.is-compact .ct-seat-copy strong {
+  max-width: 52px;
+  font-size: 0.52rem;
+}
+
+.card-table.is-compact .ct-seat-copy small {
+  display: none;
+}
+
+@media (max-width: 420px) {
+  .card-table.is-compact {
+    gap: 4px;
+    padding: 5px;
+    border-radius: 17px;
+  }
+
+  .card-table.is-compact .ct-seat {
+    max-width: 46px;
+    padding: 3px 2px;
+  }
+
+  .card-table.is-compact .ct-seat-avatar .player-avatar {
+    width: 24px;
+    height: 24px;
+  }
+
+  .card-table.is-compact .ct-seat-copy strong {
+    max-width: 42px;
+    font-size: 0.46rem;
+  }
+}
+
+/* بعض الألعاب تمدّد جذرها إلى عرض الشاشة على الجوال؛ داخل الطاولة نبقيه
+   ضمن عمود المحتوى حتى لا تخرج المقاعد أو الطاولة عن الإطار. */
+@media (max-width: 980px) {
+  .card-table .game-mount.is-mobile-scaled {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin-inline: 0 !important;
+    padding-inline: 0 !important;
+  }
+}
+
+/* ------------------------------ ملء الشاشة ------------------------------ */
+
+body.fullscreen-game .card-table,
+body.board-only .card-table {
+  height: 100%;
+  min-height: 0;
+}
+
+body.board-only .game-stage > .card-table {
+  flex: 1 1 auto;
+}
+
+body.fullscreen-game .card-table .ct-middle,
+body.board-only .card-table .ct-middle {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+body.fullscreen-game .card-table .ct-core,
+body.board-only .card-table .ct-core {
+  min-height: 0;
+}
+
+/* في «اللوحة فقط» يصبح جذر اللعبة منطقة تمرير داخل الطاولة، فلا تخرج
+   البطاقات أو الأزرار تحت مقعد اللاعب السفلي. */
+body.board-only .card-table .ct-core {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+body.board-only .card-table .ct-core > .game-mount {
+  flex: 1 1 0;
+  min-height: 0;
+  max-height: 100%;
+  height: auto !important;
+}
+
+/* ------------------------------ حماية شريط الأدوات على 320px ------------------------------ */
+
+/* في الشاشات الضيقة جدًا يصبح زر الرجوع النصي أوسع من المساحة المتاحة بعد
+   أزرار اللعبة، فيدفع الصفحة إلى تمرير أفقي. نجعله أيقونة فقط تحت 420px. */
+@media (max-width: 420px) {
+  body.game-mode #gameView .game-toolbar #btnGameBack {
+    width: 40px;
+    min-width: 40px;
+    padding-inline: 0;
+  }
+
+  body.game-mode #gameView .game-toolbar #btnGameBack span {
+    display: none;
+  }
+}
+
+/* ------------------------------ تقليل الحركة ------------------------------ */
+
+@media (prefers-reduced-motion: reduce) {
+  .ct-seat {
+    transition: none;
+  }
+}

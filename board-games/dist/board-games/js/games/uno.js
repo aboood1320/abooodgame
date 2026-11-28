@@ -807,7 +807,7 @@
       const active = !state.over && player.index === state.current;
       const backs = Array.from({ length: Math.min(player.hand.length, 5) }, () => "<i></i>").join("");
       return '<div class="uno-seat' + (active ? " is-active" : "") + (player.hand.length === 1 ? " is-uno" : "") + '" style="--p:' + player.color + '">' +
-        '<span class="uno-seat-avatar">' + (player.index + 1) + "</span>" +
+        '<span class="uno-seat-avatar">' + BG.playerProfile.playerHTML(player, "uno-seat-face") + "</span>" +
         '<span class="uno-seat-copy"><strong>' + U.escape(player.name) + "</strong><small>" + player.hand.length + " بطاقة</small></span>" +
         '<span class="uno-seat-cards" aria-hidden="true">' + backs + "</span>" +
         (player.hand.length === 1 ? '<b class="uno-seat-uno">أونو!</b>' : "") +

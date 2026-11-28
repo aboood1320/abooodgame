@@ -2451,7 +2451,9 @@
     if (!stage) return;
     boApplying = true;
     try {
-      const found = boFind(stage);
+      /* طاولة ألعاب الورق تغلّف جذر اللعبة؛ نبحث عن تخطيط اللعبة داخل الجذر
+         نفسه حتى لا تُعامل حواجز المقاعد كأنها لوحات جانبية للعبة. */
+      const found = boFind(boMount() || stage);
       const layout = found.layout || stage;
       if (boLayout && boLayout !== layout) boLayout.classList.remove("bo-layout", "bo-flex");
       const display = window.getComputedStyle(layout).display;

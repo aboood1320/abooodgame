@@ -5,7 +5,7 @@
    ========================================================================== */
 "use strict";
 
-const VERSION = "1.9.58";
+const VERSION = "1.9.59";
 const CACHE = "bg-shell-v" + VERSION + "-r1";
 const OFFLINE_URL = "index.html";
 
@@ -30,6 +30,7 @@ const CORE = [
   "css/scrabble.css",
   "css/tavla.css",
   "css/theme-refresh.css",
+  "css/card-table.css",
   "css/ttr.css",
   "css/uno.css",
   "css/love-letter.css",
@@ -78,6 +79,7 @@ const CORE = [
   "css/motion.css",
   "js/avatars.js",
   "js/core.js",
+  "js/card-table.js",
   "js/fx.js",
   "js/library-art.js",
   "js/library-art-expansion.js",
