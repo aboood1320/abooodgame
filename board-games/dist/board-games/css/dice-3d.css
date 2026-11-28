@@ -48,8 +48,10 @@
   grid-template-rows: repeat(3, 1fr);
   padding: calc(var(--s, 60px) * 0.135);
   gap: calc(var(--s, 60px) * 0.04);
-  border-radius: calc(var(--s, 60px) * 0.18);
-  border: 1px solid rgba(90, 66, 30, 0.42);
+  /* زوايا مربّعة صلبة: لا border-radius على وجوه مكعّب 3D (يُحدث زوايا شفافة/فجوات) */
+  border-radius: 0;
+  border: 0;
+  background-clip: border-box;
   background: var(--face, linear-gradient(145deg, #fffdf6, #e6dcc4));
   /* ظلال داخلية: حافة علوية فاتحة + حافة سفلية منحوتة + لمعان + تقويس */
   box-shadow:
@@ -76,7 +78,7 @@
   content: "";
   position: absolute;
   inset: 0;
-  border-radius: inherit;
+  border-radius: 0;
   pointer-events: none;
   background:
     radial-gradient(circle at 30% 22%, rgba(255, 255, 255, 0.34), transparent 50%),
@@ -156,3 +158,7 @@ html.lite .fx-throw-shadow { filter: none; }
 @media (prefers-reduced-motion: reduce) {
   .fx-cube-view, .fx-cube-stage, .fx-cube { will-change: auto; }
 }
+
+/* حماية إضافية ضد أي شفافية عند الزوايا/الحواف: لون صلب تحت الصورة دائمًا */
+.fx-cube-face { background-color: #e9e1cd !important; }
+
