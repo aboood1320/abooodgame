@@ -964,8 +964,8 @@
     const dice = list.map((value, i) => {
       const shadow = document.createElement("span");
       shadow.className = "fx-throw-shadow";
-      shadow.style.width = size * 1.18 + "px";
-      shadow.style.height = size * 0.3 + "px";
+      shadow.style.width = size * 1.24 + "px";
+      shadow.style.height = size * 0.32 + "px";
       const tone = (o.tones && o.tones[i]) || o.tone;
       const el = buildCube(value, tone);
       /* غلاف لكل نرد على حدة: منظور الكاميرا يبقى متمركزًا حول النرد نفسه
@@ -1224,14 +1224,15 @@
         d.el.style.transform =
           "rotateX(" + d.rx + "rad) rotateY(" + d.ry + "rad) rotateZ(" + d.ang + "rad)";
         /* الظل مسطح تحت وجه التلامس السفلي، لا تحت مركز المكعب، حتى يبدو
-           النرد مستقرًا على اللوحة بدل الطفو فوق ظله. */
-        const sh = 1 - Math.min(0.6, d.z / 420);
-        const shadowW = size * 1.18;
-        const shadowH = size * 0.3;
-        const shadowX = d.x - shadowW / 2 + size * 0.04;
-        const shadowY = d.y + size * 0.55 - shadowH / 2;
-        d.shadow.style.opacity = String(0.55 * sh);
-        d.shadow.style.transform = "translate3d(" + shadowX + "px," + shadowY + "px,0) scale(" + (0.82 + sh * 0.18) + ")";
+           النرد مستقرًا على اللوحة بدل الطفو فوق ظله. يبقى واضحًا قدر الإمكان
+           حتى في الرمية العالية، ولا يختفي عند إبراز النتيجة. */
+        const sh = 1 - Math.min(0.5, d.z / 520);
+        const shadowW = size * 1.24;
+        const shadowH = size * 0.32;
+        const shadowX = d.x - shadowW / 2 + size * 0.02;
+        const shadowY = d.y + size * 0.5 - shadowH / 2;
+        d.shadow.style.opacity = String(0.68 * sh);
+        d.shadow.style.transform = "translate3d(" + shadowX + "px," + shadowY + "px,0) scale(" + (0.9 + sh * 0.1) + ")";
       });
     };
 
@@ -1241,7 +1242,17 @@
       ended = true;
       cancelAnimationFrame(raf);
       clearTimeout(hardTimer);
-      if (!isLite()) dice.forEach((d) => d.shadow.classList.add("is-settled"));
+      if (!isLite()) dice.forEach((d) => {
+        /* هالة منفصلة عن الظل: يبقى ظل التلامس الداكن كما هو حتى تختفي النردة،
+           بينما تومض الهالة الذهبية وتتلاشى دون أن تحل محله. */
+        const glow = document.createElement("span");
+        glow.className = "fx-result-glow";
+        glow.style.width = size * 1.9 + "px";
+        glow.style.height = size * 0.62 + "px";
+        glow.style.left = (d.x - size * 0.95) + "px";
+        glow.style.top = (d.y + size * 0.5 - size * 0.31) + "px";
+        layer.insertBefore(glow, d.shadow);
+      });
       releaseTimer = setTimeout(() => {
         remove();
         if (!cancelled) finish();
