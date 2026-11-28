@@ -416,11 +416,9 @@
       player.hand.splice(index, 1);
       state.discard.push(card);
       if (apiRef) apiRef.log("<strong>" + esc(player.name) + "</strong> لعب " + esc(cardLabel(card)) + " على الرمي.", "accent");
-      if (FX) {
-        FX.sound("card");
-        const hand = rootRef && rootRef.querySelector('.wq-hand .wq-card[data-wq-card="' + card.id + '"]');
-        if (hand) FX.animate(hand, [{ transform: "translateY(0)" }, { transform: "translateY(-14px) scale(1.06)" }, { opacity: 0, transform: "translateY(-40px) scale(.9)" }], { duration: 320, fill: "forwards" });
-      }
+      const handNode = rootRef && rootRef.querySelector('.wq-hand .wq-card[data-wq-card="' + card.id + '"]');
+      const flight = FX && handNode ? FX.cardFlight(handNode) : null;
+      if (FX) FX.sound("card");
       state.notice = player.name + " لعب " + cardLabel(card) + ".";
       state.selected = [];
       if (player.hand.length === 0) {
@@ -429,6 +427,12 @@
       }
       nextSeat();
       render();
+      if (flight) {
+        const to = flightTarget(card);
+        flight.land(to, { mode: to && to.classList.contains("wq-table") ? "point" : "card" });
+      } else if (FX && handNode) {
+        FX.animate(handNode, [{ transform: "translateY(0)" }, { transform: "translateY(-14px) scale(1.06)" }, { opacity: 0, transform: "translateY(-40px) scale(.9)" }], { duration: 320, fill: "forwards" });
+      }
       return true;
     }
 
@@ -455,11 +459,11 @@
       else if (isSevenDiamond(card) && state.sevenTakesAll !== false && result.captured.length) text += " — ٧♦ تأخذ الأرض دون بصرة";
       apiRef.log(text, result.basra ? "good" : "accent");
     }
+    const handNode = rootRef && rootRef.querySelector('.wq-hand .wq-card[data-wq-card="' + card.id + '"]');
+    const flight = FX && handNode ? FX.cardFlight(handNode) : null;
     if (FX) {
       FX.sound(result.captured.length ? "capture" : "card");
       if (result.basra) FX.banner("بصرة! +" + ar(basraBonus), { icon: "✨", tone: "win", duration: 1200 });
-      const hand = rootRef && rootRef.querySelector('.wq-hand .wq-card[data-wq-card="' + card.id + '"]');
-      if (hand) FX.animate(hand, [{ transform: "translateY(0)" }, { transform: "translateY(-14px) scale(1.06)" }, { opacity: 0, transform: "translateY(-40px) scale(.9)" }], { duration: 320, fill: "forwards" });
     }
     state.notice = result.captured.length
       ? player.name + " أخذ " + ar(result.captured.length) + " ورقة" + (result.basra ? " وحقّق بصرة!" : ".")
@@ -472,6 +476,12 @@
     }
     nextSeat();
     render();
+    if (flight) {
+      const to = flightTarget(card);
+      flight.land(to, { mode: to && to.classList.contains("wq-table") ? "point" : "card" });
+    } else if (FX && handNode) {
+      FX.animate(handNode, [{ transform: "translateY(0)" }, { transform: "translateY(-14px) scale(1.06)" }, { opacity: 0, transform: "translateY(-40px) scale(.9)" }], { duration: 320, fill: "forwards" });
+    }
     return true;
   }
 
@@ -1042,7 +1052,7 @@
     if (state.variant === "six") {
       const top = state.discard[state.discard.length - 1];
       const table = top
-        ? cardHTML(top, { interactive: false, hover: true, piece: "wq-discard-top", enter: "deal", label: "أعلى الرمي: " + cardLabel(top) })
+        ? cardHTML(top, { interactive: false, hover: true, piece: "wq-discard-top", enter: "flip", label: "أعلى الرمي: " + cardLabel(top) })
         : '<span class="wq-empty">ارمِ أول ورقة لبدء اللعب.</span>';
       return (
         '<section class="wq-center wq-basra-center">' +
@@ -1058,7 +1068,7 @@
       );
     }
     const table = state.table.length
-      ? state.table.map((card) => cardHTML(card, { interactive: false, hover: true, piece: "wq-table-" + card.id, enter: "deal", label: "على الأرض: " + cardLabel(card) })).join("")
+      ? state.table.map((card) => cardHTML(card, { interactive: false, hover: true, piece: "wq-table-" + card.id, enter: "flip", label: "على الأرض: " + cardLabel(card) })).join("")
       : '<span class="wq-empty">الأرض فارغة — أي ورقة تُلعب الآن تُترك عليها.</span>';
     return (
       '<section class="wq-center wq-basra-center">' +
@@ -1113,7 +1123,7 @@
       cardHTML(null, { back: true, interactive: false, small: true }) +
       '<span class="wq-pile-label">السحب<b>' + ar(state.deck.length) + "</b></span></button>" +
       '<button type="button" class="wq-pile-card' + (mine && phase === "draw" ? " is-live" : "") + '" data-wq-act="draw-discard" aria-label="خذ المكشوفة">' +
-      (top ? cardHTML(top, { interactive: false, small: true, piece: "wq-discard-" + top.id, enter: "deal" }) : cardHTML(null, { back: true, interactive: false, small: true })) +
+      (top ? cardHTML(top, { interactive: false, small: true, piece: "wq-discard-" + top.id, enter: "flip" }) : cardHTML(null, { back: true, interactive: false, small: true })) +
       '<span class="wq-pile-label">المكشوفة<b>' + ar(state.discard.length) + "</b></span></button>" +
       "</div>" +
       '<p class="wq-turn-note">' + (phase === "draw"
@@ -1177,6 +1187,15 @@
             : "يدك محفوظة — تشاهد دور " + esc(state.players[state.current].name) + " الآن.") + "</p>") +
       "</section>"
     );
+  }
+
+  /* مكان هبوط الورقة بعد إعادة الرسم: على الأرض أو أعلى الرمي أو كومة الرامي */
+  function flightTarget(card) {
+    if (!rootRef) return null;
+    return rootRef.querySelector('[data-fx-piece="wq-table-' + card.id + '"]') ||
+      rootRef.querySelector('[data-fx-piece="wq-discard-' + card.id + '"]') ||
+      rootRef.querySelector('[data-fx-piece="wq-discard-top"]') ||
+      rootRef.querySelector(".wq-table");
   }
 
   function render() {

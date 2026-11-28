@@ -1570,10 +1570,14 @@
           hidden = to.style.visibility;
           to.style.visibility = "hidden";
         }
+        /* عند إحضار وجه الهدف (ورقة مكشوفة) نضيف قلبًا في الجوّ فتبدو الورقة
+           وكأنها تُرفع وتُقلب قبل أن تستقر، دون تأخير منطق اللعبة. */
+        const flipIn = useTarget && !point;
+        const pre = flipIn ? "perspective(700px) " : "";
         const anim = ghost.animate([
-          { transform: "translate(0,0) rotate(0deg) scale(1)", opacity: 1, offset: 0 },
-          { transform: "translate(" + dx * 0.5 + "px," + (dy * 0.5 - lift) + "px) rotate(" + tilt + "deg) scale(" + ((1 + scale) / 2) * 1.06 + ")", opacity: 1, offset: 0.55 },
-          { transform: "translate(" + dx + "px," + dy + "px) rotate(0deg) scale(" + scale + ")", opacity: point ? 0.05 : 1, offset: 1 },
+          { transform: pre + "translate(0,0) rotateY(" + (flipIn ? -88 : 0) + "deg) rotate(0deg) scale(1)", opacity: 1, offset: 0 },
+          { transform: pre + "translate(" + dx * 0.5 + "px," + (dy * 0.5 - lift) + "px) rotateY(" + (flipIn ? -24 : 0) + "deg) rotate(" + tilt + "deg) scale(" + ((1 + scale) / 2) * 1.06 + ")", opacity: 1, offset: 0.55 },
+          { transform: pre + "translate(" + dx + "px," + dy + "px) rotateY(0deg) rotate(0deg) scale(" + scale + ")", opacity: point ? 0.05 : 1, offset: 1 },
         ], { duration, delay: l.delay, easing: "cubic-bezier(.3,.75,.3,1)", fill: "both" });
         let timer = null;
         const flight = {
@@ -2833,12 +2837,20 @@
   /* ------------------------------ حركة القطع المركزية ------------------------------ */
 
   const PIECE_ENTER = {
-    deal(el) {
+    deal(el, opts) {
       return animate(el, [
         { transform: "translate(22px,-18px) rotate(-7deg) scale(.78)", opacity: 0 },
         { transform: "translate(0,0) rotate(0deg) scale(1.03)", opacity: 1, offset: 0.78 },
         { transform: "translate(0,0) rotate(0deg) scale(1)", opacity: 1 },
-      ], { duration: 300, easing: "cubic-bezier(.2,.85,.3,1)" });
+      ], { duration: 300, delay: (opts && opts.delay) || 0, easing: "cubic-bezier(.2,.85,.3,1)" });
+    },
+    /* قلب الورقة عند الكشف: تدور من ظهرها إلى وجهها مع لمسة ارتداد خفيفة */
+    flip(el, opts) {
+      return animate(el, [
+        { transform: "perspective(700px) rotateY(-88deg) scale(.9)", opacity: 0 },
+        { transform: "perspective(700px) rotateY(9deg) scale(1.04)", opacity: 1, offset: 0.78 },
+        { transform: "perspective(700px) rotateY(0deg) scale(1)", opacity: 1 },
+      ], { duration: 380, delay: (opts && opts.delay) || 0, easing: "cubic-bezier(.2,.85,.3,1)" });
     },
     drop(el) {
       return animate(el, [
@@ -2874,6 +2886,14 @@
     function run() {
       frame = 0;
       if (stopped || !mount.isConnected) return;
+      /* الأوراق الجديدة تدخل بتتابع قصير بدل أن تظهر دفعة واحدة */
+      let dealIndex = 0;
+      const runEnter = (el, kind) => {
+        const fn = PIECE_ENTER[kind];
+        if (!fn) return;
+        if (kind === "deal" || kind === "flip") fn(el, { delay: Math.min(dealIndex++, 18) * 45 });
+        else fn(el);
+      };
       const entries = [];
       const next = new Map();
       mount.querySelectorAll("[data-fx-piece]").forEach((el) => {
@@ -2892,7 +2912,7 @@
         if (canAnimate) {
           entries.forEach(({ el }) => {
             const enter = el.getAttribute("data-fx-enter");
-            if (enter && PIECE_ENTER[enter]) PIECE_ENTER[enter](el);
+            if (enter) runEnter(el, enter);
           });
         }
         return;
@@ -2919,7 +2939,7 @@
           return;
         }
         const enter = el.getAttribute("data-fx-enter");
-        if (enter && PIECE_ENTER[enter]) PIECE_ENTER[enter](el);
+        if (enter) runEnter(el, enter);
       });
       previous = next;
     }

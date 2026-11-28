@@ -209,6 +209,26 @@ dialog.bg-dialog[open] > .bg-dialog-foot {
   animation: motionRiseIn 360ms var(--motion-ease-soft) 120ms backwards;
 }
 
+/* ------------------------------ لمسات البطاقات ------------------------------ */
+
+.wq-card.is-hand,
+.uno-card.is-hand,
+.ko-card.is-playable,
+.ll-hand .ll-card[data-ll-card] {
+  transition:
+    transform var(--motion-fast) var(--motion-ease-soft),
+    box-shadow var(--motion-fast) ease,
+    border-color var(--motion-fast) ease,
+    filter var(--motion-fast) ease,
+    opacity var(--motion-fast) ease;
+}
+.wq-card.is-hand:active:not(:disabled),
+.uno-card.is-hand:active:not(:disabled),
+.ko-card.is-playable:active:not(:disabled),
+.ll-hand .ll-card[data-ll-card]:active:not(:disabled) {
+  transform: translateY(-2px) scale(0.96);
+}
+
 /* ------------------------------ الاحترامات ------------------------------ */
 
 /* الوضع الخفيف: دخول ثابت وتفاعل بلا إزاحة، كما في perf.css */
@@ -240,7 +260,11 @@ html.lite .library-quick-chip:hover,
 html.lite .library-filter-toggle:hover,
 html.lite .library-favorites-toggle:hover,
 html.lite .library-coop-toggle:hover,
-html.lite .library-filter-reset:hover {
+html.lite .library-filter-reset:hover,
+html.lite .wq-card.is-hand:active:not(:disabled),
+html.lite .uno-card.is-hand:active:not(:disabled),
+html.lite .ko-card.is-playable:active:not(:disabled),
+html.lite .ll-hand .ll-card[data-ll-card]:active:not(:disabled) {
   transform: none !important;
 }
 
@@ -256,7 +280,11 @@ html.lite .library-filter-reset:hover {
   .library-favorites-toggle:hover,
   .library-coop-toggle:hover,
   .library-filter-reset:hover,
-  body.library-mode :is(.game-card:hover, .game-card:focus-visible) .game-open .ic {
+  body.library-mode :is(.game-card:hover, .game-card:focus-visible) .game-open .ic,
+  .wq-card.is-hand:active:not(:disabled),
+  .uno-card.is-hand:active:not(:disabled),
+  .ko-card.is-playable:active:not(:disabled),
+  .ll-hand .ll-card[data-ll-card]:active:not(:disabled) {
     transform: none !important;
   }
   .game-card,
