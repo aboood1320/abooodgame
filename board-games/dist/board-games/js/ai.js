@@ -1,6 +1,6 @@
 /* ==========================================================================
-   ألعاب الطاولة — طبقة الذكاء الاصطناعي المشتركة
-   أدوات اختيار القرار، مستويات الصعوبة، ومؤقّتات أدوار الكمبيوتر
+   ألعاب الطاولة — طبقة الذكاء الاصطناعي المشتركة (محسّنة)
+   أدوات اتخاذ القرار، مستويات الصعوبة، مؤقّتات أدوار الكمبيوتر، بحث anticipatory، وذاكرة أنماط.
    ========================================================================== */
 (function () {
   "use strict";
@@ -154,7 +154,6 @@
     const bestScore = scored[0].score;
 
     if (spec.id === "easy") {
-      /* سهل: قرار عشوائي غالبًا، وإلا يختار من النصف الأعلى بترجيح خفيف. */
       if (rand() < 0.5) return list[Math.floor(rand() * list.length)];
       const pool = scored.slice(0, Math.max(2, Math.ceil(scored.length * 0.5)));
       const base = pool[pool.length - 1].score;
@@ -167,7 +166,6 @@
     }
 
     if (spec.id === "normal") {
-      /* متوسط: أخطاء متفرقة، ثم أفضل ثلاثة بترجيح متزايد. */
       if (rand() < spec.noise) return list[Math.floor(rand() * list.length)];
       const pool = scored.slice(0, Math.min(3, scored.length));
       const base = pool[pool.length - 1].score;
@@ -180,13 +178,76 @@
     }
 
     if (spec.id === "hard") {
-      /* صعب: الأفضل تقريبًا دائمًا، مع خطأ نادر جدًا للثاني. */
       if (scored[1] && rand() < 0.02) return scored[1].item;
       return scored[0].item;
     }
 
-    /* خبير: الأفضل دائمًا، مع كسر التعادل عشوائيًا بين القيم المتساوية. */
     const ties = scored.filter((entry) => Math.abs(entry.score - bestScore) < 0.0001);
+    return ties[Math.floor(rand() * ties.length)].item;
+  }
+
+  /**
+   * اختيار قرار باستخدام معايير متعددة موزونة (جديد).
+   * criteria: Array of { weight, scoreFn(item, index) }.
+   * يُدمج كل معيار بعد تطبيع نتيجته إلى مدى [0,1] ثم يُضرب في وزنه.
+   */
+  function chooseMulti(items, criteria, value, options) {
+    const list = (items || []).filter(Boolean);
+    if (!list.length) return null;
+    if (list.length === 1) return list[0];
+    if (!criteria || !criteria.length) return choose(list, criteria && criteria[0] ? criteria[0].scoreFn : null, value, options);
+
+    const rand = randomFn(options);
+    const spec = LEVELS[level(value)];
+    const crit = criteria.map((c) => ({ weight: Number(c.weight || 1), fn: c.scoreFn }));
+
+    /* حساب مجموع موزون مع تطبيع كل معيار إلى مدى [0,1] عبر المرشّحين. */
+    const rawScores = list.map(() => crit.map(() => 0));
+    for (let ci = 0; ci < crit.length; ci++) {
+      const col = list.map((item, i) => Number(crit[ci].fn(item, i)) || 0);
+      let min = col[0], max = col[0];
+      for (let i = 1; i < col.length; i++) {
+        if (col[i] < min) min = col[i];
+        if (col[i] > max) max = col[i];
+      }
+      const span = Math.max(1, max - min);
+      for (let i = 0; i < col.length; i++) {
+        rawScores[i][ci] = (col[i] - min) / span;
+      }
+    }
+
+    const combined = list.map((_, i) => {
+      let s = 0;
+      for (let ci = 0; ci < crit.length; ci++) s += rawScores[i][ci] * crit[ci].weight;
+      return s;
+    });
+
+    const ranked = list.map((item, i) => ({ item, index: i, score: combined[i] }))
+      .sort((a, b) => b.score - a.score || a.index - b.index);
+    const bestScore = ranked[0].score;
+
+    if (spec.id === "easy") {
+      if (rand() < 0.6) return list[Math.floor(rand() * list.length)];
+      const pool = ranked.slice(0, Math.max(2, Math.ceil(ranked.length * 0.5)));
+      const base = pool[pool.length - 1].score;
+      const span = Math.max(1, bestScore - base);
+      return weighted(pool, (e) => 0.5 + ((e.score - base) / span) * 1.5, rand).item;
+    }
+
+    if (spec.id === "normal") {
+      if (rand() < spec.noise) return list[Math.floor(rand() * list.length)];
+      const pool = ranked.slice(0, Math.min(3, ranked.length));
+      const base = pool[pool.length - 1].score;
+      const span = Math.max(1, bestScore - base);
+      return weighted(pool, (e) => Math.max(0.35, Math.pow((e.score - base) / span + 0.15, 2)), rand).item;
+    }
+
+    if (spec.id === "hard") {
+      if (ranked[1] && rand() < 0.03) return ranked[1].item;
+      return ranked[0].item;
+    }
+
+    const ties = ranked.filter((e) => Math.abs(e.score - bestScore) < 0.0001);
     return ties[Math.floor(rand() * ties.length)].item;
   }
 
@@ -199,11 +260,151 @@
     return hard;
   }
 
+  /* ======================= بحث anticipatory (look-ahead) جديد ======================= */
+
   /**
-   * هل يُسمح لهذا الجهاز بتشغيل دور الكمبيوتر تلقائيًا؟
-   * في اللعب المحلي: نعم دائمًا. في الشبكة: المضيف وحده يدير مقاعد الكمبيوتر،
-   * والضيف لا يدير إلا مقعده المحلي (وهو بشري عادةً).
+   * بحث negamax بسيط مع تقطيع ألفا-بيتا للألعاب التي توفر محرّك حالات.
+   * opts.getMoves(state)      → قائمة الحركات المتاحة
+   * opts.apply(state, move)   → تطبّق الحركة وتُعيد دالة تراجع (undo)
+   * opts.undo(state, revert)  → ترجع الحالة إلى ما قبل الحركة
+   * opts.evaluate(state, pid) → تقييم الحالة من وجهة نظر اللاعب pid (رقم أعلى = أفضل له)
+   * opts.terminal(state)      → هل انتهت اللعبة؟
+   * opts.depth                → عمق البحث (افتراضي 3)
+   * opts.level                → مستوى الصعوبة (يؤثر على العشوائية والخطأ)
+   * opts.perspective          → فهرس اللاعب الذي يُقيّم من وجهة نظره (افتراضي 0)
+   * opts.rng                  → مولّد عشوائي مخصّص (اختياري)
+   * يعيد { move, score, depth, nodes } أو null إن لم توجد حركات.
    */
+  function search(state, opts) {
+    const o = Object.assign({
+      getMoves: null,
+      apply: null,
+      undo: null,
+      evaluate: null,
+      terminal: null,
+      depth: 3,
+      level: "normal",
+      rng: Math.random,
+      perspective: 0,
+    }, opts || {});
+
+    if (!o.getMoves || !o.apply || !o.undo || !o.evaluate) return null;
+
+    const spec = LEVELS[level(o.level)];
+    const ctx = { nodes: 0, aborted: false, deadline: Date.now() + (spec ? spec.delay[1] * 6 : 2000) };
+    const maxDepth = Math.max(1, Math.min(6, Number(o.depth) || 3));
+
+    function negamax(s, d, alpha, beta) {
+      if (ctx.aborted) return 0;
+      ctx.nodes++;
+      if ((ctx.nodes & 255) === 0 && Date.now() > o.deadline) { ctx.aborted = true; return 0; }
+
+      if (d <= 0 || (o.terminal && o.terminal(s))) return o.evaluate(s, o.perspective);
+
+      const moves = o.getMoves(s);
+      if (!moves.length) return o.evaluate(s, o.perspective);
+
+      /* ترتيب خفيف: التقاطات/النهايات أولاً */
+      moves.sort((a, b) => (b.scoreHint || 0) - (a.scoreHint || 0));
+
+      let best = -Infinity;
+      for (let i = 0; i < moves.length; i++) {
+        const revert = o.apply(s, moves[i]);
+        const score = -negamax(s, d - 1, -beta, -alpha);
+        o.undo(s, revert);
+        if (ctx.aborted) return 0;
+        if (score > best) best = score;
+        if (score > alpha) alpha = score;
+        if (alpha >= beta) break;
+      }
+      return best;
+    }
+
+    const moves = o.getMoves(state);
+    if (!moves.length) return null;
+
+    let bestMove = moves[0];
+    let bestScore = -Infinity;
+    let alpha = -Infinity;
+    const beta = Infinity;
+
+    for (let i = 0; i < moves.length; i++) {
+      const revert = o.apply(state, moves[i]);
+      const score = -negamax(state, maxDepth - 1, -beta, -alpha);
+      o.undo(state, revert);
+      if (ctx.aborted) break;
+      if (score > bestScore) { bestScore = score; bestMove = moves[i]; }
+      if (score > alpha) alpha = score;
+    }
+
+    /* عشوائية محسوبة حسب المستوى في الاختيار النهائي */
+    if (spec.id === "easy" && moves.length > 1 && o.rng() < 0.4) {
+      bestMove = moves[Math.floor(o.rng() * moves.length)];
+    } else if (spec.id === "normal" && moves.length > 1 && o.rng() < spec.noise) {
+      const pool = moves.slice(0, Math.min(3, moves.length));
+      bestMove = pool[Math.floor(o.rng() * pool.length)];
+    }
+
+    return { move: bestMove, score: bestScore, depth: maxDepth, nodes: ctx.nodes };
+  }
+
+  /* ======================= ذاكرة أنماط اللعب (transposition table) جديدة ======================= */
+
+  const patternMemory = new Map();
+  const MEMORY_LIMIT = 2000;
+
+  function memoryPut(key, value) {
+    if (patternMemory.size >= MEMORY_LIMIT) {
+      const first = patternMemory.keys().next().value;
+      if (first !== undefined) patternMemory.delete(first);
+    }
+    patternMemory.set(String(key), value);
+  }
+
+  function memoryGet(key) {
+    return patternMemory.has(String(key)) ? patternMemory.get(String(key)) : null;
+  }
+
+  function memoryClear() {
+    patternMemory.clear();
+  }
+
+  /* ======================= شخصيات اللعب جديدة ======================= */
+
+  const PERSONAS = {
+    balanced: { label: "متوازن", icon: "⚖️", attackBias: 0, riskBias: 0 },
+    aggressive: { label: "هجومي", icon: "⚔️", attackBias: 0.35, riskBias: 0.2 },
+    defensive: { label: "دفاعي", icon: "🛡️", attackBias: -0.25, riskBias: -0.2 },
+  };
+
+  function persona(id) {
+    return PERSONAS[id] || PERSONAS.balanced;
+  }
+
+  /* ======================= أدوات تقييم تكتيكية مساعدة جديدة ======================= */
+
+  /**
+   * تعيد الحركات التي تُحقّق فوزًا فوريًا بناءً على دالة terminal مخصّصة من اللعبة.
+   * isWinning(state, move, pid) تُستدعى بعد تطبيق الحركة وتُعيد true إن كان اللاعب pid ربح.
+   */
+  function immediateWins(moves, state, apply, undo, isWinning, pid) {
+    const wins = [];
+    for (let i = 0; i < moves.length; i++) {
+      const revert = apply(state, moves[i]);
+      let win = false;
+      try { win = !!isWinning(state, moves[i], pid); } catch (e) { win = false; }
+      undo(state, revert);
+      if (win) wins.push(moves[i]);
+    }
+    return wins;
+  }
+
+  /** خطر 즉ري: pohyb يعرّض القطعة/اللاعب للخطر في الدور التالي (تقييم تقريبي). */
+  function threatHint(move) {
+    return Number(move && (move.threat || move.capture || move.scoreHint || 0));
+  }
+
+  /* هل يُسمح لهذا الجهاز بتشغيل دور الكمبيوتر تلقائيًا؟ */
   function autoAllowed(api, seat) {
     const net = api && api.net;
     if (!net || !net.enabled) return true;
@@ -240,9 +441,18 @@
     top,
     blunder,
     choose,
+    chooseMulti,
     chance,
     autoAllowed,
     name,
     statusName,
+    search,
+    memoryPut,
+    memoryGet,
+    memoryClear,
+    PERSONAS,
+    persona,
+    immediateWins,
+    threatHint,
   };
 })();
