@@ -824,7 +824,7 @@
    * إن كانت الحركة معطّلة يُستدعى done فورًا دون تأخير. وإن غاب requestAnimationFrame تُستعمل الحركة القديمة.
    */
   function tumble(host, values, done, opts) {
-    const o = Object.assign({ hold: 220, tone: "", labels: null, random: null }, opts || {});
+    const o = Object.assign({ hold: isLite() ? 520 : 720, tone: "", labels: null, random: null }, opts || {});
     if (typeof window.requestAnimationFrame !== "function") return tumbleLegacy(host, values, done, opts);
     const rnd = typeof o.random === "function" ? o.random : Math.random;
     const labels = o.labels || null;
@@ -868,7 +868,10 @@
     H = Math.max(160, H - 16);
     const size = U.clamp(Math.min(W, H) * (n > 3 ? 0.115 : 0.15), 38, 68);
     const r = size / 2;
-    const G = 3000;
+    /* هامش حركة يضمن بقاء جسم النرد وظله داخل اللوحة، لا مركزه فقط */
+    const padX = Math.min(size * 0.62, W * 0.35);
+    const padY = Math.min(size * 0.78, H * 0.35);
+    const G = 2600;
     const maxT = (o.ms && o.ms >= 1000 ? o.ms : isLite() ? 1100 : 1550) / 1000;
 
     const layer = document.createElement("div");
@@ -936,8 +939,8 @@
     const dice = list.map((value, i) => {
       const shadow = document.createElement("span");
       shadow.className = "fx-throw-shadow";
-      shadow.style.width = size + "px";
-      shadow.style.height = size * 0.78 + "px";
+      shadow.style.width = size * 0.92 + "px";
+      shadow.style.height = size * 0.68 + "px";
       const tone = (o.tones && o.tones[i]) || o.tone;
       const el = buildCube(value, tone);
       /* غلاف بزاوية كاميرا ثابتة: يدور المكعب داخله بحرية ثم يستقر على وجهه
@@ -949,24 +952,26 @@
       layer.appendChild(shadow);
       layer.appendChild(stage);
       const spread = 0.26 + (0.48 * (i + 0.5)) / n + (rnd() - 0.5) * 0.05;
+      const spanX = Math.max(1, W - padX * 2);
+      const spanY = Math.max(1, H - padY * 2);
       let x;
       let y;
-      if (side === 0) { x = r + 2; y = H * spread; }
-      else if (side === 1) { x = W - r - 2; y = H * spread; }
-      else if (side === 2) { x = W * spread; y = r + 2; }
-      else { x = W * spread; y = H - r - 2; }
-      const tx = W * (0.3 + rnd() * 0.4);
-      const ty = H * (0.3 + rnd() * 0.4);
+      if (side === 0) { x = padX + 2; y = padY + spanY * spread; }
+      else if (side === 1) { x = W - padX - 2; y = padY + spanY * spread; }
+      else if (side === 2) { x = padX + spanX * spread; y = padY + 2; }
+      else { x = padX + spanX * spread; y = H - padY - 2; }
+      const tx = padX + spanX * (0.3 + rnd() * 0.4);
+      const ty = padY + spanY * (0.3 + rnd() * 0.4);
       const len = Math.hypot(tx - x, ty - y) || 1;
-      const speed = Math.min(W, H) * (1.6 + rnd() * 0.8);
+      const speed = Math.min(W, H) * (1.5 + rnd() * 0.7);
       const sgn = () => (rnd() < 0.5 ? -1 : 1);
       const die = {
         el, stage, shadow, final: value,
         x, y, vx: ((tx - x) / len) * speed, vy: ((ty - y) / len) * speed,
-        z: size * 1.4, vz: 240 + rnd() * 260,
+        z: size * 1.15, vz: 200 + rnd() * 220,
         ang: rnd() * TAU, om: sgn() * (7 + rnd() * 9),
         rx: rnd() * TAU, ry: rnd() * TAU, wx: sgn() * (7 + rnd() * 8), wy: sgn() * (7 + rnd() * 8),
-        rest: false, ease: 0,
+        rest: false, ease: 0, squash: 0,
       };
       return die;
     });
@@ -1003,17 +1008,21 @@
             moved = true;
           }
         }
-        dice.forEach((d) => { d.x = U.clamp(d.x, r, W - r); d.y = U.clamp(d.y, r, H - r); });
+        dice.forEach((d) => { d.x = U.clamp(d.x, padX, W - padX); d.y = U.clamp(d.y, padY, H - padY); });
         if (!moved) break;
       }
     };
-    /* زاوية الكاميرا ثابتة على الغلاف، أما المكعب فيستقر بوجهه العلوي موازيًا
-       للوحة: دوران أمامي 90° يجعل وجه القيمة النهائية (front) إلى الأعلى،
-       وتصفير الدوران الجانبي والالتفاف يمنع الميلان على الحرف. */
-    const CAM_X = -50 * Math.PI / 180;
-    const CAM_Y = -15 * Math.PI / 180;
-    const CAM_COS = Math.cos(CAM_X);
-    const REST_X = Math.PI / 2;
+    /* الكاميرا تنظر إلى اللوحة من أعلى بميل ٣٢°، والمكعب يستقر بدوران صفري
+       فيصبح وجه القيمة النهائية (front) هو الوجه العلوي الموازي للوحة.
+       الوجه الخلفي هو وجه التلامس المخفي، ويظهر الجانبان الأمامي والأيمن
+       بسمك صغير أسفل الوجه العلوي. */
+    const CAM_X = 32 * Math.PI / 180;
+    const CAM_Y = -16 * Math.PI / 180;
+    const CAM_SIN = Math.sin(CAM_X);
+    const CAM_SIN_Y = Math.sin(CAM_Y);
+    const CAM_COS_Y = Math.cos(CAM_Y);
+    const REST_X = 0;
+    const REST_Y = 0;
     const nearestTurn = (current, target) => target + Math.round((current - target) / TAU) * TAU;
     let justRested = false;
     const toRest = (d) => {
@@ -1024,7 +1033,7 @@
       d.vx = 0; d.vy = 0; d.vz = 0; d.z = 0;
       d.fromRx = d.rx; d.fromRy = d.ry; d.fromAng = d.ang;
       d.toRx = nearestTurn(d.rx, REST_X);
-      d.toRy = nearestTurn(d.ry, 0);
+      d.toRy = nearestTurn(d.ry, REST_Y);
       d.toAng = nearestTurn(d.ang, 0);
     };
     const wake = (d) => {
@@ -1036,8 +1045,9 @@
     const step = (dt) => {
       const late = Math.max(0, t - maxT * 0.6);
       dice.forEach((d) => {
+        if (d.squash) d.squash *= Math.exp(-14 * dt);
         if (d.rest) {
-          d.ease = Math.min(1, d.ease + dt / 0.24);
+          d.ease = Math.min(1, d.ease + dt / 0.3);
           const e = 1 - Math.pow(1 - d.ease, 3);
           d.rx = d.fromRx + (d.toRx - d.fromRx) * e;
           d.ry = d.fromRy + (d.toRy - d.fromRy) * e;
@@ -1048,34 +1058,35 @@
         d.z += d.vz * dt;
         if (d.z <= 0) {
           d.z = 0;
-          if (d.vz < -110) {
-            d.vz = -d.vz * 0.56;
-            d.vx *= 0.64;
-            d.vy *= 0.64;
-            d.om *= 0.8;
-            hit(d, 12);
+          if (d.vz < -100) {
+            d.vz = -d.vz * 0.5;
+            d.vx *= 0.68;
+            d.vy *= 0.68;
+            d.om *= 0.82;
+            d.squash = Math.min(1, Math.abs(d.vz) / 420);
+            hit(d, 11);
           } else {
             d.vz = 0;
           }
         }
         const grounded = d.z <= 0.5 && d.vz <= 1;
-        const k = Math.exp(-((grounded ? 3.6 : 0.3) + late * 10) * dt);
+        const k = Math.exp(-((grounded ? 3.2 : 0.3) + late * 10) * dt);
         d.vx *= k;
         d.vy *= k;
         d.x += d.vx * dt;
         d.y += d.vy * dt;
         d.ang += d.om * dt;
-        d.om *= Math.exp(-((grounded ? 6 : 0.15) + late * 8) * dt);
+        d.om *= Math.exp(-((grounded ? 5.4 : 0.15) + late * 8) * dt);
         d.rx += d.wx * dt;
         d.ry += d.wy * dt;
-        const kw = Math.exp(-((grounded ? 7 : 0.15) + late * 8) * dt);
+        const kw = Math.exp(-((grounded ? 6.4 : 0.15) + late * 8) * dt);
         d.wx *= kw;
         d.wy *= kw;
         /* جدران اللوحة */
-        if (d.x < r) { d.x = r; d.vx = Math.abs(d.vx) * 0.72; d.om += (rnd() - 0.5) * 9; d.vz += 130; hit(d); }
-        if (d.x > W - r) { d.x = W - r; d.vx = -Math.abs(d.vx) * 0.72; d.om += (rnd() - 0.5) * 9; d.vz += 130; hit(d); }
-        if (d.y < r) { d.y = r; d.vy = Math.abs(d.vy) * 0.72; d.om += (rnd() - 0.5) * 9; d.vz += 130; hit(d); }
-        if (d.y > H - r) { d.y = H - r; d.vy = -Math.abs(d.vy) * 0.72; d.om += (rnd() - 0.5) * 9; d.vz += 130; hit(d); }
+        if (d.x < padX) { d.x = padX; d.vx = Math.abs(d.vx) * 0.72; d.om += (rnd() - 0.5) * 9; d.vz += 130; hit(d); }
+        if (d.x > W - padX) { d.x = W - padX; d.vx = -Math.abs(d.vx) * 0.72; d.om += (rnd() - 0.5) * 9; d.vz += 130; hit(d); }
+        if (d.y < padY) { d.y = padY; d.vy = Math.abs(d.vy) * 0.72; d.om += (rnd() - 0.5) * 9; d.vz += 130; hit(d); }
+        if (d.y > H - padY) { d.y = H - padY; d.vy = -Math.abs(d.vy) * 0.72; d.om += (rnd() - 0.5) * 9; d.vz += 130; hit(d); }
       });
       /* تصادم النرد ببعضه (تمريرتان عند كثرة النرد) */
       for (let pass = 0; pass < (n > 3 ? 2 : 1); pass++) for (let i = 0; i < n; i++) {
@@ -1107,8 +1118,8 @@
         }
       }
       dice.forEach((d) => {
-        d.x = U.clamp(d.x, r, W - r);
-        d.y = U.clamp(d.y, r, H - r);
+        d.x = U.clamp(d.x, padX, W - padX);
+        d.y = U.clamp(d.y, padY, H - padY);
       });
       justRested = false;
       dice.forEach((d) => {
@@ -1124,14 +1135,24 @@
       dice.forEach((d) => {
         const s = 1 + d.z / 320;
         const lift = d.z * 0.38;
+        /* ارتطام خفيف: انضغاط لحظي عند ملامسة اللوحة ثم يعود بسرعة */
+        const sq = d.squash || 0;
+        const sx = s * (1 + sq * 0.045);
+        const sy = s * (1 - sq * 0.065);
         d.stage.style.transform =
-          "translate3d(" + (d.x - r) + "px," + (d.y - r - lift) + "px,0) scale(" + s + ") " +
+          "translate3d(" + (d.x - r) + "px," + (d.y - r - lift) + "px,0) scale(" + sx + "," + sy + ") " +
           "rotateX(" + CAM_X + "rad) rotateY(" + CAM_Y + "rad)";
         d.el.style.transform =
           "rotateX(" + d.rx + "rad) rotateY(" + d.ry + "rad) rotateZ(" + d.ang + "rad)";
+        /* الظل يتبع وجه التلامس السفلي للمكعب، لا مركزه، حتى يبدو النرد
+           مستقرًا على اللوحة بدل الطفو فوق ظله. */
         const sh = 1 - Math.min(0.55, d.z / 380);
-        d.shadow.style.opacity = String(0.5 * sh);
-        d.shadow.style.transform = "translate3d(" + (d.x - r + d.z * 0.05) + "px," + (d.y + r * CAM_COS) + "px,0) scale(" + (sh + 0.1) + ")";
+        const shadowW = size * 0.92;
+        const shadowH = size * 0.68;
+        const shadowX = d.x - r * CAM_SIN_Y + d.z * 0.05 - shadowW / 2;
+        const shadowY = d.y + r * CAM_COS_Y * CAM_SIN + d.z * 0.02 - shadowH / 2;
+        d.shadow.style.opacity = String(0.52 * sh);
+        d.shadow.style.transform = "translate3d(" + shadowX + "px," + shadowY + "px,0) scale(" + (sh + 0.1) + ")";
       });
     };
 
@@ -1172,7 +1193,7 @@
     /* احتياط: لو توقفت الإطارات (تبويب في الخلفية) نُنهي الرمي بالقيم النهائية ليستمر اللعب */
     hardTimer = setTimeout(() => {
       if (ended || cancelled) return;
-      dice.forEach((d) => { d.rest = true; d.ease = 1; d.rx = REST_X; d.ry = 0; d.ang = 0; });
+      dice.forEach((d) => { d.rest = true; d.ease = 1; d.rx = REST_X; d.ry = REST_Y; d.ang = 0; d.z = 0; });
       render();
       settleAll();
     }, (maxT + 1.4) * 1000);
