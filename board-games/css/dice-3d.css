@@ -48,11 +48,9 @@
   grid-template-rows: repeat(3, 1fr);
   padding: calc(var(--s, 60px) * 0.135);
   gap: calc(var(--s, 60px) * 0.04);
-  /* زوايا مستديرة صلبة: border-radius لطيف + ظل صلب يملأ الفجوات + بلا border شفاف */
-  border-radius: calc(var(--s, 60px) * 0.1);
+  /* زوايا مربّعة صلبة: لا border-radius على وجوه مكعّب 3D (يُحدث زوايا شفافة/فجوات) */
+  border-radius: 0;
   border: 0;
-  outline: calc(var(--s, 60px) * 0.1) solid var(--edge, #e3d3b1);
-  outline-offset: 0;
   background-clip: border-box;
   background: var(--face, linear-gradient(145deg, #fffdf6, #e6dcc4));
   /* ظلال داخلية: حافة علوية فاتحة + حافة سفلية منحوتة + لمعان + تقويس */
@@ -80,7 +78,7 @@
   content: "";
   position: absolute;
   inset: 0;
-  border-radius: inherit;
+  border-radius: 0;
   pointer-events: none;
   background:
     radial-gradient(circle at 30% 22%, rgba(255, 255, 255, 0.34), transparent 50%),
@@ -115,7 +113,7 @@
 
 /* ------------------------------ النرد الأحمر ------------------------------ */
 
-.fx-cube[data-tone="red"] { --face: linear-gradient(145deg, #f06a5f, #b02a22); --edge: #a8231c; }
+.fx-cube[data-tone="red"] { --face: linear-gradient(145deg, #f06a5f, #b02a22); }
 .fx-cube[data-tone="red"] .fx-cube-face { border-color: rgba(70, 10, 8, 0.55); }
 .fx-cube[data-tone="red"] .fx-cube-face i.is-on {
   background: radial-gradient(circle at 35% 30%, #fff 0%, #f3dcd8 72%, #d9a9a4 100%);
