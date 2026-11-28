@@ -824,7 +824,7 @@
    * إن كانت الحركة معطّلة يُستدعى done فورًا دون تأخير. وإن غاب requestAnimationFrame تُستعمل الحركة القديمة.
    */
   function tumble(host, values, done, opts) {
-    const o = Object.assign({ hold: isLite() ? 520 : 720, tone: "", labels: null, random: null }, opts || {});
+    const o = Object.assign({ hold: isLite() ? 600 : 820, tone: "", labels: null, random: null }, opts || {});
     if (typeof window.requestAnimationFrame !== "function") return tumbleLegacy(host, values, done, opts);
     const rnd = typeof o.random === "function" ? o.random : Math.random;
     const labels = o.labels || null;
@@ -939,18 +939,24 @@
     const dice = list.map((value, i) => {
       const shadow = document.createElement("span");
       shadow.className = "fx-throw-shadow";
-      shadow.style.width = size * 0.92 + "px";
-      shadow.style.height = size * 0.68 + "px";
+      shadow.style.width = size * 1.06 + "px";
+      shadow.style.height = size * 0.24 + "px";
       const tone = (o.tones && o.tones[i]) || o.tone;
       const el = buildCube(value, tone);
+      /* غلاف لكل نرد على حدة: منظور الكاميرا يبقى متمركزًا حول النرد نفسه
+         حتى لا يتشوّه شكله إذا استقر بعيدًا عن منتصف اللوحة. */
+      const view = document.createElement("span");
+      view.className = "fx-cube-view";
+      view.style.setProperty("--s", size + "px");
       /* غلاف بزاوية كاميرا ثابتة: يدور المكعب داخله بحرية ثم يستقر على وجهه
          بينما تبقى زاوية النظر نفسها من أول الرمية إلى آخرها. */
       const stage = document.createElement("span");
       stage.className = "fx-cube-stage";
       stage.style.setProperty("--s", size + "px");
       stage.appendChild(el);
+      view.appendChild(stage);
       layer.appendChild(shadow);
-      layer.appendChild(stage);
+      layer.appendChild(view);
       const spread = 0.26 + (0.48 * (i + 0.5)) / n + (rnd() - 0.5) * 0.05;
       const spanX = Math.max(1, W - padX * 2);
       const spanY = Math.max(1, H - padY * 2);
@@ -966,7 +972,7 @@
       const speed = Math.min(W, H) * (1.5 + rnd() * 0.7);
       const sgn = () => (rnd() < 0.5 ? -1 : 1);
       const die = {
-        el, stage, shadow, final: value,
+        el, stage, view, shadow, final: value,
         x, y, vx: ((tx - x) / len) * speed, vy: ((ty - y) / len) * speed,
         z: size * 1.15, vz: 200 + rnd() * 220,
         ang: rnd() * TAU, om: sgn() * (7 + rnd() * 9),
@@ -1012,15 +1018,12 @@
         if (!moved) break;
       }
     };
-    /* الكاميرا تنظر إلى اللوحة من أعلى بميل ٣٢°، والمكعب يستقر بدوران صفري
-       فيصبح وجه القيمة النهائية (front) هو الوجه العلوي الموازي للوحة.
-       الوجه الخلفي هو وجه التلامس المخفي، ويظهر الجانبان الأمامي والأيمن
-       بسمك صغير أسفل الوجه العلوي. */
-    const CAM_X = 32 * Math.PI / 180;
-    const CAM_Y = -16 * Math.PI / 180;
-    const CAM_SIN = Math.sin(CAM_X);
-    const CAM_SIN_Y = Math.sin(CAM_Y);
-    const CAM_COS_Y = Math.cos(CAM_Y);
+    /* الكاميرا تنظر إلى النرد من الأمام مع ميل خفيف من أعلى:
+       يبقى وجه القيمة النهائية (front) هو الوجه الرئيسي المواجه للشاشة،
+       ويظهر شريط رفيع من الوجه العلوي والوجه الأيمن فقط، بينما يبقى
+       الوجه السفلي (وجه التلامس) مخفيًا تحت النرد. */
+    const CAM_X = -16 * Math.PI / 180;
+    const CAM_Y = -18 * Math.PI / 180;
     const REST_X = 0;
     const REST_Y = 0;
     const nearestTurn = (current, target) => target + Math.round((current - target) / TAU) * TAU;
@@ -1031,6 +1034,7 @@
       d.rest = true;
       d.ease = 0;
       d.vx = 0; d.vy = 0; d.vz = 0; d.z = 0;
+      d.squash = Math.max(d.squash || 0, 0.35);
       d.fromRx = d.rx; d.fromRy = d.ry; d.fromAng = d.ang;
       d.toRx = nearestTurn(d.rx, REST_X);
       d.toRy = nearestTurn(d.ry, REST_Y);
@@ -1047,7 +1051,7 @@
       dice.forEach((d) => {
         if (d.squash) d.squash *= Math.exp(-14 * dt);
         if (d.rest) {
-          d.ease = Math.min(1, d.ease + dt / 0.3);
+          d.ease = Math.min(1, d.ease + dt / 0.34);
           const e = 1 - Math.pow(1 - d.ease, 3);
           d.rx = d.fromRx + (d.toRx - d.fromRx) * e;
           d.ry = d.fromRy + (d.toRy - d.fromRy) * e;
@@ -1139,20 +1143,21 @@
         const sq = d.squash || 0;
         const sx = s * (1 + sq * 0.045);
         const sy = s * (1 - sq * 0.065);
+        d.view.style.transform =
+          "translate3d(" + (d.x - r) + "px," + (d.y - r - lift) + "px,0) scale(" + sx + "," + sy + ")";
         d.stage.style.transform =
-          "translate3d(" + (d.x - r) + "px," + (d.y - r - lift) + "px,0) scale(" + sx + "," + sy + ") " +
           "rotateX(" + CAM_X + "rad) rotateY(" + CAM_Y + "rad)";
         d.el.style.transform =
           "rotateX(" + d.rx + "rad) rotateY(" + d.ry + "rad) rotateZ(" + d.ang + "rad)";
-        /* الظل يتبع وجه التلامس السفلي للمكعب، لا مركزه، حتى يبدو النرد
-           مستقرًا على اللوحة بدل الطفو فوق ظله. */
+        /* الظل مسطح تحت وجه التلامس السفلي، لا تحت مركز المكعب، حتى يبدو
+           النرد مستقرًا على اللوحة بدل الطفو فوق ظله. */
         const sh = 1 - Math.min(0.55, d.z / 380);
-        const shadowW = size * 0.92;
-        const shadowH = size * 0.68;
-        const shadowX = d.x - r * CAM_SIN_Y + d.z * 0.05 - shadowW / 2;
-        const shadowY = d.y + r * CAM_COS_Y * CAM_SIN + d.z * 0.02 - shadowH / 2;
-        d.shadow.style.opacity = String(0.52 * sh);
-        d.shadow.style.transform = "translate3d(" + shadowX + "px," + shadowY + "px,0) scale(" + (sh + 0.1) + ")";
+        const shadowW = size * 1.06;
+        const shadowH = size * 0.24;
+        const shadowX = d.x - shadowW / 2;
+        const shadowY = d.y + size * 0.64 - shadowH / 2;
+        d.shadow.style.opacity = String(0.62 * sh);
+        d.shadow.style.transform = "translate3d(" + shadowX + "px," + shadowY + "px,0) scale(" + (0.86 + sh * 0.14) + ")";
       });
     };
 
