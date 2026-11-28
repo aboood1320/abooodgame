@@ -1965,7 +1965,7 @@ body.fullscreen-game.board-only .bo-drawer-bar {
   left: 0;
   top: 0;
   border-radius: 50%;
-  background: radial-gradient(closest-side, rgba(0, 0, 0, 0.58) 0%, rgba(0, 0, 0, 0.34) 46%, rgba(0, 0, 0, 0) 100%);
+  background: radial-gradient(closest-side, rgba(0, 0, 0, 0.68) 0%, rgba(0, 0, 0, 0.42) 46%, rgba(0, 0, 0, 0) 100%);
   transform-origin: center;
   will-change: transform, opacity;
 }
@@ -1975,8 +1975,37 @@ body.fullscreen-game.board-only .bo-drawer-bar {
   position: absolute;
   inset: -14% -7%;
   border-radius: 50%;
-  background: radial-gradient(closest-side, rgba(0, 0, 0, 0.22), rgba(0, 0, 0, 0) 82%);
+  background: radial-gradient(closest-side, rgba(0, 0, 0, 0.28), rgba(0, 0, 0, 0) 82%);
 }
+/* حلقة الارتطام: تومض ذهبيًا لحظة لمس النرد للوحة ثم تتمدّد وتتلاشى */
+.fx-impact {
+  position: absolute;
+  left: 0;
+  top: 0;
+  border-radius: 50%;
+  pointer-events: none;
+  border: 2px solid rgba(255, 216, 140, 0.72);
+  background: radial-gradient(closest-side, rgba(255, 216, 140, 0.2), rgba(255, 216, 140, 0) 72%);
+  box-shadow: 0 0 14px rgba(255, 216, 140, 0.4);
+  will-change: transform, opacity;
+}
+/* إبراز النتيجة: هالة ذهبية منفصلة عن ظل التلامس، فلا يختفي الظل الداكن */
+.fx-result-glow {
+  position: absolute;
+  left: 0;
+  top: 0;
+  border-radius: 50%;
+  pointer-events: none;
+  background: radial-gradient(closest-side, rgba(255, 210, 120, 0.5) 0%, rgba(255, 210, 120, 0.18) 50%, rgba(255, 210, 120, 0) 100%);
+  animation: fx-result-glow 480ms ease-out both;
+  will-change: transform, opacity;
+}
+@keyframes fx-result-glow {
+  0% { opacity: 0.2; scale: 0.7; }
+  35% { opacity: 0.9; scale: 1.15; }
+  100% { opacity: 0; scale: 1.35; }
+}
+html.lite .fx-result-glow { animation: none; }
 
 /* منظور مستقل لكل نرد: يبقى مركز الكاميرا فوق النرد نفسه أينما استقر */
 .fx-cube-view {

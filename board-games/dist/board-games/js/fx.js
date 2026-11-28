@@ -820,11 +820,11 @@
    * رمي نرد فيزيائي لكل الألعاب: يُقذف النرد من حافة اللوحة بسرعة ودوران ثلاثي الأبعاد، فيقفز ويرتدّ عن الحواف
    * ويرتطم بعضه ببعض (جاذبية، ارتداد، احتكاك، وظل يتبع الارتفاع)، ثم يستقر على القيم النهائية المحدَّدة سلفًا
    * ويُستدعى done. values: رقم أو مصفوفة (1–6). host: اللوحة التي يُرمى النرد داخل حدودها.
-   * opts: { tone, tones, hold, labels, ms (أقصى زمن للفيزياء), random (للاختبار), probe (للاختبار) }. يعيد دالة إلغاء.
+   * opts: { tone, tones, hold, labels, ms (أقصى زمن للفيزياء), power (خفيفة/متوسطة/قوية/قوية جداً للاختبار), random (للاختبار), probe (للاختبار) }. يعيد دالة إلغاء.
    * إن كانت الحركة معطّلة يُستدعى done فورًا دون تأخير. وإن غاب requestAnimationFrame تُستعمل الحركة القديمة.
    */
   function tumble(host, values, done, opts) {
-    const o = Object.assign({ hold: isLite() ? 600 : 820, tone: "", labels: null, random: null }, opts || {});
+    const o = Object.assign({ hold: isLite() ? 440 : 620, tone: "", labels: null, random: null }, opts || {});
     if (typeof window.requestAnimationFrame !== "function") return tumbleLegacy(host, values, done, opts);
     const rnd = typeof o.random === "function" ? o.random : Math.random;
     const labels = o.labels || null;
@@ -838,6 +838,25 @@
     }
     const n = list.length;
     const TAU = Math.PI * 2;
+
+    /* تنويع القوة: كل رمية تُختار خفيفة أو متوسطة أو قوية أو قوية جداً، مع
+       تباين بسيط بين نرد الرمية الواحدة، فتختلف المسافة والارتفاع والدوران
+       وقوة الارتطام. يمكن تثبيت النمط عبر opts.power للاختبار. */
+    const TIERS = [
+      { key: "light", speed: 0.72, lift: 0.78, spin: 0.72, impact: 0.72, minT: 0.42, time: 0.94 },
+      { key: "medium", speed: 1, lift: 1, spin: 1, impact: 1, minT: 0.5, time: 1 },
+      { key: "strong", speed: 1.28, lift: 1.22, spin: 1.24, impact: 1.3, minT: 0.54, time: 1.1 },
+      { key: "extreme", alias: "very-strong", speed: 1.55, lift: 1.5, spin: 1.5, impact: 1.6, minT: 0.58, time: 1.2 },
+    ];
+    let tier;
+    if (typeof o.power === "string") {
+      tier = TIERS.find((t) => t.key === o.power || t.alias === o.power) || TIERS[1];
+    } else if (typeof o.power === "number") {
+      tier = Object.assign({}, TIERS[1], { speed: o.power, lift: o.power, spin: o.power, impact: o.power, minT: 0.5, time: 1 });
+    } else {
+      const pick = rnd();
+      tier = pick < 0.25 ? TIERS[0] : pick < 0.7 ? TIERS[1] : pick < 0.92 ? TIERS[2] : TIERS[3];
+    }
 
     /* ميدان الرمي: مستطيل اللوحة المرئي (أو منطقة مناسبة حول العنصر إن كان صغيرًا) */
     const vw = window.innerWidth;
@@ -871,12 +890,15 @@
     /* هامش حركة يضمن بقاء جسم النرد وظله داخل اللوحة، لا مركزه فقط */
     const padX = Math.min(size * 0.72, W * 0.35);
     const padY = Math.min(size * 0.95, H * 0.35);
-    const G = 1900;
-    const maxT = (o.ms && o.ms >= 1000 ? o.ms : isLite() ? 1200 : 1700) / 1000;
+    const G = 2150;
+    /* إيقاع أقصر: القذفة تنطلق بقوة وتنتهي مرحلة الارتداد بسرعة بدل أن
+       يظل النرد يتدحرج ثانية كاملة قبل أن يهدأ. */
+    const maxT = (o.ms && o.ms >= 600 ? o.ms : (isLite() ? 950 : 1250) * tier.time) / 1000;
 
     const layer = document.createElement("div");
     layer.className = "fx-throw";
     layer.setAttribute("aria-hidden", "true");
+    layer.dataset.power = tier.key;
     layer.style.left = L + "px";
     layer.style.top = T + "px";
     layer.style.width = W + "px";
@@ -942,8 +964,8 @@
     const dice = list.map((value, i) => {
       const shadow = document.createElement("span");
       shadow.className = "fx-throw-shadow";
-      shadow.style.width = size * 1.18 + "px";
-      shadow.style.height = size * 0.3 + "px";
+      shadow.style.width = size * 1.24 + "px";
+      shadow.style.height = size * 0.32 + "px";
       const tone = (o.tones && o.tones[i]) || o.tone;
       const el = buildCube(value, tone);
       /* غلاف لكل نرد على حدة: منظور الكاميرا يبقى متمركزًا حول النرد نفسه
@@ -969,15 +991,17 @@
       const len = Math.hypot(tx - x, ty - y) || 1;
       /* السرعة تُشتق من مسافة الرمية نفسها، لا من حجم اللوحة فقط،
          حتى تصل النردة إلى المنطقة العلوية نفسها على ٣٢٠ بكسل و١٢٨٠ بكسل. */
-      const speed = U.clamp(len * 1.9, Math.min(W, H) * 0.85, Math.min(W, H) * 2.6);
+      const jitter = 0.94 + rnd() * 0.12;
+      const speed = U.clamp(len * 2.4, Math.min(W, H) * 1.0, Math.min(W, H) * 3.0) * tier.speed * jitter;
       const sgn = () => (rnd() < 0.5 ? -1 : 1);
+      const spin = () => sgn() * (4 + rnd() * 5) * tier.spin * jitter;
       const die = {
         el, stage, view, shadow, final: value,
         x, y, vx: ((tx - x) / len) * speed, vy: ((ty - y) / len) * speed,
-        z: size * (0.85 + (i % 3) * 0.08), vz: 340 + rnd() * 120,
-        ang: rnd() * TAU, om: sgn() * (8 + rnd() * 9),
-        rx: rnd() * TAU, ry: rnd() * TAU, wx: sgn() * (8 + rnd() * 9), wy: sgn() * (8 + rnd() * 9),
-        rest: false, ease: 0, squash: 0,
+        z: size * (0.85 + (i % 3) * 0.08), vz: (300 + rnd() * 110) * tier.lift * jitter,
+        ang: rnd() * TAU, om: spin(),
+        rx: rnd() * TAU, ry: rnd() * TAU, wx: spin(), wy: spin(),
+        rest: false, ease: 0, squash: 0, impacted: false,
       };
       return die;
     });
@@ -991,8 +1015,34 @@
     let releaseTimer = 0;
 
     const hit = (d, power) => {
-      d.wx += (rnd() - 0.5) * (power || 10);
-      d.wy += (rnd() - 0.5) * (power || 10);
+      d.wx += (rnd() - 0.5) * (power || 8);
+      d.wy += (rnd() - 0.5) * (power || 8);
+    };
+    /* أثر خفيف عند أول ارتطام قوي: حلقة ذهبية تتمدّد وتتلاشى تحت النرد،
+       فتُقرأ لحظة السقوط بوضوح دون أن تعترض رؤية اللوحة. */
+    const impact = (d, power) => {
+      if (isLite() || d.impacted || power < 220) return;
+      d.impacted = true;
+      const ring = document.createElement("span");
+      ring.className = "fx-impact";
+      const w = Math.min(size * 2.6, 150);
+      ring.style.width = w + "px";
+      ring.style.height = (w * 0.45) + "px";
+      ring.style.left = (d.x - w / 2) + "px";
+      ring.style.top = (d.y + size * 0.5 - w * 0.225) + "px";
+      layer.insertBefore(ring, layer.firstChild);
+      const remove = () => { if (ring.parentNode) ring.parentNode.removeChild(ring); };
+      const strength = U.clamp(power / 420, 0.5, 1.2);
+      if (typeof ring.animate === "function") {
+        const anim = ring.animate([
+          { opacity: 0.8 * strength, transform: "scale(" + (0.45 * strength) + ")" },
+          { opacity: 0, transform: "scale(" + (1.15 * strength) + ")" },
+        ], { duration: 420, easing: "cubic-bezier(.2,.8,.3,1)", fill: "forwards" });
+        if (anim && anim.finished) anim.finished.then(remove).catch(remove);
+        else setTimeout(remove, 420);
+      } else {
+        setTimeout(remove, 420);
+      }
     };
     /* فصل نهائي للنرد المتلاصق مع إبقائه داخل اللوحة (يمنع التداخل عند الاستقرار) */
     const relax = () => {
@@ -1034,7 +1084,7 @@
       d.rest = true;
       d.ease = 0;
       d.vx = 0; d.vy = 0; d.vz = 0; d.z = 0;
-      d.squash = Math.max(d.squash || 0, 0.5);
+      d.squash = Math.max(d.squash || 0, 0.85);
       d.fromRx = d.rx; d.fromRy = d.ry; d.fromAng = d.ang;
       d.toRx = nearestTurn(d.rx, REST_X);
       d.toRy = nearestTurn(d.ry, REST_Y);
@@ -1047,11 +1097,14 @@
     };
 
     const step = (dt) => {
-      const late = Math.max(0, t - maxT * 0.6);
+      const late = Math.max(0, t - maxT * 0.45);
+      /* محاذاة الوجه تبدأ أبكر من إبطاء الحركة، فيتوزّع الدوران الأخير على
+         زمن أطول بدل أن يحدث دفعة واحدة قبل الثبات. */
+      const align = Math.max(0, t - maxT * 0.28);
       dice.forEach((d) => {
         if (d.squash) d.squash *= Math.exp(-14 * dt);
         if (d.rest) {
-          d.ease = Math.min(1, d.ease + dt / 0.38);
+          d.ease = Math.min(1, d.ease + dt / 0.26);
           const e = 1 - Math.pow(1 - d.ease, 3);
           d.rx = d.fromRx + (d.toRx - d.fromRx) * e;
           d.ry = d.fromRy + (d.toRy - d.fromRy) * e;
@@ -1063,34 +1116,48 @@
         if (d.z <= 0) {
           d.z = 0;
           if (d.vz < -100) {
-            d.vz = -d.vz * 0.56;
-            d.vx *= 0.72;
-            d.vy *= 0.72;
-            d.om *= 0.84;
-            d.squash = Math.min(1, Math.abs(d.vz) / 420);
-            hit(d, 11);
+            const force = Math.abs(d.vz);
+            d.vz = force * 0.5;
+            d.vx *= 0.68;
+            d.vy *= 0.68;
+            d.om *= 0.8;
+            d.squash = Math.min(1, force / 340);
+            hit(d, 9 * tier.impact);
+            impact(d, force * tier.impact);
           } else {
             d.vz = 0;
           }
         }
         const grounded = d.z <= 0.5 && d.vz <= 1;
-        const k = Math.exp(-((grounded ? 2.4 : 0.3) + late * 10) * dt);
+        const k = Math.exp(-((grounded ? 3.2 : 0.3) + late * 14) * dt);
         d.vx *= k;
         d.vy *= k;
         d.x += d.vx * dt;
         d.y += d.vy * dt;
         d.ang += d.om * dt;
-        d.om *= Math.exp(-((grounded ? 4.0 : 0.15) + late * 8) * dt);
+        d.om *= Math.exp(-((grounded ? 5.2 : 0.15) + late * 10) * dt);
         d.rx += d.wx * dt;
         d.ry += d.wy * dt;
-        const kw = Math.exp(-((grounded ? 5.0 : 0.15) + late * 8) * dt);
+        const kw = Math.exp(-((grounded ? 6.5 : 0.15) + late * 10) * dt);
         d.wx *= kw;
         d.wy *= kw;
+        /* في الثلث الأخير نُوجّه الدوران بلطف نحو زاوية الثبات، فيصل النرد
+           إلى وضعه النهائي تدريجيًا بدل أن يلتفت بحدة في اللحظة الأخيرة. */
+        if (align > 0) {
+          const slow = Math.exp(-8 * align * dt);
+          d.om *= slow;
+          d.wx *= slow;
+          d.wy *= slow;
+          const pull = 1 - Math.exp(-18 * align * dt);
+          d.rx += (nearestTurn(d.rx, REST_X) - d.rx) * pull;
+          d.ry += (nearestTurn(d.ry, REST_Y) - d.ry) * pull;
+          d.ang += (nearestTurn(d.ang, 0) - d.ang) * pull;
+        }
         /* جدران اللوحة */
-        if (d.x < padX) { d.x = padX; d.vx = Math.abs(d.vx) * 0.72; d.om += (rnd() - 0.5) * 9; d.vz += 130; hit(d); }
-        if (d.x > W - padX) { d.x = W - padX; d.vx = -Math.abs(d.vx) * 0.72; d.om += (rnd() - 0.5) * 9; d.vz += 130; hit(d); }
-        if (d.y < padY) { d.y = padY; d.vy = Math.abs(d.vy) * 0.72; d.om += (rnd() - 0.5) * 9; d.vz += 130; hit(d); }
-        if (d.y > H - padY) { d.y = H - padY; d.vy = -Math.abs(d.vy) * 0.72; d.om += (rnd() - 0.5) * 9; d.vz += 130; hit(d); }
+        if (d.x < padX) { d.x = padX; d.vx = Math.abs(d.vx) * 0.62; d.om += (rnd() - 0.5) * 7; d.vz += 130; hit(d); }
+        if (d.x > W - padX) { d.x = W - padX; d.vx = -Math.abs(d.vx) * 0.62; d.om += (rnd() - 0.5) * 7; d.vz += 130; hit(d); }
+        if (d.y < padY) { d.y = padY; d.vy = Math.abs(d.vy) * 0.62; d.om += (rnd() - 0.5) * 7; d.vz += 130; hit(d); }
+        if (d.y > H - padY) { d.y = H - padY; d.vy = -Math.abs(d.vy) * 0.62; d.om += (rnd() - 0.5) * 7; d.vz += 130; hit(d); }
       });
       /* تصادم النرد ببعضه (تمريرتان عند كثرة النرد) */
       for (let pass = 0; pass < (n > 3 ? 2 : 1); pass++) for (let i = 0; i < n; i++) {
@@ -1115,9 +1182,9 @@
             const imp = ((1 + 0.78) * vn) / 2;
             a.vx -= imp * nx; a.vy -= imp * ny;
             b.vx += imp * nx; b.vy += imp * ny;
-            a.om += (rnd() - 0.5) * 12; b.om += (rnd() - 0.5) * 12;
+            a.om += (rnd() - 0.5) * 9; b.om += (rnd() - 0.5) * 9;
             a.vz += 170 + vn * 0.05; b.vz += 170 + vn * 0.05;
-            hit(a, 14); hit(b, 14);
+            hit(a, 10 * tier.impact); hit(b, 10 * tier.impact);
           }
         }
       }
@@ -1130,7 +1197,12 @@
         if (d.rest) return;
         const speed = Math.hypot(d.vx, d.vy);
         const calm = d.z <= 0 && d.vz === 0 && speed < 45 && Math.abs(d.om) < 1.2 && Math.abs(d.wx) < 1.6 && Math.abs(d.wy) < 1.6;
-        if ((calm && t > 0.9) || t >= maxT) toRest(d);
+        /* لا نُثبّت النرد إلا بعد أن تقترب زواياه من زاوية العرض النهائية،
+           فيظهر الوجه تدريجيًا بدل أن يلتفت فجأة لحظة اللمس الأخير. */
+        const aligned = Math.abs(nearestTurn(d.rx, REST_X) - d.rx) < 0.45 &&
+          Math.abs(nearestTurn(d.ry, REST_Y) - d.ry) < 0.45 &&
+          Math.abs(nearestTurn(d.ang, 0) - d.ang) < 0.45;
+        if ((calm && aligned && t > tier.minT) || t >= maxT) toRest(d);
       });
       if (justRested) relax();
     };
@@ -1141,8 +1213,10 @@
         const lift = d.z * 0.38;
         /* ارتطام خفيف: انضغاط لحظي عند ملامسة اللوحة ثم يعود بسرعة */
         const sq = d.squash || 0;
-        const sx = s * (1 + sq * 0.045);
-        const sy = s * (1 - sq * 0.065);
+        /* انضغاط عند الارتطام، ثم نبضة قصيرة عند الثبات تُبرز استقرار القيمة */
+        const pop = d.rest ? Math.sin(d.ease * Math.PI) * 0.09 : 0;
+        const sx = s * (1 + sq * 0.075 + pop);
+        const sy = s * (1 - sq * 0.09 - pop * 0.55);
         d.view.style.transform =
           "translate3d(" + (d.x - r) + "px," + (d.y - r - lift) + "px,0) scale(" + sx + "," + sy + ")";
         d.stage.style.transform =
@@ -1150,14 +1224,15 @@
         d.el.style.transform =
           "rotateX(" + d.rx + "rad) rotateY(" + d.ry + "rad) rotateZ(" + d.ang + "rad)";
         /* الظل مسطح تحت وجه التلامس السفلي، لا تحت مركز المكعب، حتى يبدو
-           النرد مستقرًا على اللوحة بدل الطفو فوق ظله. */
-        const sh = 1 - Math.min(0.6, d.z / 420);
-        const shadowW = size * 1.18;
-        const shadowH = size * 0.3;
-        const shadowX = d.x - shadowW / 2 + size * 0.04;
-        const shadowY = d.y + size * 0.55 - shadowH / 2;
-        d.shadow.style.opacity = String(0.55 * sh);
-        d.shadow.style.transform = "translate3d(" + shadowX + "px," + shadowY + "px,0) scale(" + (0.82 + sh * 0.18) + ")";
+           النرد مستقرًا على اللوحة بدل الطفو فوق ظله. يبقى واضحًا قدر الإمكان
+           حتى في الرمية العالية، ولا يختفي عند إبراز النتيجة. */
+        const sh = 1 - Math.min(0.5, d.z / 520);
+        const shadowW = size * 1.24;
+        const shadowH = size * 0.32;
+        const shadowX = d.x - shadowW / 2 + size * 0.02;
+        const shadowY = d.y + size * 0.5 - shadowH / 2;
+        d.shadow.style.opacity = String(0.68 * sh);
+        d.shadow.style.transform = "translate3d(" + shadowX + "px," + shadowY + "px,0) scale(" + (0.9 + sh * 0.1) + ")";
       });
     };
 
@@ -1167,6 +1242,17 @@
       ended = true;
       cancelAnimationFrame(raf);
       clearTimeout(hardTimer);
+      if (!isLite()) dice.forEach((d) => {
+        /* هالة منفصلة عن الظل: يبقى ظل التلامس الداكن كما هو حتى تختفي النردة،
+           بينما تومض الهالة الذهبية وتتلاشى دون أن تحل محله. */
+        const glow = document.createElement("span");
+        glow.className = "fx-result-glow";
+        glow.style.width = size * 1.9 + "px";
+        glow.style.height = size * 0.62 + "px";
+        glow.style.left = (d.x - size * 0.95) + "px";
+        glow.style.top = (d.y + size * 0.5 - size * 0.31) + "px";
+        layer.insertBefore(glow, d.shadow);
+      });
       releaseTimer = setTimeout(() => {
         remove();
         if (!cancelled) finish();
@@ -1484,10 +1570,14 @@
           hidden = to.style.visibility;
           to.style.visibility = "hidden";
         }
+        /* عند إحضار وجه الهدف (ورقة مكشوفة) نضيف قلبًا في الجوّ فتبدو الورقة
+           وكأنها تُرفع وتُقلب قبل أن تستقر، دون تأخير منطق اللعبة. */
+        const flipIn = useTarget && !point;
+        const pre = flipIn ? "perspective(700px) " : "";
         const anim = ghost.animate([
-          { transform: "translate(0,0) rotate(0deg) scale(1)", opacity: 1, offset: 0 },
-          { transform: "translate(" + dx * 0.5 + "px," + (dy * 0.5 - lift) + "px) rotate(" + tilt + "deg) scale(" + ((1 + scale) / 2) * 1.06 + ")", opacity: 1, offset: 0.55 },
-          { transform: "translate(" + dx + "px," + dy + "px) rotate(0deg) scale(" + scale + ")", opacity: point ? 0.05 : 1, offset: 1 },
+          { transform: pre + "translate(0,0) rotateY(" + (flipIn ? -88 : 0) + "deg) rotate(0deg) scale(1)", opacity: 1, offset: 0 },
+          { transform: pre + "translate(" + dx * 0.5 + "px," + (dy * 0.5 - lift) + "px) rotateY(" + (flipIn ? -24 : 0) + "deg) rotate(" + tilt + "deg) scale(" + ((1 + scale) / 2) * 1.06 + ")", opacity: 1, offset: 0.55 },
+          { transform: pre + "translate(" + dx + "px," + dy + "px) rotateY(0deg) rotate(0deg) scale(" + scale + ")", opacity: point ? 0.05 : 1, offset: 1 },
         ], { duration, delay: l.delay, easing: "cubic-bezier(.3,.75,.3,1)", fill: "both" });
         let timer = null;
         const flight = {
@@ -2747,12 +2837,20 @@
   /* ------------------------------ حركة القطع المركزية ------------------------------ */
 
   const PIECE_ENTER = {
-    deal(el) {
+    deal(el, opts) {
       return animate(el, [
         { transform: "translate(22px,-18px) rotate(-7deg) scale(.78)", opacity: 0 },
         { transform: "translate(0,0) rotate(0deg) scale(1.03)", opacity: 1, offset: 0.78 },
         { transform: "translate(0,0) rotate(0deg) scale(1)", opacity: 1 },
-      ], { duration: 300, easing: "cubic-bezier(.2,.85,.3,1)" });
+      ], { duration: 300, delay: (opts && opts.delay) || 0, easing: "cubic-bezier(.2,.85,.3,1)" });
+    },
+    /* قلب الورقة عند الكشف: تدور من ظهرها إلى وجهها مع لمسة ارتداد خفيفة */
+    flip(el, opts) {
+      return animate(el, [
+        { transform: "perspective(700px) rotateY(-88deg) scale(.9)", opacity: 0 },
+        { transform: "perspective(700px) rotateY(9deg) scale(1.04)", opacity: 1, offset: 0.78 },
+        { transform: "perspective(700px) rotateY(0deg) scale(1)", opacity: 1 },
+      ], { duration: 380, delay: (opts && opts.delay) || 0, easing: "cubic-bezier(.2,.85,.3,1)" });
     },
     drop(el) {
       return animate(el, [
@@ -2788,6 +2886,14 @@
     function run() {
       frame = 0;
       if (stopped || !mount.isConnected) return;
+      /* الأوراق الجديدة تدخل بتتابع قصير بدل أن تظهر دفعة واحدة */
+      let dealIndex = 0;
+      const runEnter = (el, kind) => {
+        const fn = PIECE_ENTER[kind];
+        if (!fn) return;
+        if (kind === "deal" || kind === "flip") fn(el, { delay: Math.min(dealIndex++, 18) * 45 });
+        else fn(el);
+      };
       const entries = [];
       const next = new Map();
       mount.querySelectorAll("[data-fx-piece]").forEach((el) => {
@@ -2806,7 +2912,7 @@
         if (canAnimate) {
           entries.forEach(({ el }) => {
             const enter = el.getAttribute("data-fx-enter");
-            if (enter && PIECE_ENTER[enter]) PIECE_ENTER[enter](el);
+            if (enter) runEnter(el, enter);
           });
         }
         return;
@@ -2833,7 +2939,7 @@
           return;
         }
         const enter = el.getAttribute("data-fx-enter");
-        if (enter && PIECE_ENTER[enter]) PIECE_ENTER[enter](el);
+        if (enter) runEnter(el, enter);
       });
       previous = next;
     }

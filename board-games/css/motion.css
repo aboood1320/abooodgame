@@ -1,0 +1,294 @@
+/* ==========================================================================
+   ألعاب الطاولة — طبقة الحركات الموحّدة لواجهة الموقع
+   لمسات أنيقة وسلسة على الهيكل فقط: الشريط العلوي، البطل، المكتبة،
+   البطاقات، النوافذ، والتنقل بين الشاشات. لا تمسّ لوحات الألعاب ولا منطقها.
+   تُحمَّل أخيرًا بعد سائر الأنماط.
+   ========================================================================== */
+
+:root {
+  --motion-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --motion-ease-soft: cubic-bezier(0.16, 1, 0.3, 1);
+  --motion-fast: 180ms;
+  --motion-normal: 320ms;
+  --motion-slow: 560ms;
+}
+
+/* ------------------------------ حركات الدخول ------------------------------ */
+
+@keyframes motionDropIn {
+  from { opacity: 0; transform: translateY(-9px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes motionPopIn {
+  from { opacity: 0; transform: scale(0.9); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes motionRiseIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes motionSoftIn {
+  from { opacity: 0; transform: translateY(10px) scale(0.97); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes motionDialogIn {
+  from { opacity: 0; transform: translateY(14px) scale(0.96); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes motionBackdropIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes motionStarPop {
+  0% { transform: scale(0.7) rotate(-12deg); }
+  58% { transform: scale(1.2) rotate(6deg); }
+  100% { transform: scale(1) rotate(0); }
+}
+@keyframes motionChipPop {
+  0%, 100% { transform: scale(1); }
+  45% { transform: scale(1.045); }
+}
+
+/* ------------------------------ الشريط العلوي ------------------------------ */
+
+.bg-topbar .bg-brand {
+  animation: motionDropIn var(--motion-slow) var(--motion-ease-soft) backwards;
+}
+.bg-topbar .bg-nav {
+  animation: motionDropIn var(--motion-slow) var(--motion-ease-soft) 70ms backwards;
+}
+.bg-nav > .bg-btn,
+.bg-nav > .bg-profile-chip {
+  animation: motionPopIn 420ms var(--motion-ease-soft) backwards;
+}
+.bg-nav > :nth-child(1) { animation-delay: 110ms; }
+.bg-nav > :nth-child(2) { animation-delay: 145ms; }
+.bg-nav > :nth-child(3) { animation-delay: 180ms; }
+.bg-nav > :nth-child(4) { animation-delay: 215ms; }
+.bg-nav > :nth-child(5) { animation-delay: 250ms; }
+.bg-nav > :nth-child(6) { animation-delay: 285ms; }
+
+.bg-nav .bg-btn .ic {
+  transition: transform var(--motion-fast) var(--motion-ease);
+}
+.bg-nav .bg-btn:hover:not(:disabled) .ic {
+  transform: scale(1.12) rotate(-6deg);
+}
+
+.bg-logo {
+  transition: transform var(--motion-normal) var(--motion-ease-soft);
+}
+.bg-brand:hover .bg-logo {
+  transform: rotate(-8deg) scale(1.05);
+}
+
+/* ------------------------------ البطل ------------------------------ */
+
+.library-hero .hero-copy > * {
+  animation: motionRiseIn var(--motion-slow) var(--motion-ease-soft) backwards;
+}
+.library-hero .hero-copy > :nth-child(1) { animation-delay: 130ms; }
+.library-hero .hero-copy > :nth-child(2) { animation-delay: 190ms; }
+.library-hero .hero-copy > :nth-child(3) { animation-delay: 250ms; }
+.library-hero .hero-copy > :nth-child(4) { animation-delay: 310ms; }
+.library-hero .hero-copy > :nth-child(5) { animation-delay: 370ms; }
+
+.library-hero .hero-visual {
+  animation: motionSoftIn 720ms var(--motion-ease-soft) 210ms backwards;
+}
+.hero-frame {
+  transition: transform 600ms var(--motion-ease-soft);
+}
+.hero-visual:hover .hero-frame {
+  transform: translateY(-4px) scale(1.012);
+}
+
+/* ------------------------------ المكتبة ------------------------------ */
+
+.library-head,
+.library-quickfilters,
+.library-tools,
+.library-note {
+  animation: motionRiseIn 480ms var(--motion-ease-soft) backwards;
+}
+.library-head { animation-delay: 300ms; }
+.library-quickfilters { animation-delay: 350ms; }
+.library-tools { animation-delay: 390ms; }
+.library-note { animation-delay: 430ms; }
+
+.library-quick-chip,
+.library-filter-toggle,
+.library-favorites-toggle,
+.library-coop-toggle,
+.library-filter-reset {
+  transition:
+    transform var(--motion-fast) var(--motion-ease),
+    color var(--motion-fast) ease,
+    border-color var(--motion-fast) ease,
+    background-color var(--motion-fast) ease;
+}
+.library-quick-chip:hover,
+.library-filter-toggle:hover,
+.library-favorites-toggle:hover,
+.library-coop-toggle:hover,
+.library-filter-reset:hover {
+  transform: translateY(-2px);
+}
+.library-quick-chip:active,
+.library-filter-toggle:active,
+.library-favorites-toggle:active,
+.library-coop-toggle:active,
+.library-filter-reset:active {
+  transform: translateY(0) scale(0.97);
+}
+.library-quick-chip[aria-pressed="true"] {
+  animation: motionChipPop 260ms var(--motion-ease-soft);
+}
+
+/* سهم «افتح اللعبة» ينساب قليلًا عند المرور أو التركيز (الاتجاه RTL) */
+body.library-mode .game-card .game-open .ic {
+  transition: transform var(--motion-fast) var(--motion-ease);
+}
+body.library-mode :is(.game-card:hover, .game-card:focus-visible) .game-open .ic {
+  transform: translateX(-4px);
+}
+
+/* نجمة المفضلة: ارتداد خفيف لحظة الإضافة */
+body.library-mode .game-favorite.is-favorite {
+  animation: motionStarPop 380ms var(--motion-ease-soft);
+}
+
+/* ------------------------------ شاشة اللعبة ------------------------------ */
+
+.game-toolbar > * {
+  animation: motionRiseIn 400ms var(--motion-ease-soft) backwards;
+}
+.game-toolbar > :nth-child(1) { animation-delay: 40ms; }
+.game-toolbar > :nth-child(2) { animation-delay: 80ms; }
+.game-toolbar > :nth-child(3) { animation-delay: 120ms; }
+.game-toolbar > :nth-child(4) { animation-delay: 160ms; }
+
+.log-card:not([hidden]) {
+  animation: motionRiseIn 420ms var(--motion-ease-soft) 140ms backwards;
+}
+.fs-hud:not([hidden]) {
+  animation: motionRiseIn 340ms var(--motion-ease-soft) backwards;
+}
+
+/* لمسة موحّدة لأزرار الواجهة في كل الشاشات */
+.bg-btn {
+  transition:
+    transform var(--motion-fast) var(--motion-ease),
+    color var(--motion-fast) ease,
+    border-color var(--motion-fast) ease,
+    background-color var(--motion-fast) ease,
+    box-shadow var(--motion-normal) var(--motion-ease);
+}
+.bg-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+}
+.bg-btn:active:not(:disabled) {
+  transform: translateY(0) scale(0.97);
+}
+
+/* ------------------------------ النوافذ ------------------------------ */
+
+dialog.bg-dialog[open] {
+  animation: motionDialogIn var(--motion-normal) var(--motion-ease-soft) backwards;
+}
+dialog.bg-dialog::backdrop {
+  animation: motionBackdropIn 240ms ease backwards;
+}
+dialog.bg-dialog[open] > .bg-dialog-head {
+  animation: motionRiseIn 360ms var(--motion-ease-soft) 40ms backwards;
+}
+dialog.bg-dialog[open] > .bg-dialog-body {
+  animation: motionRiseIn 360ms var(--motion-ease-soft) 80ms backwards;
+}
+dialog.bg-dialog[open] > .bg-dialog-foot {
+  animation: motionRiseIn 360ms var(--motion-ease-soft) 120ms backwards;
+}
+
+/* ------------------------------ لمسات البطاقات ------------------------------ */
+
+.wq-card.is-hand,
+.uno-card.is-hand,
+.ko-card.is-playable,
+.ll-hand .ll-card[data-ll-card] {
+  transition:
+    transform var(--motion-fast) var(--motion-ease-soft),
+    box-shadow var(--motion-fast) ease,
+    border-color var(--motion-fast) ease,
+    filter var(--motion-fast) ease,
+    opacity var(--motion-fast) ease;
+}
+.wq-card.is-hand:active:not(:disabled),
+.uno-card.is-hand:active:not(:disabled),
+.ko-card.is-playable:active:not(:disabled),
+.ll-hand .ll-card[data-ll-card]:active:not(:disabled) {
+  transform: translateY(-2px) scale(0.96);
+}
+
+/* ------------------------------ الاحترامات ------------------------------ */
+
+/* الوضع الخفيف: دخول ثابت وتفاعل بلا إزاحة، كما في perf.css */
+html.lite .bg-topbar .bg-brand,
+html.lite .bg-topbar .bg-nav,
+html.lite .bg-nav > .bg-btn,
+html.lite .bg-nav > .bg-profile-chip,
+html.lite .library-hero .hero-copy > *,
+html.lite .library-hero .hero-visual,
+html.lite .library-head,
+html.lite .library-quickfilters,
+html.lite .library-tools,
+html.lite .library-note,
+html.lite .game-toolbar > *,
+html.lite .log-card,
+html.lite .fs-hud,
+html.lite dialog.bg-dialog[open],
+html.lite dialog.bg-dialog::backdrop,
+html.lite dialog.bg-dialog[open] > *,
+html.lite .game-favorite.is-favorite,
+html.lite .library-quick-chip[aria-pressed="true"] {
+  animation: none !important;
+}
+html.lite .bg-nav .bg-btn:hover .ic,
+html.lite .bg-brand:hover .bg-logo,
+html.lite .hero-visual:hover .hero-frame,
+html.lite .bg-btn:hover:not(:disabled),
+html.lite .library-quick-chip:hover,
+html.lite .library-filter-toggle:hover,
+html.lite .library-favorites-toggle:hover,
+html.lite .library-coop-toggle:hover,
+html.lite .library-filter-reset:hover,
+html.lite .wq-card.is-hand:active:not(:disabled),
+html.lite .uno-card.is-hand:active:not(:disabled),
+html.lite .ko-card.is-playable:active:not(:disabled),
+html.lite .ll-hand .ll-card[data-ll-card]:active:not(:disabled) {
+  transform: none !important;
+}
+
+/* تقليل الحركة: تُكمل board-games.css تعطيل الحركات عالميًا،
+   وهنا نُلغي الإزاحات التفاعلية أيضًا. */
+@media (prefers-reduced-motion: reduce) {
+  .bg-nav .bg-btn:hover .ic,
+  .bg-brand:hover .bg-logo,
+  .hero-visual:hover .hero-frame,
+  .bg-btn:hover:not(:disabled),
+  .library-quick-chip:hover,
+  .library-filter-toggle:hover,
+  .library-favorites-toggle:hover,
+  .library-coop-toggle:hover,
+  .library-filter-reset:hover,
+  body.library-mode :is(.game-card:hover, .game-card:focus-visible) .game-open .ic,
+  .wq-card.is-hand:active:not(:disabled),
+  .uno-card.is-hand:active:not(:disabled),
+  .ko-card.is-playable:active:not(:disabled),
+  .ll-hand .ll-card[data-ll-card]:active:not(:disabled) {
+    transform: none !important;
+  }
+  .game-card,
+  .game-favorite {
+    transition-duration: 0.001ms !important;
+  }
+}

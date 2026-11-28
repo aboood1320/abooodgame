@@ -678,7 +678,37 @@
   }
 
   function pickCpuCard(seat, choices) {
-    return AI.choose(choices, (card) => cpuCardScore(card, seat), seat.level) || choices[0];
+    const player = cur();
+    const pressure = state.players[nextIndex(1)] && state.players[nextIndex(1)].hand.length === 1;
+    const myColor = cpuColor(player);
+    return AI.chooseMulti(choices, [
+      {
+        weight: 3,
+        scoreFn: (card) => {
+          /* بطاقات الإجبار والتأثير لها أولوية أعلى حين يكون الخصم على بطاقة واحدة. */
+          if (card.type === "wild4") return pressure ? 100 : 22;
+          if (card.type === "wild") return pressure ? 85 : 30;
+          if (card.type === "draw2") return pressure ? 95 : 60;
+          if (card.type === "skip") return pressure ? 90 : 55;
+          if (card.type === "reverse") return pressure ? 75 : 45;
+          return 18 + (card.value || 0);
+        },
+      },
+      {
+        weight: 2,
+        scoreFn: (card) => {
+          /* البطاقات العددية العالية تُلعب أولًا لتقليل النقاط التي قد ت給 الخصم. */
+          return card.type === "number" ? card.value : 0;
+        },
+      },
+      {
+        weight: 1.5,
+        scoreFn: (card) => {
+          /* تفضيل اللون الأكثر في يد الكمبيوتر للحفاظ على خيارات اللعب مستقبلًا. */
+          return card.color === myColor || card.color === "wild" ? 10 : 0;
+        },
+      },
+    ], seat.level) || choices[0];
   }
 
   function syncCpu() {
