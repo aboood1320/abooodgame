@@ -624,20 +624,40 @@
       return;
     }
     const cards = player.hand.slice();
-    const card = AI.choose(
+    const card = AI.chooseMulti(
       cards,
-      (item) => {
-        const matches = state.table.filter((tableCard) => tableCard.rank === item.rank);
-        let score = matches.reduce((sum, tableCard) => sum + basraValue(tableCard), 0) + basraValue(item);
-        if (item.rank === 11 && state.jackTakesAll !== false) score += 8 + state.table.reduce((sum, tableCard) => sum + basraValue(tableCard), 0) * 0.5;
-        if (isSevenDiamond(item) && state.sevenTakesAll !== false) {
-          score += 8 + state.table.reduce((sum, tableCard) => sum + basraValue(tableCard), 0) * 0.5;
-          if (sevenDiamondBasra(state.table)) score += 18;
-        }
-        if (matches.length && state.table.length === matches.length) score += 16;
-        if (!matches.length && item.rank !== 11 && !isSevenDiamond(item)) score -= basraValue(item) * 0.7;
-        return score + Math.random() * 0.1;
-      },
+      [
+        {
+          weight: 3,
+          scoreFn: (item) => {
+            const matches = state.table.filter((tableCard) => tableCard.rank === item.rank);
+            let score = matches.reduce((sum, tableCard) => sum + basraValue(tableCard), 0) + basraValue(item);
+            if (item.rank === 11 && state.jackTakesAll !== false) score += 8 + state.table.reduce((sum, tableCard) => sum + basraValue(tableCard), 0) * 0.5;
+            if (isSevenDiamond(item) && state.sevenTakesAll !== false) {
+              score += 8 + state.table.reduce((sum, tableCard) => sum + basraValue(tableCard), 0) * 0.5;
+              if (sevenDiamondBasra(state.table)) score += 18;
+            }
+            if (matches.length && state.table.length === matches.length) score += 16;
+            if (!matches.length && item.rank !== 11 && !isSevenDiamond(item)) score -= basraValue(item) * 0.7;
+            return score;
+          },
+        },
+        {
+          weight: 1.5,
+          scoreFn: (item) => {
+            /* تفضل أخذ أكبر عدد من الورق من الطاولة (basra = كلها). */
+            const matches = state.table.filter((tableCard) => tableCard.rank === item.rank);
+            return matches.length * 6;
+          },
+        },
+        {
+          weight: 1,
+          scoreFn: (item) => {
+            /* الورق ذات القيمة العالية أفضل للترك (أكثر نقاط). */
+            return basraValue(item) * 0.5;
+          },
+        },
+      ],
       player.level
     );
     basraPlay(player, card || cards[0]);
