@@ -1803,6 +1803,13 @@ body.fullscreen-game.board-only .bo-drawer-bar {
   color: #ffe9b0;
 }
 
+@media (max-width: 480px) {
+  /* عند وجود زر رمي رئيسي نُخلي له الشريط كاملاً على الجوال */
+  .bo-tray-scroll:has(.bo-chip.is-primary) .bo-status {
+    display: none;
+  }
+}
+
 @media (max-width: 380px) {
   .bo-tool {
     width: 42px;
@@ -1885,7 +1892,14 @@ body.fullscreen-game.board-only .bo-drawer-bar {
 }
 
 /* ------------------------------ رمي النرد الفيزيائي (FX.tumble) ------------------------------ */
-.fx-throw { position: fixed; z-index: 9000; overflow: visible; pointer-events: none; }
+.fx-throw {
+  position: fixed;
+  z-index: 9000;
+  overflow: visible;
+  pointer-events: none;
+  perspective: 900px;
+  perspective-origin: 50% 50%;
+}
 .fx-throw .fx-tumble-die {
   position: absolute;
   left: 0;
@@ -1903,4 +1917,89 @@ body.fullscreen-game.board-only .bo-drawer-bar {
   background: radial-gradient(closest-side, rgba(0, 0, 0, 0.62), rgba(0, 0, 0, 0));
   transform-origin: center;
   will-change: transform, opacity;
+}
+
+/* مكعّب نرد حقيقي: ستة أوجه، والوجه الأمامي يحمل القيمة النهائية */
+.fx-cube {
+  --s: 60px;
+  --face: linear-gradient(145deg, #fffdf6, #e6dcc4);
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: var(--s);
+  height: var(--s);
+  transform-style: preserve-3d;
+  transform-origin: center;
+  will-change: transform;
+  pointer-events: none;
+}
+.fx-cube[data-tone="red"] {
+  --face: linear-gradient(145deg, #f06a5f, #b02a22);
+}
+.fx-cube-face {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  padding: calc(var(--s) * 0.13);
+  gap: calc(var(--s) * 0.035);
+  border-radius: calc(var(--s) * 0.17);
+  border: 1px solid rgba(90, 66, 30, 0.35);
+  background: var(--face);
+  box-shadow:
+    inset 0 -4px 6px rgba(120, 90, 40, 0.25),
+    inset 0 2px 3px #fff;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+.fx-cube-face[data-face="front"] { transform: translateZ(calc(var(--s) / 2)); }
+.fx-cube-face[data-face="back"] { transform: rotateY(180deg) translateZ(calc(var(--s) / 2)); }
+.fx-cube-face[data-face="right"] { transform: rotateY(90deg) translateZ(calc(var(--s) / 2)); }
+.fx-cube-face[data-face="left"] { transform: rotateY(-90deg) translateZ(calc(var(--s) / 2)); }
+.fx-cube-face[data-face="top"] { transform: rotateX(90deg) translateZ(calc(var(--s) / 2)); }
+.fx-cube-face[data-face="bottom"] { transform: rotateX(-90deg) translateZ(calc(var(--s) / 2)); }
+.fx-cube-face[data-face="back"] {
+  background: linear-gradient(rgba(0, 0, 0, 0.12), rgba(0, 0, 0, 0.12)), var(--face);
+}
+.fx-cube-face[data-face="right"] {
+  background: linear-gradient(rgba(0, 0, 0, 0.08), rgba(0, 0, 0, 0.08)), var(--face);
+}
+.fx-cube-face[data-face="left"] {
+  background: linear-gradient(rgba(0, 0, 0, 0.16), rgba(0, 0, 0, 0.16)), var(--face);
+}
+.fx-cube-face[data-face="top"] {
+  background: linear-gradient(rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.12)), var(--face);
+}
+.fx-cube-face[data-face="bottom"] {
+  background: linear-gradient(rgba(0, 0, 0, 0.22), rgba(0, 0, 0, 0.22)), var(--face);
+}
+.fx-cube-face i {
+  place-self: center;
+  width: 78%;
+  height: 78%;
+  border-radius: 50%;
+  background: transparent;
+}
+.fx-cube-face i.is-on {
+  background: radial-gradient(circle at 35% 30%, #4a4a52, #14141a);
+}
+.fx-cube[data-tone="red"] .fx-cube-face {
+  border-color: rgba(70, 10, 8, 0.5);
+  box-shadow:
+    inset 0 -4px 6px rgba(70, 10, 8, 0.35),
+    inset 0 2px 3px rgba(255, 255, 255, 0.5);
+}
+.fx-cube[data-tone="red"] .fx-cube-face i.is-on {
+  background: radial-gradient(circle at 35% 30%, #fff, #f3dcd8);
+}
+.fx-cube-face.is-symbol {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  font-size: calc(var(--s) * 0.52);
+  font-weight: 900;
+  line-height: 1;
+  color: #2a2418;
 }

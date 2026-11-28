@@ -36,6 +36,7 @@
   let tumbleTimer = null;
   let tumbleFaces = [];
   let bigDie = null;
+  let cancelTumble = null;
 
   const TUMBLE_MS = 600;
   const HOLD_MS = 220;
@@ -136,6 +137,10 @@
     rollTimer = null;
     clearInterval(tumbleTimer);
     tumbleTimer = null;
+    if (cancelTumble) {
+      cancelTumble();
+      cancelTumble = null;
+    }
     if (bigDie && bigDie.parentNode) bigDie.parentNode.removeChild(bigDie);
     bigDie = null;
     tumbleFaces = [];
@@ -209,13 +214,22 @@
     state.busy = true;
     const quick = reducedMotion();
     state.notice = quick ? player.name + " رمى " + ar(value) + "…" : player.name + " يرمي النرد…";
-    if (FX) FX.dice(value);
     renderMotion();
     if (quick) {
+      if (FX) FX.dice(value);
       afterRoll(player, value);
       return value;
     }
     clearRoll();
+    /* النرد ثلاثي الأبعاد المشترك إن توفّر، وإلا الحركة المحلية القديمة */
+    if (FX && FX.tumble) {
+      cancelTumble = FX.tumble(rootRef && rootRef.querySelector(".sn-board"), value, () => {
+        cancelTumble = null;
+        if (!state || state.over) return;
+        afterRoll(player, value);
+      });
+      return value;
+    }
     startTumble();
     rollTimer = setTimeout(() => {
       if (!state || state.over) return;

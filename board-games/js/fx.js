@@ -828,7 +828,6 @@
     if (typeof window.requestAnimationFrame !== "function") return tumbleLegacy(host, values, done, opts);
     const rnd = typeof o.random === "function" ? o.random : Math.random;
     const labels = o.labels || null;
-    const labelKeys = labels ? Object.keys(labels) : null;
     const list = labels
       ? [].concat(values).filter((v) => labels[v] != null)
       : [].concat(values).map(Number).filter((v) => v >= 1 && v <= 6);
@@ -880,14 +879,56 @@
     layer.style.width = W + "px";
     layer.style.height = H + "px";
 
-    const randomFace = (except) => {
-      let v;
-      let guard = 0;
-      do {
-        v = labels ? labelKeys[Math.floor(rnd() * labelKeys.length)] : 1 + Math.floor(rnd() * 6);
-        guard += 1;
-      } while (String(v) === String(except) && guard < 6);
-      return v;
+    /* مكعّب نرد حقيقي بستة أوجه: القيمة النهائية على الوجه الأمامي، والأوجه
+       الأخرى أرقام متقابلة مجموعها ٧ (أو رموز اللعبة عند labels). */
+    const CUBE_FACES = ["front", "back", "right", "left", "top", "bottom"];
+    const cubeValues = (value) => {
+      if (labels) {
+        const keys = Object.keys(labels);
+        const front = value;
+        const rest = keys.filter((key) => String(key) !== String(front));
+        const out = { front: front };
+        ["back", "right", "left", "top", "bottom"].forEach((face, i) => {
+          out[face] = rest.length ? rest[i % rest.length] : front;
+        });
+        return out;
+      }
+      const f = Number(value);
+      const pairs = [[f, 7 - f]];
+      for (let v = 1; v <= 6; v++) {
+        if (v === f || v === 7 - f) continue;
+        if (pairs.some((pair) => pair[0] === v || pair[1] === v)) continue;
+        pairs.push([v, 7 - v]);
+      }
+      return {
+        front: pairs[0][0], back: pairs[0][1],
+        right: pairs[1][0], left: pairs[1][1],
+        top: pairs[2][0], bottom: pairs[2][1],
+      };
+    };
+    const buildCube = (value, tone) => {
+      const cube = document.createElement("span");
+      cube.className = "fx-cube";
+      cube.style.setProperty("--s", size + "px");
+      if (tone) cube.setAttribute("data-tone", tone);
+      const faces = cubeValues(value);
+      CUBE_FACES.forEach((face) => {
+        const el = document.createElement("span");
+        el.className = "fx-cube-face" + (labels ? " is-symbol" : "");
+        el.setAttribute("data-face", face);
+        if (labels) {
+          el.textContent = labels[faces[face]] == null ? "" : labels[faces[face]];
+        } else {
+          const on = DIE_DOTS[faces[face]] || [];
+          for (let k = 0; k < 9; k++) {
+            const pip = document.createElement("i");
+            if (on.indexOf(k) >= 0) pip.className = "is-on";
+            el.appendChild(pip);
+          }
+        }
+        cube.appendChild(el);
+      });
+      return cube;
     };
 
     /* نقطة إطلاق على إحدى الحواف، والنرد متجاور حتى لا يتداخل لحظة الانطلاق */
@@ -897,17 +938,8 @@
       shadow.className = "fx-throw-shadow";
       shadow.style.width = size + "px";
       shadow.style.height = size * 0.6 + "px";
-      const el = document.createElement("span");
-      el.className = "fx-tumble-die" + (labels ? " is-symbol" : "");
       const tone = (o.tones && o.tones[i]) || o.tone;
-      if (tone) el.setAttribute("data-tone", tone);
-      el.style.width = size + "px";
-      el.style.height = size + "px";
-      el.style.padding = size * 0.13 + "px";
-      el.style.gap = size * 0.035 + "px";
-      el.style.borderRadius = size * 0.2 + "px";
-      if (labels) el.style.fontSize = size * 0.52 + "px";
-      else for (let k = 0; k < 9; k++) el.appendChild(document.createElement("i"));
+      const el = buildCube(value, tone);
       layer.appendChild(shadow);
       layer.appendChild(el);
       const spread = 0.26 + (0.48 * (i + 0.5)) / n + (rnd() - 0.5) * 0.05;
@@ -923,14 +955,13 @@
       const speed = Math.min(W, H) * (1.6 + rnd() * 0.8);
       const sgn = () => (rnd() < 0.5 ? -1 : 1);
       const die = {
-        el, shadow, final: value, face: randomFace(value), shown: false,
+        el, shadow, final: value,
         x, y, vx: ((tx - x) / len) * speed, vy: ((ty - y) / len) * speed,
         z: size * 1.4, vz: 240 + rnd() * 260,
         ang: rnd() * TAU, om: sgn() * (7 + rnd() * 9),
         rx: rnd() * TAU, ry: rnd() * TAU, wx: sgn() * (7 + rnd() * 8), wy: sgn() * (7 + rnd() * 8),
-        rest: false, ease: 0, flip: 0,
+        rest: false, ease: 0,
       };
-      setTumbleFace(el, die.face, labels);
       return die;
     });
 
@@ -942,14 +973,9 @@
     let hardTimer = 0;
     let releaseTimer = 0;
 
-    const swap = (d) => {
-      d.face = randomFace(d.face);
-      setTumbleFace(d.el, d.face, labels);
-    };
     const hit = (d, power) => {
       d.wx += (rnd() - 0.5) * (power || 10);
       d.wy += (rnd() - 0.5) * (power || 10);
-      swap(d);
     };
     /* فصل نهائي للنرد المتلاصق مع إبقائه داخل اللوحة (يمنع التداخل عند الاستقرار) */
     const relax = () => {
@@ -975,6 +1001,11 @@
         if (!moved) break;
       }
     };
+    /* ميل ثابت عند الاستقرار يُظهر ثلاثة أوجه، مع الوجه الأمامي الذي يحمل
+       القيمة النهائية. نختار أقرب دورة كاملة حتى لا يدور النرد طويلاً. */
+    const BASE_X = -0.28;
+    const BASE_Y = 0.38;
+    const nearestTurn = (current, target) => target + Math.round((current - target) / TAU) * TAU;
     let justRested = false;
     const toRest = (d) => {
       if (d.rest) return;
@@ -983,16 +1014,14 @@
       d.ease = 0;
       d.vx = 0; d.vy = 0; d.vz = 0; d.z = 0;
       d.fromRx = d.rx; d.fromRy = d.ry; d.fromAng = d.ang;
-      d.toRx = Math.round(d.rx / TAU) * TAU;
-      d.toRy = Math.round(d.ry / TAU) * TAU;
+      d.toRx = nearestTurn(d.rx, BASE_X);
+      d.toRy = nearestTurn(d.ry, BASE_Y);
       d.toAng = Math.round(d.ang / (Math.PI / 2)) * (Math.PI / 2) + (rnd() - 0.5) * 0.3;
-      d.shown = false;
     };
     const wake = (d) => {
       if (!d.rest) return;
       d.rest = false;
       d.ease = 0;
-      d.shown = false;
     };
 
     const step = (dt) => {
@@ -1004,10 +1033,6 @@
           d.rx = d.fromRx + (d.toRx - d.fromRx) * e;
           d.ry = d.fromRy + (d.toRy - d.fromRy) * e;
           d.ang = d.fromAng + (d.toAng - d.fromAng) * e;
-          if (!d.shown && d.ease >= 0.5) {
-            d.shown = true;
-            setTumbleFace(d.el, d.final, labels);
-          }
           return;
         }
         d.vz -= G * dt;
@@ -1042,12 +1067,6 @@
         if (d.x > W - r) { d.x = W - r; d.vx = -Math.abs(d.vx) * 0.72; d.om += (rnd() - 0.5) * 9; d.vz += 130; hit(d); }
         if (d.y < r) { d.y = r; d.vy = Math.abs(d.vy) * 0.72; d.om += (rnd() - 0.5) * 9; d.vz += 130; hit(d); }
         if (d.y > H - r) { d.y = H - r; d.vy = -Math.abs(d.vy) * 0.72; d.om += (rnd() - 0.5) * 9; d.vz += 130; hit(d); }
-        /* تبديل الوجه كلما مرّ النرد بوضع الحافة أثناء الدوران */
-        const idx = Math.floor((d.rx + Math.PI / 2) / Math.PI) + Math.floor((d.ry + Math.PI / 2) / Math.PI);
-        if (idx !== d.flip) {
-          d.flip = idx;
-          swap(d);
-        }
       });
       /* تصادم النرد ببعضه (تمريرتان عند كثرة النرد) */
       for (let pass = 0; pass < (n > 3 ? 2 : 1); pass++) for (let i = 0; i < n; i++) {
@@ -1097,8 +1116,8 @@
         const s = 1 + d.z / 320;
         const lift = d.z * 0.38;
         d.el.style.transform =
-          "translate3d(" + (d.x - r) + "px," + (d.y - r - lift) + "px,0) scale(" + s + ") rotate(" + d.ang + "rad) " +
-          "perspective(520px) rotateX(" + d.rx + "rad) rotateY(" + d.ry + "rad)";
+          "translate3d(" + (d.x - r) + "px," + (d.y - r - lift) + "px,0) scale(" + s + ") " +
+          "rotateX(" + d.rx + "rad) rotateY(" + d.ry + "rad) rotateZ(" + d.ang + "rad)";
         const sh = 1 - Math.min(0.55, d.z / 380);
         d.shadow.style.opacity = String(0.5 * sh);
         d.shadow.style.transform = "translate3d(" + (d.x - r + d.z * 0.05) + "px," + (d.y + r * 0.42) + "px,0) scale(" + (sh + 0.1) + ")";
@@ -1111,10 +1130,6 @@
       ended = true;
       cancelAnimationFrame(raf);
       clearTimeout(hardTimer);
-      dice.forEach((d) => {
-        setTumbleFace(d.el, d.final, labels);
-        animate(d.el, [{ filter: "brightness(1.25)" }, { filter: "brightness(1)" }], { duration: o.hold, easing: "ease-out" });
-      });
       releaseTimer = setTimeout(() => {
         remove();
         if (!cancelled) finish();
@@ -1146,7 +1161,7 @@
     /* احتياط: لو توقفت الإطارات (تبويب في الخلفية) نُنهي الرمي بالقيم النهائية ليستمر اللعب */
     hardTimer = setTimeout(() => {
       if (ended || cancelled) return;
-      dice.forEach((d) => { d.rest = true; d.ease = 1; d.rx = 0; d.ry = 0; });
+      dice.forEach((d) => { d.rest = true; d.ease = 1; d.rx = BASE_X; d.ry = BASE_Y; d.ang = 0; });
       render();
       settleAll();
     }, (maxT + 1.4) * 1000);
@@ -2010,6 +2025,37 @@
     return list.slice(0, 10);
   }
 
+  /* زر الرمي الفعلي عندما يكون نرد منتصف اللوحة ظاهراً. نضيفه إلى شريط
+     الأوامر السفلي أيضاً، لأن زر اللعبة الأصلي قد يكون خارج الدرج الجانبي. */
+  function boRollTarget() {
+    for (let i = 0; i < ROLL_PADS.length; i++) {
+      const cfg = ROLL_PADS[i];
+      if (!cfg.dice) continue;
+      const host = document.querySelector(cfg.host);
+      if (!host || !host.querySelector(':scope > .fx-rollpad[data-pad="' + i + '"]')) continue;
+      const btn = document.querySelector(cfg.btn);
+      if (!btn || btn.disabled || !btn.getClientRects().length) continue;
+      return btn;
+    }
+    return null;
+  }
+
+  function boWithRoll(items) {
+    const btn = boRollTarget();
+    if (!btn) return items;
+    /* إن كان زر الرمي الأصلي ظاهراً في الشريط نرفعه إلى شريحة رئيسية موحّدة */
+    let upgraded = false;
+    const next = items.map((item) => {
+      if (item.el !== btn && !/ارم[ِ]?\s*النرد/.test(item.text)) return item;
+      if (upgraded) return null;
+      upgraded = true;
+      const text = item.el === btn ? "🎲 " + item.text.replace(/^🎲\s*/, "") : "🎲 ارمِ النرد";
+      return { el: item.el, text: text, primary: true, roll: true };
+    }).filter(Boolean);
+    if (upgraded) return next;
+    return [{ el: btn, text: "🎲 ارمِ النرد", primary: true, roll: true }].concat(items);
+  }
+
   function boBuildTray() {
     if (boTray) return;
     boTray = document.createElement("div");
@@ -2061,8 +2107,12 @@
     if (!item) return;
     let el = item.el;
     if (!el.isConnected || el.disabled) {
-      const again = boSide && boQuickActions(boSide).find((candidate) => candidate.text === item.text);
-      el = again ? again.el : null;
+      if (item.roll) {
+        el = boRollTarget();
+      } else {
+        const again = boSide && boQuickActions(boSide).find((candidate) => candidate.text === item.text);
+        el = again ? again.el : null;
+      }
     }
     if (el && !el.disabled) el.click();
   }
@@ -2107,7 +2157,7 @@
         if (rest) status = rest;
       }
     }
-    const items = boQuickActions(boSide);
+    const items = boWithRoll(boQuickActions(boSide));
     boQuick = items;
     boTray._items = items;
 
